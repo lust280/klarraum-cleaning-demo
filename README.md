@@ -14,7 +14,7 @@ npm test
 npm start
 ```
 
-No production npm dependencies. Development dependencies are only the Playwright test tools. Without configuration the server runs in preview mode, contact fields are disabled, and submission is rejected. Default port: 3000. Use the existing cloud checkout; do not create a worktree unless requested.
+No production npm dependencies. Development dependencies are only the Playwright test tools. Without configuration the server runs in preview mode, contact fields produce a local-only preview, and server submission is rejected. Default port: 3000. Use the existing cloud checkout; do not create a worktree unless requested.
 
 To configure a private local installation, copy `.env.example` to `.env.local`, fill it securely and run `node --env-file=.env.local server.mjs`. Never commit secrets or personal data. Generate a password hash with `npm run admin:hash` (password is hidden), and a separate application secret with `npm run secret:generate`. Do not use command-line arguments containing passwords.
 
@@ -48,7 +48,7 @@ See [deployment](docs/DEPLOYMENT.md), [operations](docs/OPERATIONS.md), and the 
 
 ### Static design preview
 
-Commit and push changes to `main`, then run `npm run deploy`. It runs the API/unit tests and updates the `gh-pages` branch, without force-pushing. GitHub Pages must use `gh-pages` → `/ (root)`. The public demo disables contact entry and explains that a server is needed for administration. The Pages preview never contains databases or credentials.
+Commit and push changes to `main`, then run `npm run deploy`. It runs the API/unit tests and updates the `gh-pages` branch, without force-pushing. GitHub Pages must use `gh-pages` → `/ (root)`. The public demo supports local-only contact previews and explains that a server is needed for administration. The Pages preview never contains databases or credentials.
 
 ## Deploy a free server demo directly
 

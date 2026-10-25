@@ -43,10 +43,15 @@ test('customer submits, owner manages, updates prices and deletes; no unsafe HTM
  expect(errors).toEqual([]);
 });
 
-test('preview never collects contact data and explains server requirement',async({page})=>{
+test('preview allows typing but never transmits or saves contact data',async({page})=>{
  config.live=false;
- await page.goto(origin);await expect(page.locator('#customer-name')).toBeDisabled();
+ const submissions=[];page.on('request',req=>{if(req.method()==='POST' && req.url().includes('/api/inquiries'))submissions.push(req.url());});
+ await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
+ await page.locator('#customer-name').fill('Demo customer');await page.locator('#customer-email').fill('demo@example.invalid');
+ await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Fictional example street 1');await page.locator('#privacy').check();
  await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Es wurde nichts versendet');
+ await expect(page.locator('#message')).toHaveValue(/Fictional example street 1/);
+ expect(submissions).toEqual([]);expect(app.store.list('',0).total).toBe(0);
  await page.goto(origin+'/datenschutz.html');await expect(page.locator('#processing-details')).toContainText('Test-only privacy notice');
  config.live=true;
 });

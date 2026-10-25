@@ -32,15 +32,15 @@ form.addEventListener('input',()=>{if(!sending){requestKey=crypto.randomUUID();u
 form.addEventListener('submit',async event=>{
   event.preventDefault(); if(sending || !form.reportValidity()) return;
   error.hidden=true;
-  if(!live){
-    $('#message').value=`Guten Tag! Ich interessiere mich für ${service.selectedOptions[0].text}.\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nDemo-Preisorientierung: ${$('#price').value}\nBitte stimmen Sie Umfang, Termin und Endpreis mit mir ab.`;
-    $('#success-message').textContent='Demo: Text vorbereitet. Es wurde nichts versendet.';
-    $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
-  }
   const email=$('#customer-email'), phone=$('#customer-phone');
   email.setCustomValidity('');
   if(!email.value.trim() && !phone.value.trim()){
     email.setCustomValidity('Bitte E-Mail oder Telefonnummer angeben.');email.reportValidity();email.setCustomValidity('');return;
+  }
+  if(!live){
+    $('#message').value=`DEMO — NICHT VERSENDET\n\nName: ${$('#customer-name').value}\nE-Mail: ${email.value || '—'}\nTelefon: ${phone.value || '—'}\nPLZ: ${$('#postcode').value}\nAdresse: ${$('#address').value || 'Wird abgestimmt'}\nWunschtermin: ${$('#date').value || 'Offen'}\nLeistung: ${service.selectedOptions[0].text}\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nPreisorientierung: ${$('#price').value}\nNachricht: ${$('#comments').value || '—'}`;
+    $('#success-message').textContent='Demo: Ihre Eingaben wurden zur Vorschau zusammengestellt. Es wurde nichts versendet oder auf dem Server gespeichert. Diese Vorschau erscheint nicht in der Verwaltung.';
+    $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
   }
   sending=true;submit.disabled=true;submit.textContent='Wird gespeichert …';
   const inputs=[...form.querySelectorAll('input,select,textarea')];
@@ -66,6 +66,7 @@ $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
 $('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 async function init(){
   updatePricingLabels();
+  $('#customer-fields').disabled=false;
   if(staticHost)return;
   try{
     const config=await api('api/config');pricing=config.pricing;updatePricingLabels();
@@ -83,7 +84,7 @@ async function init(){
     const data=await api('api/form-token');token=data.token;tokenAt=Date.now();
   }catch{
     $('#connection-note').textContent='Der Anfragedienst ist gerade nicht erreichbar. Diese Ansicht funktioniert nur als Demo; es wird nichts versendet.';
-    live=false;$('#customer-fields').disabled=true;
+    live=false;$('#customer-fields').disabled=false;
     submit.textContent='Anfragetext vorbereiten (ohne Versand)';
     $('#submit-note').textContent='Keine Übermittlung möglich. Bitte später erneut versuchen.';
   }
