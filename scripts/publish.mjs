@@ -1,0 +1,10 @@
+import {execFileSync} from 'node:child_process';
+const git = (...args) => execFileSync('git',args,{encoding:'utf8'}).trim();
+execFileSync(process.execPath,['--test'],{stdio:'inherit'});
+if(git('status','--porcelain'))throw new Error('Commit local changes before publishing.');
+git('fetch','origin','gh-pages');
+const parent=git('rev-parse','FETCH_HEAD');
+const tree=git('rev-parse','HEAD:public');
+const commit=git('commit-tree',tree,'-p',parent,'-m',`Deploy ${git('rev-parse','--short','HEAD')}`);
+execFileSync('git',['push','origin',`${commit}:refs/heads/gh-pages`],{stdio:'inherit'});
+console.log('Published branch updated. GitHub Pages must be enabled in repository settings.');

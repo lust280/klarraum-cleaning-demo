@@ -19,3 +19,9 @@ Replace fictional branding and example prices with approved customer content. Co
 
 ## Development environment
 Use the existing checkout in the isolated cloud task; do not create a worktree unless requested. Run `npm test`, then `npm start`; verify the homepage and assets with local HTTP requests. Live processes must be restarted in new tasks.
+
+## GitHub Pages hosting
+
+The `gh-pages` branch contains the static files. In repository Settings → Pages select **Deploy from a branch**, branch **gh-pages**, folder **/ (root)**, then Save. The expected URL after successful deployment is `https://lust280.github.io/klarraum-cleaning-demo/`.
+
+For updates, commit and push changes to main, then run `npm run deploy`. This runs tests and updates gh-pages without force-pushing. The authenticated Git identity needs repository write access. Enabling Pages requires separate Pages administration permission.
