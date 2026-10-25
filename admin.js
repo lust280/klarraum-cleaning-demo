@@ -29,13 +29,13 @@ async function load(){
   for(const text of [`E-Mail: ${item.email||'—'}`,`Telefon: ${item.phone||'—'}`,`PLZ: ${item.postcode}`,`Adresse: ${item.address||'Wird abgestimmt'}`,`Leistung: ${serviceNames[item.service]} · ${item.area} m²`,`Rhythmus: ${frequencyNames[item.frequency]}`,`Fenster: ${item.windows?'Ja':'Nein'}`,`Wunschtermin: ${item.date||'Offen'}`,`Preisorientierung: ${currency.format(item.price)}`])grid.append(el('p',text));
   card.append(grid);
   if(item.message)card.append(el('p',item.message));
-  const delivery={sent:'Benachrichtigung versendet',pending:'Benachrichtigung ausstehend',failed:'Benachrichtigung fehlgeschlagen — Anfrage ist gespeichert'};
+  const delivery={demo:'Testanfrage · keine E-Mail · Kontaktdaten fiktiv',sent:'Benachrichtigung versendet',pending:'Benachrichtigung ausstehend',failed:'Benachrichtigung fehlgeschlagen — Anfrage ist gespeichert'};
   card.append(el('p',delivery[item.notification],`badge ${item.notification==='failed'?'failed':''}`));
   const actions=el('div',undefined,'actions');const select=el('select');select.setAttribute('aria-label',`Status für ${item.name}`);
   for(const [value,label] of Object.entries(statusNames)){const option=el('option',label);option.value=value;select.append(option);}select.value=item.status;
   select.addEventListener('change',async()=>{select.disabled=true;clearError();try{await api(`api/admin/inquiries/${item.id}`,{method:'PATCH',body:JSON.stringify({status:select.value})});await load();}catch(error){select.value=item.status;showError(error);}finally{select.disabled=false;}});
   actions.append(select);
-  if(item.notification!=='sent')actions.append(button('E-Mail erneut versuchen',async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
+  if(item.notification!=='sent' && !item.demo)actions.append(button('E-Mail erneut versuchen',async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
   actions.append(button('Löschen',async()=>{deleteId=item.id;$('#delete-dialog').showModal();},'danger'));
   card.append(actions);return card;
  });
@@ -47,7 +47,7 @@ async function loadSettings(){
  for(const key of ['weekly','fortnightly'])form.elements[key].value=Math.round((1-pricing.discounts[key])*100);
  form.elements.minimum.value=pricing.minimum;form.elements.windows.value=pricing.windows;
 }
-async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;$('#notice').textContent=session.live?'Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.':'Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.';await Promise.all([load(),loadSettings()]);}
+async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;$('#notice').textContent=session.live?'Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.':session.demoMode?'Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.':'Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.';await Promise.all([load(),loadSettings()]);}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const submit=event.submitter;submit.disabled=true;try{const data=await api('api/admin/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});csrf=data.csrf;$('#password').value='';await openDashboard();}catch(error){showError(error);}finally{submit.disabled=false;}});
 $('#logout').addEventListener('click',async()=>{clearError();try{await api('api/admin/logout',{method:'POST'});showLogin();$('#notice').textContent='Sie sind abgemeldet.';}catch(error){showError(error);}});
 $('#refresh').addEventListener('click',()=>{clearError();load().catch(showError);});
