@@ -1,13 +1,14 @@
+import {t as translateUI} from './i18n.js';
 import {loadSiteEditor,hasSiteChanges,clearSiteChanges} from './admin-site.js';
 const $=s=>document.querySelector(s);
 let csrf='',offset=0,total=0,deleteId='';
 const noteDrafts=new Map();
-const statusNames={new:'Neu',contacted:'Kontaktiert',confirmed:'Vereinbart',completed:'Abgeschlossen'};
-const serviceNames={home:'Wohnung / Haus',office:'Büro',deep:'Grundreinigung'};
-const frequencyNames={once:'Einmalig',weekly:'Wöchentlich',fortnightly:'Alle 2 Wochen'};
+const statusNames={new:translateUI('Neu'),contacted:translateUI('Kontaktiert'),confirmed:translateUI('Vereinbart'),completed:translateUI('Abgeschlossen')};
+const serviceNames={home:translateUI('Wohnung / Haus'),office:'Büro',deep:translateUI('Grundreinigung')};
+const frequencyNames={once:translateUI('Einmalig'),weekly:translateUI('Wöchentlich'),fortnightly:translateUI('Alle 2 Wochen')};
 const currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const dateFormat=new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Berlin'});
-function showError(error){$('#admin-error').textContent=error.message;$('#admin-error').hidden=false;}
+function showError(error){$('#admin-error').textContent=translateUI(error.message);$('#admin-error').hidden=false;}
 function clearError(){$('#admin-error').hidden=true;}
 async function api(path,options={}){
  const response=await fetch(new URL(path,location.href),{...options,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});
@@ -22,11 +23,11 @@ async function load(){
  const filter=$('#status-filter').value;
  const [data,summary]=await Promise.all([api(`api/admin/inquiries?offset=${offset}&status=${encodeURIComponent(filter)}`),api('api/admin/summary')]);
  document.querySelectorAll('[data-stat]').forEach(node=>node.textContent=String(summary[node.dataset.stat]));
- total=data.total;$('#count').textContent=`${total} Anfrage${total===1?'':'n'} · ${total?offset+1:0}–${Math.min(offset+50,total)}`;
+ total=data.total;$('#count').textContent=translateUI(`${total} Anfrage${total===1?'':'n'} · ${total?offset+1:0}–${Math.min(offset+50,total)}`);
  $('#previous').disabled=offset===0;$('#next').disabled=offset+50>=total;
  const nodes=data.items.map(item=>{
   const card=el('article',undefined,'inquiry');
-  const head=el('div',undefined,'inquiry-head');const title=el('div');title.append(el('h2',item.name),el('div',`${dateFormat.format(item.createdAt)} · ${item.id.slice(0,8)}`,'meta'));
+  const head=el('div',undefined,'inquiry-head');const title=el('div');title.append(el('h2',item.name),el('div',translateUI(`${dateFormat.format(item.createdAt)} · ${item.id.slice(0,8)}`),'meta'));
   head.append(title,el('span',statusNames[item.status],'badge'));card.append(head);
   const grid=el('div',undefined,'inquiry-grid');
   for(const text of [`E-Mail: ${item.email||'—'}`,`Telefon: ${item.phone||'—'}`,`PLZ: ${item.postcode}`,`Adresse: ${item.address||'Wird abgestimmt'}`,`Leistung: ${item.serviceTitle||serviceNames[item.service]} · ${item.area} m²`,`Rhythmus: ${frequencyNames[item.frequency]}`,`Fenster: ${item.windows?'Ja':'Nein'}`,`Wunschtermin: ${item.date||'Offen'}`,`Preisorientierung: ${currency.format(item.price)}`])grid.append(el('p',text));
@@ -38,18 +39,18 @@ async function load(){
   for(const [value,label] of Object.entries(statusNames)){const option=el('option',label);option.value=value;select.append(option);}select.value=item.status;
   select.addEventListener('change',async()=>{select.disabled=true;clearError();try{await api(`api/admin/inquiries/${item.id}`,{method:'PATCH',body:JSON.stringify({status:select.value})});await load();}catch(error){select.value=item.status;showError(error);}finally{select.disabled=false;}});
   actions.append(select);
-  if(item.notification!=='sent' && !item.demo)actions.append(button('E-Mail erneut versuchen',async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
-  actions.append(button('Löschen',async()=>{deleteId=item.id;$('#delete-dialog').showModal();},'danger'));
-  const assign=el('a','Auftrag erstellen','button small secondary');assign.href='./operations.html?inquiry='+encodeURIComponent(item.id);actions.append(assign);
+  if(item.notification!=='sent' && !item.demo)actions.append(button(translateUI('E-Mail erneut versuchen'),async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
+  actions.append(button(translateUI('Löschen'),async()=>{deleteId=item.id;$('#delete-dialog').showModal();},'danger'));
+  const assign=el('a',translateUI('Auftrag erstellen'),'button small secondary');assign.href='./operations.html?inquiry='+encodeURIComponent(item.id);actions.append(assign);
   card.append(actions);
-  const notes=el('div',undefined,'note-editor');const label=el('label','Interne Notiz (nur für die Verwaltung)');label.htmlFor='note-'+item.id;
+  const notes=el('div',undefined,'note-editor');const label=el('label',translateUI('Interne Notiz (nur für die Verwaltung)'));label.htmlFor='note-'+item.id;
   const input=el('textarea');input.id='note-'+item.id;input.rows=2;input.maxLength=2000;input.value=noteDrafts.get(item.id)??item.note??'';
   input.addEventListener('input',()=>noteDrafts.set(item.id,input.value));
   const feedback=el('p','', 'fine');
-  const save=button('Notiz speichern',async()=>{await api(`api/admin/inquiries/${item.id}/note`,{method:'PUT',body:JSON.stringify({note:input.value})});noteDrafts.delete(item.id);feedback.textContent='Notiz gespeichert.';});
+  const save=button(translateUI('Notiz speichern'),async()=>{await api(`api/admin/inquiries/${item.id}/note`,{method:'PUT',body:JSON.stringify({note:input.value})});noteDrafts.delete(item.id);feedback.textContent=translateUI('Notiz gespeichert.');});
   notes.append(label,input,save,feedback);card.append(notes);return card;
  });
- $('#inquiries').replaceChildren(...(nodes.length?nodes:[el('p','Hier erscheinen Ihre eingegangenen Anfragen.','empty-state')]));
+ $('#inquiries').replaceChildren(...(nodes.length?nodes:[el('p',translateUI('Hier erscheinen Ihre eingegangenen Anfragen.'),'empty-state')]));
 }
 async function loadSettings(){
  const {pricing}=await api('api/admin/settings');const form=$('#pricing-form');
@@ -57,16 +58,16 @@ async function loadSettings(){
  for(const key of ['weekly','fortnightly'])form.elements[key].value=Math.round((1-pricing.discounts[key])*100);
  form.elements.minimum.value=pricing.minimum;form.elements.windows.value=pricing.windows;
 }
-async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;$('#notice').textContent=session.live?'Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.':session.demoMode?'Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.':'Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.';await Promise.all([load(),loadSettings(),loadSiteEditor(api)]);}
+async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;$('#notice').textContent=session.live?translateUI('Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.'):session.demoMode?translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.'):translateUI('Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.');await Promise.all([load(),loadSettings(),loadSiteEditor(api)]);}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const submit=event.submitter;submit.disabled=true;try{const data=await api('api/admin/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});csrf=data.csrf;$('#password').value='';await openDashboard();}catch(error){showError(error);}finally{submit.disabled=false;}});
-$('#logout').addEventListener('click',async()=>{if((hasSiteChanges()||noteDrafts.size)&&!confirm('Abmelden und ungespeicherte Änderungen verwerfen?'))return;clearError();try{await api('api/admin/logout',{method:'POST'});clearSiteChanges();noteDrafts.clear();showLogin();$('#notice').textContent='Sie sind abgemeldet.';}catch(error){showError(error);}});
+$('#logout').addEventListener('click',async()=>{if((hasSiteChanges()||noteDrafts.size)&&!confirm(translateUI('Abmelden und ungespeicherte Änderungen verwerfen?')))return;clearError();try{await api('api/admin/logout',{method:'POST'});clearSiteChanges();noteDrafts.clear();showLogin();$('#notice').textContent=translateUI('Sie sind abgemeldet.');}catch(error){showError(error);}});
 $('#refresh').addEventListener('click',()=>{clearError();load().catch(showError);});
 $('#status-filter').addEventListener('change',()=>{offset=0;load().catch(showError);});
 $('#previous').addEventListener('click',()=>{offset=Math.max(0,offset-50);load().catch(showError);});
 $('#next').addEventListener('click',()=>{offset+=50;load().catch(showError);});
 $('#delete-cancel').addEventListener('click',()=>$('#delete-dialog').close());
 $('#delete-confirm').addEventListener('click',async()=>{const node=$('#delete-confirm');node.disabled=true;clearError();try{await api(`api/admin/inquiries/${deleteId}`,{method:'DELETE'});$('#delete-dialog').close();noteDrafts.delete(deleteId);if(offset>=total-1)offset=Math.max(0,offset-50);await load();}catch(error){showError(error);}finally{node.disabled=false;}});
-$('#pricing-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const fields=event.currentTarget.elements;const button=event.submitter;button.disabled=true;try{const pricing={rates:Object.fromEntries(['home','office','deep'].map(key=>[key,Number(fields[key].value)])),discounts:{once:1,weekly:1-Number(fields.weekly.value)/100,fortnightly:1-Number(fields.fortnightly.value)/100},minimum:Number(fields.minimum.value),windows:Number(fields.windows.value)};await api('api/admin/settings',{method:'PUT',body:JSON.stringify(pricing)});$('#pricing-status').textContent='Preise gespeichert. Neue Kalkulationen verwenden diese Werte.';}catch(error){showError(error);}finally{button.disabled=false;}});
+$('#pricing-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const fields=event.currentTarget.elements;const button=event.submitter;button.disabled=true;try{const pricing={rates:Object.fromEntries(['home','office','deep'].map(key=>[key,Number(fields[key].value)])),discounts:{once:1,weekly:1-Number(fields.weekly.value)/100,fortnightly:1-Number(fields.fortnightly.value)/100},minimum:Number(fields.minimum.value),windows:Number(fields.windows.value)};await api('api/admin/settings',{method:'PUT',body:JSON.stringify(pricing)});$('#pricing-status').textContent=translateUI('Preise gespeichert. Neue Kalkulationen verwenden diese Werte.');}catch(error){showError(error);}finally{button.disabled=false;}});
 async function init(){
  if(location.hostname.endsWith('.github.io')){$('#notice').textContent='Die öffentliche Vorschau hat keinen Administratorzugang. Die Verwaltung benötigt den eingerichteten Server.';return;}
  try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Melden Sie sich mit Ihrem Administrator-Passwort an. Wenn noch kein Server eingerichtet ist, ist keine Anmeldung möglich.';if(!error.message.includes('anmelden'))showError(error);}
