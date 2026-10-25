@@ -1,9 +1,91 @@
-import {estimate} from './pricing.js';
-const form=document.querySelector('#quote');
-const service=document.querySelector('#service'),area=document.querySelector('#area'),frequency=document.querySelector('#frequency'),windows=document.querySelector('#windows'),price=document.querySelector('#price'),result=document.querySelector('#result');
+import {estimate, DEFAULT_PRICING} from './pricing.js';
+const $ = selector => document.querySelector(selector);
+const form = $('#quote');
+const service=$('#service'), area=$('#area'), frequency=$('#frequency'), windows=$('#windows');
+const result=$('#result'), error=$('#form-error'), submit=$('#submit-inquiry');
 const currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
-function update(){ result.hidden=true; try {price.value=currency.format(estimate(service.value,Number(area.value),frequency.value,windows.checked));} catch {price.value='Bitte Fläche prüfen';} }
-form.addEventListener('input',update);
-form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return; const total=estimate(service.value,Number(area.value),frequency.value,windows.checked);document.querySelector('#message').value=`Guten Tag! Ich interessiere mich für eine Reinigung.\nBereich: ${service.selectedOptions[0].text}\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nUnverbindliche Demo-Kalkulation: ${currency.format(total)} pro Reinigung.\nBitte teilen Sie mir Verfügbarkeit und ein individuelles Angebot mit.`;result.hidden=false;document.querySelector('#message').focus();});
-document.querySelectorAll('[data-service]').forEach(a=>a.addEventListener('click',()=>{service.value=a.dataset.service;update();}));
-const legal=document.querySelector('#legal');document.querySelector('#legal-open').addEventListener('click',()=>legal.showModal());update();
+let pricing=DEFAULT_PRICING, live=false, token='', tokenAt=0, sending=false;
+let requestKey=crypto.randomUUID();
+const staticHost = location.hostname.endsWith('.github.io');
+async function api(path, options={}) {
+  const response=await fetch(new URL(path,location.href),{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...options.headers}});
+  const data=await response.json().catch(()=>({error:'Server nicht erreichbar. Bitte später erneut versuchen.'}));
+  if(!response.ok) throw new Error(data.error || 'Anfrage fehlgeschlagen.');
+  return data;
+}
+function update(){
+  result.hidden=true; error.hidden=true;
+  try { $('#price').value=currency.format(estimate(service.value,Number(area.value),frequency.value,windows.checked,pricing)); }
+  catch { $('#price').value='Fläche prüfen'; }
+}
+function updatePricingLabels(){
+  $('#windows-label').textContent=`Fensterreinigung ergänzen (+${currency.format(pricing.windows)})`;
+  for(const option of frequency.options){
+    const base={once:'Einmalig',weekly:'Wöchentlich',fortnightly:'Alle 2 Wochen'}[option.value];
+    const discount=Math.round((1-pricing.discounts[option.value])*100);
+    option.textContent=base+(discount?` · −${discount} %`:'');
+  }
+  $('#pricing-explanation').textContent=`Orientierung: Wohnung ${currency.format(pricing.rates.home)}/m², Büro ${currency.format(pricing.rates.office)}/m², Grundreinigung ${currency.format(pricing.rates.deep)}/m². Mindestpreis ${currency.format(pricing.minimum)}. Fenster zusätzlich ${currency.format(pricing.windows)}. Rabatt und Mindestpreis werden im Rechner berücksichtigt. Ein verbindliches Angebot folgt nach Abstimmung.`;
+  update();
+}
+form.addEventListener('input',()=>{if(!sending){requestKey=crypto.randomUUID();update();}});
+form.addEventListener('submit',async event=>{
+  event.preventDefault(); if(sending || !form.reportValidity()) return;
+  error.hidden=true;
+  if(!live){
+    $('#message').value=`Guten Tag! Ich interessiere mich für ${service.selectedOptions[0].text}.\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nDemo-Preisorientierung: ${$('#price').value}\nBitte stimmen Sie Umfang, Termin und Endpreis mit mir ab.`;
+    $('#success-message').textContent='Demo: Text vorbereitet. Es wurde nichts versendet.';
+    $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
+  }
+  const email=$('#customer-email'), phone=$('#customer-phone');
+  email.setCustomValidity('');
+  if(!email.value.trim() && !phone.value.trim()){
+    email.setCustomValidity('Bitte E-Mail oder Telefonnummer angeben.');email.reportValidity();email.setCustomValidity('');return;
+  }
+  sending=true;submit.disabled=true;submit.textContent='Wird gespeichert …';
+  const inputs=[...form.querySelectorAll('input,select,textarea')];
+  const payload={service:service.value,area:Number(area.value),frequency:frequency.value,windows:windows.checked,
+    name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
+    address:$('#address').value,date:$('#date').value,message:$('#comments').value,
+    privacy:$('#privacy').checked,website:$('#website').value};
+  inputs.forEach(input=>input.disabled=true);
+  try{
+    if(Date.now()-tokenAt>3000000 || !token){
+      token=(await api('api/form-token')).token;tokenAt=Date.now();
+    }
+    const wait=2100-(Date.now()-tokenAt);
+    if(wait>0) await new Promise(resolve=>setTimeout(resolve,wait));
+    const data=await api('api/inquiries',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({...payload,token})});
+    $('#success-message').textContent=`Vielen Dank! Ihre Anfrage wurde gespeichert. Nummer: ${data.id}. Preisorientierung: ${currency.format(data.price)}. Dies ist noch keine Termin- oder Auftragsbestätigung.`;
+    $('#demo-text').hidden=true;form.reset();requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
+  }catch(err){error.textContent=err.message;error.hidden=false;}
+  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent='Unverbindliche Anfrage senden ↗';}
+});
+document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',()=>{service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
+$('#legal-open').addEventListener('click',()=>$('#legal').showModal());
+$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+async function init(){
+  updatePricingLabels();
+  if(staticHost)return;
+  try{
+    const config=await api('api/config');pricing=config.pricing;updatePricingLabels();
+    document.querySelectorAll('[data-company]').forEach(el=>el.textContent=config.business.name);
+    if(!config.live)return;
+    live=true;$('#customer-fields').disabled=false;
+    $('#mode-banner').textContent=`${config.business.name} · Nürnberg & Umgebung`;
+    $('#connection-note').textContent='Unverbindliche Anfrage. Mindestens einen Kontaktweg angeben; * sind Pflichtfelder.';
+    $('#submit-note').textContent='Ihre Anfrage wird gespeichert. Ein Auftrag entsteht erst nach persönlicher Abstimmung.';
+    $('#price-note').textContent='Der Rechner zeigt eine unverbindliche Preisorientierung. Der konkrete Leistungsumfang und Endpreis werden vor einer Beauftragung abgestimmt.';
+    $('.total small').textContent=config.business.priceNote;
+    $('#footer-mode').textContent='Reinigungsservice';$('#footer-location').textContent='Nürnberg & Umgebung';
+    submit.textContent='Unverbindliche Anfrage senden ↗';
+    $('#legal').querySelector('p').textContent='Eine Anfrage ist unverbindlich und keine Buchungsbestätigung. Die tatsächlichen Anbieter- und Datenschutzhinweise finden Sie über die Links im Fußbereich.';
+    const data=await api('api/form-token');token=data.token;tokenAt=Date.now();
+  }catch{
+    $('#connection-note').textContent='Der Anfragedienst ist gerade nicht erreichbar. Diese Ansicht funktioniert nur als Demo; es wird nichts versendet.';
+    live=false;$('#customer-fields').disabled=true;
+    submit.textContent='Anfragetext vorbereiten (ohne Versand)';
+    $('#submit-note').textContent='Keine Übermittlung möglich. Bitte später erneut versuchen.';
+  }
+}
+init();

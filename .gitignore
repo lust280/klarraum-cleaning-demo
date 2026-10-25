@@ -1,3 +1,14 @@
 node_modules/
 .env
 .DS_Store
+data/
+backups/
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+.runtime/
+test-results/
+playwright-report/

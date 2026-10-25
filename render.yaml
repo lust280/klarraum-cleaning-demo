@@ -1,0 +1,31 @@
+# Optional PAID deployment blueprint: persistent disks require a paid service.
+# Review current Render pricing before creating. No service is created by this file.
+services:
+  - type: web
+    name: klarraum
+    runtime: node
+    region: frankfurt
+    plan: starter
+    numInstances: 1
+    buildCommand: npm ci --ignore-scripts --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /healthz
+    disk:
+      name: klarraum-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data/klarraum
+      - key: APP_ORIGIN
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: ENABLE_INQUIRIES
+        value: "false"
+      - key: TRUST_PROXY
+        value: "0"

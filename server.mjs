@@ -2,16 +2,50 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const root = fileURLToPath(new URL('./public/', import.meta.url));
-const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
-createServer(async (req,res)=>{
-  try {
-    const url = new URL(req.url,'http://localhost');
-    const pathname = decodeURIComponent(url.pathname);
-    const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
-    if (!file.startsWith(root.endsWith(sep) ? root : root + sep)) { res.writeHead(403); return res.end('Forbidden'); }
-    const body = await readFile(file);
-    res.writeHead(200, {'Content-Type':types[extname(file)] || 'application/octet-stream','X-Content-Type-Options':'nosniff'});
-    res.end(req.method === 'HEAD' ? undefined : body);
-  } catch {res.writeHead(404);res.end('Not found');}
-}).listen(Number(process.env.PORT || 3000),'0.0.0.0',()=>console.log('Klarraum demo listening on port '+(process.env.PORT || 3000)));
+import { createApplication } from './lib/application.mjs';
+import { loadConfig } from './lib/config.mjs';
+
+export function createServerApp(config = loadConfig(), options = {}) {
+  const app = createApplication(config, options);
+  const root = fileURLToPath(new URL('./public/', import.meta.url));
+  const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
+  const server = createServer(async (req, res) => {
+    const headers = {
+      'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'strict-origin-when-cross-origin',
+      'X-Frame-Options':'DENY', 'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
+      'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+      'Cache-Control':'no-store',
+    };
+    if (config.secureCookie) headers['Strict-Transport-Security'] = 'max-age=31536000';
+    for (const [name,value] of Object.entries(headers)) res.setHeader(name,value);
+    try {
+      const url = new URL(req.url, config.origin);
+      if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') return await app.handle(req,res,url);
+      if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405, {Allow:'GET, HEAD'}); return res.end(); }
+      const pathname = decodeURIComponent(url.pathname);
+      const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+      if (!file.startsWith(root.endsWith(sep) ? root : root + sep) || !types[extname(file)]) {
+        res.writeHead(404); return res.end('Not found');
+      }
+      const body = await readFile(file);
+      res.writeHead(200, {'Content-Type':types[extname(file)], 'Cache-Control':'no-cache'});
+      res.end(req.method === 'HEAD' ? undefined : body);
+    } catch (error) {
+      if (res.headersSent) return res.end();
+      res.writeHead(error.code === 'ENOENT' || error.code === 'EISDIR' ? 404 : 500);
+      res.end(error.code === 'ENOENT' || error.code === 'EISDIR' ? 'Not found' : 'Request failed');
+    }
+  });
+  server.headersTimeout = 15000;
+  server.requestTimeout = 20000;
+  server.on('close', () => app.close());
+  return {server, app};
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const {server} = createServerApp();
+  server.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => console.log('Klarraum server started.'));
+  for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => {
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 15000).unref();
+  });
+}
