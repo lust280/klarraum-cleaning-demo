@@ -72,3 +72,25 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
  await page.locator('.inquiry button').filter({hasText:'Löschen'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
  config.demoMode=false;config.live=true;
 });
+
+test('owner edits site from dashboard and customer view applies brand, texts, theme and availability',async({page},testInfo)=>{
+ await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
+ await page.locator('#website-settings summary').click();
+ await page.locator('[name="company_name"]').fill('Nordlicht Reinigung');await page.locator('[name="company_theme"]').selectOption('navy');
+ await page.locator('[name="company_phone"]').fill('+49 911 1234567');await page.locator('[name="company_email"]').fill('info@example.invalid');
+ await page.locator('[name="company_area"]').fill('Nürnberg & Fürth');await page.locator('[name="hero_title"]').fill('Mehr Zeit für Sie.');
+ await page.locator('[name="home_title"]').fill('Hauspflege');await page.locator('[name="office_enabled"]').uncheck();await page.locator('[name="windowsEnabled"]').uncheck();
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.screenshot({path:testInfo.outputPath('website-editor.png'),fullPage:true});
+ await page.goto(origin);await expect(page.locator('#hero-title')).toHaveText('Mehr Zeit für Sie.');await expect(page.locator('[data-company]').first()).toHaveText('Nordlicht Reinigung');
+ await expect(page.locator('html')).toHaveAttribute('data-theme','navy');await expect(page.locator('[data-service-card="office"]')).toBeHidden();await expect(page.locator('#windows')).toBeHidden();await expect(page.locator('[data-service-promise="office"]')).toBeHidden();await expect(page.locator('#pricing-explanation')).not.toContainText('Büroreinigung');
+ await expect(page.locator('[data-service-card="home"] h3')).toHaveText('Hauspflege');await expect(page.locator('#contact-email')).toHaveAttribute('href','mailto:info@example.invalid');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.screenshot({path:testInfo.outputPath('customized-site.png'),fullPage:true});
+ // Create a normal inquiry under the customized service and verify internal notes.
+ await page.locator('#customer-name').fill('Notes Test');await page.locator('#customer-email').fill('notes@example.invalid');await page.locator('#postcode').fill('90402');await page.locator('#privacy').check();await page.locator('#submit-inquiry').click();
+ await expect(page.locator('#success-message')).toContainText('Ihre Anfrage wurde gespeichert');
+ await page.goto(origin+'/admin.html');await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('[data-stat="new"]')).toHaveText('1');await expect(page.locator('.inquiry')).toContainText('Hauspflege');
+ await page.locator('.note-editor textarea').fill('Rückruf am Dienstag');await page.locator('.note-editor button').click();await expect(page.locator('.note-editor .fine')).toContainText('Notiz gespeichert');
+ await page.reload();await expect(page.locator('.note-editor textarea')).toHaveValue('Rückruf am Dienstag');
+});

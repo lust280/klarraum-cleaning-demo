@@ -173,3 +173,38 @@ test('server demo connects form to owner dashboard without accepting personal fi
  assert.equal((await f.request(`/api/admin/inquiries/${item.id}/retry-mail`,{method:'POST',headers:auth})).status,400);
  assert.equal((await f.request(`/api/admin/inquiries/${item.id}`,{method:'DELETE',headers:auth})).status,200);
 });
+
+test('owner can edit brand and service settings, reject stale edits and block unavailable services',async t=>{
+ const f=await fixture(t);const headers=await f.login();
+ assert.equal((await f.request('/api/admin/site')).status,401);
+ const original=(await f.request('/api/admin/site',{headers})).data;
+ const content=structuredClone(original.content);content.company.name='Nordlicht Reinigung';content.company.theme='navy';content.hero.title='Mehr Zeit für Sie.';
+ content.services.office.enabled=false;content.services.home.title='Hauspflege';content.windowsEnabled=false;
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers:{Cookie:headers.Cookie},body:{version:original.version,content}})).status,403);
+ const saved=await f.request('/api/admin/site',{method:'PUT',headers,body:{version:original.version,content}});assert.equal(saved.status,200);
+ assert.equal(saved.data.version,original.version+1);
+ const publicConfig=(await f.request('/api/config')).data;assert.equal(publicConfig.site.company.name,'Nordlicht Reinigung');assert.equal(publicConfig.business.name,'Test company');
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:{version:original.version,content}})).status,409);
+ assert.equal((await f.submit({service:'office'})).status,400);assert.equal((await f.submit({windows:true})).status,400);
+ const invalid=structuredClone(content);for(const item of Object.values(invalid.services))item.enabled=false;
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:{version:saved.data.version,content:invalid}})).status,400);
+ for(const value of [{...content,company:{...content.company,email:'javascript:bad'}},{...content,company:{...content.company,theme:'url(https://bad.invalid)'}},{...content,hero:{...content.hero,title:'x'.repeat(101)}}]){
+  assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:{version:saved.data.version,content:value}})).status,400);
+ }
+ const created=await f.submit();assert.equal(created.status,201);const listed=(await f.request('/api/admin/inquiries',{headers})).data.items[0];assert.equal(listed.serviceTitle,'Hauspflege');
+});
+
+test('private notes, status totals and settings persist without changing stored inquiry details',async t=>{
+ const f=await fixture(t);const id=(await f.submit()).data.id;const headers=await f.login();
+ assert.equal((await f.request(`/api/admin/inquiries/${id}/note`,{method:'PUT',body:{note:'private'}})).status,401);
+ assert.equal((await f.request(`/api/admin/inquiries/${id}/note`,{method:'PUT',headers,body:{note:'x'.repeat(2001)}})).status,400);
+ assert.equal((await f.request(`/api/admin/inquiries/${id}/note`,{method:'PUT',headers,body:{note:'Rückruf am Dienstag <script>test</script>'}})).status,200);
+ const listed=(await f.request('/api/admin/inquiries',{headers})).data;assert.equal(listed.items[0].note,'Rückruf am Dienstag <script>test</script>');
+ assert.equal((await f.request('/api/admin/summary',{headers})).data.new,1);
+ await f.request(`/api/admin/inquiries/${id}`,{method:'PATCH',headers,body:{status:'contacted'}});
+ const summary=(await f.request('/api/admin/summary',{headers})).data;assert.equal(summary.new,0);assert.equal(summary.contacted,1);assert.equal(summary.total,1);
+ await f.request(`/api/admin/inquiries/${id}`,{method:'DELETE',headers});assert.equal((await f.request('/api/admin/summary',{headers})).data.total,0);
+ assert.equal(f.app.store.db.prepare('SELECT COUNT(*) AS n FROM inquiry_notes').get().n,0);
+ const settings=f.app.store.site();const content=structuredClone(settings.content);content.company.name='Persistent brand';f.app.store.setSite(settings.version,content);
+ const reopened=new Store(f.config.dbPath);assert.equal(reopened.site().content.company.name,'Persistent brand');reopened.close();
+});

@@ -53,3 +53,9 @@ Commit and push changes to `main`, then run `npm run deploy`. It runs the API/un
 ## Deploy a free server demo directly
 
 [Deploy free demo to Render](https://render.com/deploy?repo=https://github.com/lust280/klarraum-cleaning-demo). The default `render.yaml` is free, with real inquiries disabled and temporary storage. Its demo form saves cleaning parameters with server-generated fictional contacts in the owner dashboard; personal fields are never transmitted. Account quotas may apply. No Codex publication or Render API key is needed for this route. Read the direct-deployment section of docs/DEPLOYMENT.md. Paid persistent hosting is in the separate `render-production.yaml`.
+
+## Owner editing
+
+The dashboard now includes **Website & Leistungen bearbeiten**: brand name, public contact details, displayed service region/hours, hero copy, three service titles/descriptions and availability, optional windows, and three color themes. Settings are stored in SQLite with optimistic version checks. Unavailable services are rejected server-side and historical inquiry titles/prices remain intact. Public legal identity and mail delivery destinations remain separately configured deployment details. No arbitrary HTML, third-party image embeds or file uploads are accepted by this editor.
+
+Status counters summarize the inbox. Private inquiry notes are owner-only and deleted with the inquiry. Settings and notes are included in database snapshots. Free Render's temporary filesystem still makes this a demonstration, not durable customer hosting.
