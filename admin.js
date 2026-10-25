@@ -40,6 +40,7 @@ async function load(){
   actions.append(select);
   if(item.notification!=='sent' && !item.demo)actions.append(button('E-Mail erneut versuchen',async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
   actions.append(button('Löschen',async()=>{deleteId=item.id;$('#delete-dialog').showModal();},'danger'));
+  const assign=el('a','Auftrag erstellen','button small secondary');assign.href='./operations.html?inquiry='+encodeURIComponent(item.id);actions.append(assign);
   card.append(actions);
   const notes=el('div',undefined,'note-editor');const label=el('label','Interne Notiz (nur für die Verwaltung)');label.htmlFor='note-'+item.id;
   const input=el('textarea');input.id='note-'+item.id;input.rows=2;input.maxLength=2000;input.value=noteDrafts.get(item.id)??item.note??'';
