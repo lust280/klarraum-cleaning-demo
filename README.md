@@ -79,3 +79,9 @@ Owner portal: `/operations.html`, linked from the admin dashboard. Employee port
 See [team workflow and limitations](docs/TEAM-RU.md). GPS, customer signatures, payroll, automatic invitation email and regional-manager roles are not included. Job timing is not complete statutory working-time recording. Work records and staff data need a separate retention/deletion policy before live operation; the inquiry-retention timer does not purge them.
 
 Private proof photos are in `DATA_DIR/job-photos`, authenticated at `/private/jobs/...`, never published through `/media/`. Backups now include a `.sqlite.jobs` directory in addition to the database and public `.sqlite.media` images. Keep all three parts together.
+
+## Monthly work and payment reports
+
+Owner-only `/reports.html` provides Berlin-calendar monthly work summaries, date-assigned time corrections and explicit manual payment/refund entries. Job closure and quoted prices never count as collected money automatically. Payment mistakes are voided with a reason; original values are retained. Monthly archive revisions preserve JSON snapshots; later changes require a new revision.
+
+Export CSV or JSON, or use **Drucken / Als PDF speichern** to generate a PDF through the browser print dialog. This is an internal management report, not an invoice, certified fiscal archive, tax calculation, cash book or complete payroll/timesheet solution. See [monthly reporting](docs/MONTHLY-REPORTS-RU.md) for period rules, export fields and storage limits. Downloaded reports and full database/image backups serve different purposes.

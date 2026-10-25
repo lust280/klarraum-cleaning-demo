@@ -346,3 +346,48 @@ test('employee password changes revoke old sessions and owner reset revokes the 
  assert.equal((await f.request('/api/employee/session',{headers:auth})).status,401);
  assert.equal((await f.request('/api/employee/login',{method:'POST',body:{email:worker.employee.email,password:'changed-test-only-employee-password'}})).status,401);
 });
+
+test('employee cannot use the owner plan-edit operation through the employee endpoint',async t=>{
+ const f=await fixture(t),owner=await f.login(),a=await addWorker(f,owner,1),b=await addWorker(f,owner,2),job=await addJob(f,owner,a.employee.id);
+ const response=await f.request('/api/employee/jobs/'+job.id,{method:'PUT',headers:{...a.headers,'Idempotency-Key':randomUUID()},body:{version:job.version,employeeId:b.employee.id,title:'Unauthorized change',address:'Bad change',customer:'',contact:'',region:'Berlin',date:'2026-11-01',time:'12:00',plannedMinutes:15,instructions:'',checklist:[]}});
+ assert.equal(response.status,404);const actual=(await f.request('/api/admin/jobs/'+job.id,{headers:owner})).data;assert.equal(actual.employee_id,a.employee.id);assert.equal(actual.version,job.version);
+});
+
+test('monthly payments count only explicit actual entries, preserve void history and freeze archive revisions',async t=>{
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner),job=await addJob(f,owner,worker.employee.id,{date:'2026-10-25'});
+ const before=await f.request('/api/admin/reports?month=2026-10',{headers:owner});assert.equal(before.status,200);assert.equal(before.data.summary.receivedCents,0);
+ const key=randomUUID(),payment={jobId:job.id,kind:'payment',amountCents:12345,date:'2026-10-25',method:'bank',reference:'RE-TEST-1',note:'Test only'};
+ const saved=await f.request('/api/admin/payments',{method:'POST',headers:{...owner,'Idempotency-Key':key},body:payment});assert.equal(saved.status,201);
+ assert.equal((await f.request('/api/admin/payments',{method:'POST',headers:{...owner,'Idempotency-Key':key},body:payment})).status,200);
+ assert.equal((await f.request('/api/admin/payments',{method:'POST',headers:{...owner,'Idempotency-Key':key},body:{...payment,amountCents:100}})).status,409);
+ const refunds=await f.request('/api/admin/payments',{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body:{...payment,kind:'refund',amountCents:2345}});assert.equal(refunds.status,201);
+ const report=(await f.request('/api/admin/reports?month=2026-10',{headers:owner})).data;assert.equal(report.summary.receivedCents,12345);assert.equal(report.summary.refundedCents,2345);assert.equal(report.summary.netReceivedCents,10000);assert.equal(report.payments.length,2);
+ const archiveKey=randomUUID();const snapshot=await f.request('/api/admin/reports/archives',{method:'POST',headers:{...owner,'Idempotency-Key':archiveKey},body:{month:'2026-10'}});assert.equal(snapshot.status,201);assert.equal(snapshot.data.revision,1);
+ assert.equal((await f.request('/api/admin/reports/archives',{method:'POST',headers:{...owner,'Idempotency-Key':archiveKey},body:{month:'2026-10'}})).data.id,snapshot.data.id);
+ assert.equal((await f.request(`/api/admin/payments/${saved.data.id}/void`,{method:'POST',headers:owner,body:{reason:'Incorrect example entry'}})).status,200);
+ const current=(await f.request('/api/admin/reports?month=2026-10',{headers:owner})).data;assert.equal(current.summary.receivedCents,0);assert.equal(current.summary.voidedPayments,1);assert.equal(current.payments.length,2);
+ const frozen=(await f.request('/api/admin/reports/archives/'+snapshot.data.id,{headers:owner})).data;assert.equal(frozen.report.summary.netReceivedCents,10000);
+ const {createHash}=await import('node:crypto');assert.equal(frozen.sha256,createHash('sha256').update(JSON.stringify(frozen.report)).digest('hex'));
+ const second=await f.request('/api/admin/reports/archives',{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body:{month:'2026-10'}});assert.equal(second.data.revision,2);
+ assert.equal((await f.request('/api/admin/reports?month=2026-10',{headers:worker.headers})).status,401);
+ assert.equal((await f.request('/api/admin/payments',{method:'POST',headers:{...worker.headers,'Idempotency-Key':randomUUID()},body:payment})).status,401);
+ for(const invalid of [{amountCents:0},{amountCents:1.5},{date:'2026-02-30'},{date:'2027-01-01'},{method:'unsupported'}])assert.equal((await f.request('/api/admin/payments',{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body:{...payment,...invalid}})).status,400);
+});
+
+test('month periods use Berlin DST, split cross-month work and apply corrections by selected work date',async t=>{
+ const {monthBounds}=await import('../lib/reporting.mjs');
+ assert.equal((monthBounds('2026-03').end-monthBounds('2026-03').start)/3600000,743);
+ assert.equal((monthBounds('2026-10').end-monthBounds('2026-10').start)/3600000,745);
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner),job=await addJob(f,owner,worker.employee.id,{date:'2026-09-30'});
+ f.app.store.db.prepare('INSERT INTO work_intervals VALUES(?,?,?,?,?)').run(randomUUID(),job.id,worker.employee.id,Date.parse('2026-09-30T21:30:00Z'),Date.parse('2026-09-30T22:30:00Z'));
+ f.app.store.db.prepare('INSERT INTO time_corrections(id,job_id,minutes,reason,created_at,effective_date) VALUES(?,?,?,?,?,?)').run(randomUUID(),job.id,10,'Test correction',Date.parse('2026-10-20T10:00:00Z'),'2026-09-30');
+ const september=(await f.request('/api/admin/reports?month=2026-09',{headers:owner})).data,october=(await f.request('/api/admin/reports?month=2026-10',{headers:owner})).data;
+ assert.equal(september.summary.loggedMilliseconds,1800000);assert.equal(october.summary.loggedMilliseconds,1800000);assert.equal(september.summary.correctionMinutes,10);assert.equal(october.summary.correctionMinutes,0);
+ assert.equal(september.employees[0].correctedMilliseconds,2400000);
+ assert.equal((await f.request('/api/admin/reports?month=2026-13',{headers:owner})).status,400);
+});
+
+test('CSV exports neutralize spreadsheet formulas and euro parsing avoids float rounding',async()=>{
+ const {csvReport,parseEuro}=await import('../public/report-export.js');assert.equal(parseEuro('123,45'),12345);assert.equal(parseEuro('0.01'),1);assert.throws(()=>parseEuro('1.005'));assert.throws(()=>parseEuro('-5'));assert.throws(()=>parseEuro('1e5'));
+ const csv=csvReport({jobs:[{title:'=HYPERLINK("bad")',employeeName:' +CMD',scheduled_date:'2026-10-25',scheduled_time:'09:00',region:'Test',state:'closed',report:'line1\nline2'}]},'jobs');assert.ok(csv.includes("'=HYPERLINK"));assert.ok(csv.includes("' +CMD"));assert.ok(csv.includes('line1\nline2'));
+});
