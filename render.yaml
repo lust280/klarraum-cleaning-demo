@@ -1,31 +1,24 @@
-# Optional PAID deployment blueprint: persistent disks require a paid service.
-# Review current Render pricing before creating. No service is created by this file.
+# Free server demonstration. Never use its temporary filesystem for real inquiries.
+# The paid persistent-disk option is documented separately in render-production.yaml.
 services:
   - type: web
-    name: klarraum
+    name: klarraum-demo
     runtime: node
     region: frankfurt
-    plan: starter
-    numInstances: 1
+    plan: free
     buildCommand: npm ci --ignore-scripts --omit=dev
     startCommand: node server.mjs
     healthCheckPath: /healthz
-    disk:
-      name: klarraum-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data/klarraum
-      - key: APP_ORIGIN
-        sync: false
-      - key: ADMIN_PASSWORD_HASH
-        sync: false
-      - key: APP_SECRET
-        generateValue: true
+      - key: DEMO_ONLY
+        value: "true"
       - key: ENABLE_INQUIRIES
         value: "false"
+      - key: APP_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
       - key: TRUST_PROXY
         value: "0"

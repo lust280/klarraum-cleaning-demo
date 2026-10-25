@@ -49,3 +49,7 @@ See [deployment](docs/DEPLOYMENT.md), [operations](docs/OPERATIONS.md), and the 
 ### Static design preview
 
 Commit and push changes to `main`, then run `npm run deploy`. It runs the API/unit tests and updates the `gh-pages` branch, without force-pushing. GitHub Pages must use `gh-pages` → `/ (root)`. The public demo disables contact entry and explains that a server is needed for administration. The Pages preview never contains databases or credentials.
+
+## Deploy a free server demo directly
+
+[Deploy free demo to Render](https://render.com/deploy?repo=https://github.com/lust280/klarraum-cleaning-demo). The default `render.yaml` is free, with real inquiries disabled and temporary storage. Account quotas may apply. No Codex publication or Render API key is needed for this route. Read the direct-deployment section of docs/DEPLOYMENT.md. Paid persistent hosting is in the separate `render-production.yaml`.

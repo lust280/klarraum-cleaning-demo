@@ -8,7 +8,7 @@ The app has been tested locally with SQLite and simulated mail delivery. The Git
 
 Account: https://dashboard.render.com/register . This is one option; the app also runs on a suitable EU VPS or other Node.js host with persistent storage.
 
-**Persistent Render disks require a paid service.** Review current pricing and terms before creating anything. `render.yaml` is an optional paid blueprint; its presence does not create a service or authorize a purchase. Do not use an ephemeral free filesystem for real inquiries. No exact current tariff is asserted here.
+**Persistent Render disks require a paid service.** Review current pricing and terms before creating anything. `render-production.yaml` is an optional paid blueprint; its presence does not create a service or authorize a purchase. Do not use an ephemeral free filesystem for real inquiries. No exact current tariff is asserted here.
 
 1. Connect the GitHub repository and select branch `main` in a Node web service, region Frankfurt. Review the offered paid instance and persistent-disk costs yourself before confirming. Run one instance only.
 2. Build: `npm ci --ignore-scripts --omit=dev`. Start: `node server.mjs`. Health check: `/healthz`.
@@ -53,3 +53,11 @@ Entering nonempty configuration only passes technical checks; it does not establ
 - Record host/mail/domain owners, renewal costs, support scope and recovery procedure.
 
 The app does not accept payment or confirm appointments. It is not a multi-tenant platform. Each customer needs an isolated installation, database and credentials. No 24/7 support commitment is included.
+
+## Direct free demo deployment (no Codex environment publication needed)
+
+Open https://render.com/deploy?repo=https://github.com/lust280/klarraum-cleaning-demo while signed in to Render. The default `render.yaml` now requests a **free** Node service with no disk and no real inquiry collection. Inspect the preview before confirming; if Render offers only paid plans or requests an upgrade, stop. Account eligibility and quotas are controlled by Render.
+
+The template generates a private `ADMIN_PASSWORD` and independent `APP_SECRET` in Render. It gets its exact HTTPS origin from Render's `RENDER_EXTERNAL_URL`. No Render API key or password needs to be copied into Codex. To view the empty owner dashboard, retrieve `ADMIN_PASSWORD` privately from the service Environment settings and enter it at `/admin.html`; do not send it in chat. The server hashes this password at startup, and uses the same secure session flow as installations using `ADMIN_PASSWORD_HASH`.
+
+This demonstration can sleep, have a slow first load, and lose its temporary database on restart/redeploy. `DEMO_ONLY=true` prevents enabling live inquiry collection accidentally. Do not enter real customer data or describe this free profile as a durable production installation. The paid persistent-disk template is now in `render-production.yaml` and is a separate decision.

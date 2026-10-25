@@ -147,3 +147,14 @@ test('password/secret rotation invalidates stored owner sessions',async t=>{
  f.app.store.bindAuth('changed-credential-fingerprint');
  assert.equal((await f.request('/api/admin/session',{headers})).status,401);
 });
+
+test('Render free demo uses its assigned origin, generated credentials and blocks live collection',async()=>{
+ const {verifyPassword}=await import('../lib/security.mjs');
+ const env={NODE_ENV:'production',RENDER_EXTERNAL_URL:'https://klarraum-example.onrender.com',APP_SECRET:'test-only-secret-at-least-32-characters',ADMIN_PASSWORD:'test-only-hosted-password-at-least-14',DEMO_ONLY:'true',ENABLE_INQUIRIES:'false'};
+ const first=loadConfig(env),second=loadConfig(env);
+ assert.equal(first.origin,env.RENDER_EXTERNAL_URL);assert.equal(first.live,false);
+ assert.equal(first.passwordHash,second.passwordHash);assert.ok(await verifyPassword(env.ADMIN_PASSWORD,first.passwordHash));
+ assert.notEqual(loadConfig({...env,APP_SECRET:env.APP_SECRET+'-rotated'}).passwordHash,first.passwordHash);
+ assert.throws(()=>loadConfig({...env,ADMIN_PASSWORD:'short'}));
+ assert.throws(()=>loadConfig({...env,ENABLE_INQUIRIES:'true'}));
+});
