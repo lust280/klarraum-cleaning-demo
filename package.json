@@ -1,0 +1,13 @@
+{
+  "name": "klarraum-cleaning-demo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module"
+}
