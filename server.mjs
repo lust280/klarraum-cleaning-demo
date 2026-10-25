@@ -22,6 +22,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
       const url = new URL(req.url, config.origin);
       if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') return await app.handle(req,res,url);
       if (url.pathname.startsWith('/media/')) return await app.serveMedia(req,res,url);
+      if (url.pathname.startsWith('/private/jobs/')) return await app.serveJobPhoto(req,res,url);
       if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405, {Allow:'GET, HEAD'}); return res.end(); }
       const pathname = decodeURIComponent(url.pathname);
       const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
@@ -33,6 +34,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
       res.end(req.method === 'HEAD' ? undefined : body);
     } catch (error) {
       if (res.headersSent) return res.end();
+      if(error.status){res.writeHead(error.status,{'Content-Type':'text/plain; charset=utf-8'});return res.end(error.message);}
       res.writeHead(error.code === 'ENOENT' || error.code === 'EISDIR' ? 404 : 500);
       res.end(error.code === 'ENOENT' || error.code === 'EISDIR' ? 'Not found' : 'Request failed');
     }

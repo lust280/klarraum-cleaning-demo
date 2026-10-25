@@ -71,3 +71,7 @@ When `DEMO_ONLY=true`, the form can send a request to `/api/demo/inquiries`. It 
 ### Uploaded images
 
 Keep `DATA_DIR/uploads` on the same persistent volume as the database. The application serves only UUID-named optimized WebP files registered in SQLite. Configure off-site backups of the database and matching image directory. Free demos have no persistent image storage. Do not upload irreplaceable originals; keep the originals separately. The application does not fetch external image URLs. The editor library holds up to 40 optimized files, including unused uploads. Original images are not retained.
+
+### Team module before live use
+
+Test `/operations.html` and `/employee.html` with separate browser sessions, an invitation, assignment, work/break/finish, private photo, owner acceptance, account disablement and time correction. In `DEMO_ONLY=true`, use only fictional staff and `.invalid` emails. Free-instance staff/jobs/images are disposable. Paid infrastructure or a custom domain alone does not switch to live or establish readiness: review legal/operational settings, retention for staff/jobs, secure recovery and actual notification delivery. See docs/TEAM-RU.md for implemented features and remaining production prerequisites.

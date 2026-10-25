@@ -248,3 +248,101 @@ test('media rejects decompression-sized images and backup includes image files',
  assert.ok((await readFile(join(backupDir,name+'.media',item.id+'.webp'))).length>0);
  const snapshot=new Store(join(backupDir,name));assert.equal(snapshot.listMedia().length,1);snapshot.close();
 });
+
+async function addWorker(f,owner,index=1){
+ const created=await f.request('/api/admin/employees',{method:'POST',headers:owner,body:{name:'Test Worker '+index,email:`worker${index}@example.invalid`,region:index===1?'Nürnberg':'Berlin'}});assert.equal(created.status,201);
+ const token=new URLSearchParams(new URL(created.data.inviteUrl).hash.slice(1)).get('invite');
+ const accepted=await f.request('/api/employee/accept-invite',{method:'POST',body:{token,password:'test-only-employee-password'}});assert.equal(accepted.status,200);
+ return {employee:created.data.employee,token,headers:{Cookie:accepted.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':accepted.data.csrf}};
+}
+async function addJob(f,owner,employeeId,changes={}){
+ const body={employeeId,title:'Test cleaning task',address:'Fictional street 1',customer:'Test customer',contact:'test@example.invalid',region:'Nürnberg',date:'2026-11-01',time:'09:00',plannedMinutes:120,instructions:'Test only',checklist:['Kitchen','Bathroom'],...changes};
+ const response=await f.request('/api/admin/jobs',{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body});assert.equal(response.status,201);return response.data;
+}
+async function work(f,worker,job,action,extra={},key=randomUUID()){
+ return f.request(`/api/employee/jobs/${job.id}/actions`,{method:'POST',headers:{...worker.headers,'Idempotency-Key':key},body:{action,version:job.version,...extra}});
+}
+
+test('employee invitations are single-use; roles and job access are isolated',async t=>{
+ const f=await fixture(t),owner=await f.login(),a=await addWorker(f,owner,1),b=await addWorker(f,owner,2),job=await addJob(f,owner,a.employee.id);
+ assert.equal((await f.request('/api/employee/accept-invite',{method:'POST',body:{token:a.token,password:'another-test-password'}})).status,400);
+ assert.equal((await f.request('/api/admin/jobs',{headers:a.headers})).status,401);
+ assert.equal((await f.request('/api/employee/jobs',{headers:owner})).status,401);
+ assert.equal((await f.request('/api/employee/jobs',{headers:b.headers})).data.total,0);
+ assert.equal((await f.request('/api/employee/jobs/'+job.id,{headers:b.headers})).status,404);
+ assert.equal((await work(f,b,job,'start')).status,404);
+ assert.equal((await f.request('/api/employee/jobs/'+job.id+'/actions',{method:'POST',headers:{Cookie:a.headers.Cookie,'Idempotency-Key':randomUUID()},body:{action:'start',version:job.version}})).status,403);
+ assert.equal((await f.request('/api/admin/jobs',{headers:owner})).data.total,1);
+ const list=(await f.request('/api/admin/employees',{headers:owner})).data;assert.equal(list.total,2);assert.equal(list.items[0].password_hash,undefined);assert.equal(list.items[0].invite_hash,undefined);
+});
+
+test('server tracks work and breaks once, requires report for incomplete checklist and records corrections',async t=>{
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner);let job=await addJob(f,owner,worker.employee.id);const initial=structuredClone(job),key=randomUUID();
+ let response=await work(f,worker,job,'start',{},key);assert.equal(response.status,200);job=response.data;assert.equal(job.state,'working');
+ assert.equal((await work(f,worker,initial,'start',{},key)).status,200);
+ f.advance(60000);response=await work(f,worker,job,'pause');assert.equal(response.status,200);job=response.data;assert.equal(job.workedMilliseconds,60000);assert.equal(job.intervals.length,1);
+ f.advance(60000);job=(await work(f,worker,job,'resume')).data;f.advance(120000);
+ assert.equal((await work(f,worker,job,'finish',{done:[true,false],report:''})).status,400);
+ let current=(await f.request('/api/employee/jobs/'+job.id,{headers:worker.headers})).data;assert.equal(current.state,'working');assert.equal(current.intervals[1].ended_at,null);
+ response=await work(f,worker,job,'finish',{done:[true,false],report:'Bathroom inaccessible in this test'});assert.equal(response.status,200);job=response.data;assert.equal(job.state,'submitted');assert.equal(job.workedMilliseconds,180000);
+ const corrected=await f.request(`/api/admin/jobs/${job.id}/corrections`,{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body:{version:job.version,minutes:-1,reason:'Correction agreed with employee'}});assert.equal(corrected.status,200);job=corrected.data;assert.equal(job.workedMilliseconds,120000);assert.equal(job.rawMilliseconds,180000);assert.equal(job.corrections.length,1);
+ const approved=await f.request(`/api/admin/jobs/${job.id}/actions`,{method:'POST',headers:{...owner,'Idempotency-Key':randomUUID()},body:{version:job.version,action:'approve',reason:''}});assert.equal(approved.status,200);job=approved.data;assert.equal(job.state,'closed');assert.ok(job.events.some(event=>event.action==='time_correction'));
+ assert.equal((await work(f,worker,job,'resume')).status,409);
+});
+
+test('one active job per worker; deactivation stops time and invalidates access',async t=>{
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner),a=await addJob(f,owner,worker.employee.id),b=await addJob(f,owner,worker.employee.id);
+ assert.equal((await work(f,worker,a,'start')).status,200);assert.equal((await work(f,worker,b,'start')).status,409);f.advance(30000);
+ assert.equal((await f.request('/api/admin/employees/'+worker.employee.id,{method:'PATCH',headers:owner,body:{active:false}})).status,200);
+ assert.equal((await f.request('/api/employee/session',{headers:worker.headers})).status,401);
+ const stored=(await f.request('/api/admin/jobs/'+a.id,{headers:owner})).data;assert.equal(stored.state,'paused');assert.equal(stored.workedMilliseconds,30000);f.advance(60000);
+ assert.equal((await f.request('/api/admin/jobs/'+a.id,{headers:owner})).data.workedMilliseconds,30000);
+ assert.equal((await f.request('/api/employee/login',{method:'POST',body:{email:worker.employee.email,password:'test-only-employee-password'}})).status,401);
+});
+
+test('employee listing supports more than fifty people and invite expiry is enforced',async t=>{
+ const f=await fixture(t),owner=await f.login();
+ for(let i=0;i<55;i++){const response=await f.request('/api/admin/employees',{method:'POST',headers:owner,body:{name:'Staff '+String(i).padStart(2,'0'),email:`staff${i}@example.invalid`,region:i<30?'Berlin':'Nürnberg'}});assert.equal(response.status,201);}
+ const first=(await f.request('/api/admin/employees',{headers:owner})).data,second=(await f.request('/api/admin/employees?offset=50',{headers:owner})).data;assert.equal(first.total,55);assert.equal(first.items.length,50);assert.equal(second.items.length,5);
+ assert.equal((await f.request('/api/admin/employees?search=Berlin',{headers:owner})).data.total,30);
+ const invite=await f.request('/api/admin/employees/'+first.items[0].id+'/invite',{method:'POST',headers:owner});const token=new URLSearchParams(new URL(invite.data.inviteUrl).hash.slice(1)).get('invite');f.advance(49*3600000);
+ assert.equal((await f.request('/api/employee/accept-invite',{method:'POST',body:{token,password:'test-only-long-password'}})).status,400);
+});
+
+test('work photos stay private to owner and assigned worker and are included in backups',async t=>{
+ const sharp=(await import('sharp')).default,{execFileSync}=await import('node:child_process'),{readdir,readFile}=await import('node:fs/promises');
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner,1),other=await addWorker(f,owner,2);let job=await addJob(f,owner,worker.employee.id);
+ job=(await work(f,worker,job,'start')).data;const image=await sharp({create:{width:60,height:40,channels:3,background:'white'}}).png().toBuffer();
+ const upload=auth=>fetch(f.config.origin+`/api/employee/jobs/${job.id}/photos`,{method:'POST',headers:{Origin:f.config.origin,...auth,'Content-Type':'image/png'},body:image});
+ assert.equal((await upload(other.headers)).status,404);const response=await upload(worker.headers);assert.equal(response.status,201);const photo=await response.json();
+ const photoUrl=f.config.origin+photo.url;
+ assert.equal((await fetch(photoUrl)).status,401);assert.equal((await fetch(photoUrl,{headers:other.headers})).status,404);
+ const ownResponse=await fetch(photoUrl,{headers:worker.headers});assert.equal(ownResponse.status,200);assert.equal(ownResponse.headers.get('cache-control'),'private, no-store');
+ assert.equal((await fetch(photoUrl,{headers:owner})).status,200);assert.equal((await fetch(f.config.origin+`/media/${photo.id}.webp`)).status,404);
+ const dataDir=(await import('node:path')).dirname(f.config.dbPath),backupDir=join(dataDir,'backups');execFileSync(process.execPath,['scripts/backup.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,DATA_DIR:dataDir,BACKUP_DIR:backupDir},stdio:'pipe'});
+ const name=(await readdir(backupDir)).find(name=>name.endsWith('.sqlite'));assert.ok((await readFile(join(backupDir,name+'.jobs',photo.id+'.webp'))).length>0);
+ job=(await work(f,worker,job,'finish',{done:[true,true],report:'Complete test'})).data;assert.equal(job.photos.length,1);
+ assert.equal((await f.request(`/api/employee/jobs/${job.id}/photos/${photo.id}`,{method:'DELETE',headers:worker.headers})).status,409);
+});
+
+test('owner can change an unstarted plan and assignee, while stale or started plan edits are rejected',async t=>{
+ const f=await fixture(t),owner=await f.login(),a=await addWorker(f,owner,1),b=await addWorker(f,owner,2),job=await addJob(f,owner,a.employee.id);
+ const changes={version:job.version,employeeId:b.employee.id,title:'Updated visit',address:'New fictional address',customer:'Test',contact:'',region:'Berlin',date:'2026-11-02',time:'10:00',plannedMinutes:180,instructions:'Updated instructions',checklist:['New task']};
+ const result=await f.request('/api/admin/jobs/'+job.id,{method:'PUT',headers:{...owner,'Idempotency-Key':randomUUID()},body:changes});assert.equal(result.status,200);assert.equal(result.data.employee_id,b.employee.id);
+ assert.equal((await f.request('/api/employee/jobs/'+job.id,{headers:a.headers})).status,404);
+ assert.equal((await f.request('/api/admin/jobs/'+job.id,{method:'PUT',headers:{...owner,'Idempotency-Key':randomUUID()},body:changes})).status,409);
+ const started=(await work(f,b,result.data,'start')).data;assert.equal(started.state,'working');
+ assert.equal((await f.request('/api/admin/jobs/'+job.id,{method:'PUT',headers:{...owner,'Idempotency-Key':randomUUID()},body:{...changes,version:started.version}})).status,409);
+});
+
+test('employee password changes revoke old sessions and owner reset revokes the new credentials',async t=>{
+ const f=await fixture(t),owner=await f.login(),worker=await addWorker(f,owner);
+ const result=await f.request('/api/employee/change-password',{method:'POST',headers:worker.headers,body:{currentPassword:'test-only-employee-password',newPassword:'changed-test-only-employee-password'}});assert.equal(result.status,200);
+ assert.equal((await f.request('/api/employee/session',{headers:worker.headers})).status,401);
+ const auth={Cookie:result.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':result.data.csrf};
+ assert.equal((await f.request('/api/employee/session',{headers:auth})).status,200);
+ assert.equal((await f.request('/api/employee/login',{method:'POST',body:{email:worker.employee.email,password:'test-only-employee-password'}})).status,401);
+ const reset=await f.request('/api/admin/employees/'+worker.employee.id+'/invite',{method:'POST',headers:owner});assert.equal(reset.status,200);
+ assert.equal((await f.request('/api/employee/session',{headers:auth})).status,401);
+ assert.equal((await f.request('/api/employee/login',{method:'POST',body:{email:worker.employee.email,password:'changed-test-only-employee-password'}})).status,401);
+});

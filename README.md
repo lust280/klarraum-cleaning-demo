@@ -71,3 +71,11 @@ Three optional customer statements can be entered manually. There are no default
 Images live in `DATA_DIR/uploads`, alongside the database. `npm run backup` copies both the consistent database and its image set. Keep the `.sqlite` and matching `.sqlite.media` directory together. Free Render can lose both; durable customer deployment still needs persistent storage and off-site backup scheduling.
 
 Before customer handover, use the [Russian company checklist](docs/CLIENT-CHECKLIST-RU.md) to separate delivered features from deployment, legal and operational prerequisites.
+
+## Team and field jobs
+
+Owner portal: `/operations.html`, linked from the admin dashboard. Employee portal: `/employee.html`. Supports account invitations/disablement, regional search, paginated employees/jobs, assignment and pre-start plan changes, server-timed work/breaks, checklists, reports, up to four private proof photos, owner review and reasoned time corrections. Sessions and access scope are separate from the owner. No hardcoded small employee-count cap; infrastructure remains finite and untested for country-wide scale.
+
+See [team workflow and limitations](docs/TEAM-RU.md). GPS, customer signatures, payroll, automatic invitation email and regional-manager roles are not included. Job timing is not complete statutory working-time recording. Work records and staff data need a separate retention/deletion policy before live operation; the inquiry-retention timer does not purge them.
+
+Private proof photos are in `DATA_DIR/job-photos`, authenticated at `/private/jobs/...`, never published through `/media/`. Backups now include a `.sqlite.jobs` directory in addition to the database and public `.sqlite.media` images. Keep all three parts together.
