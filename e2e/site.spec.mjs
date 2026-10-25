@@ -75,7 +75,7 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
 
 test('owner edits site from dashboard and customer view applies brand, texts, theme and availability',async({page},testInfo)=>{
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
- await page.locator('#website-settings summary').click();
+ await page.locator('#website-settings > summary').click();
  await page.locator('[name="company_name"]').fill('Nordlicht Reinigung');await page.locator('[name="company_theme"]').selectOption('navy');
  await page.locator('[name="company_phone"]').fill('+49 911 1234567');await page.locator('[name="company_email"]').fill('info@example.invalid');
  await page.locator('[name="company_area"]').fill('Nürnberg & Fürth');await page.locator('[name="hero_title"]').fill('Mehr Zeit für Sie.');
@@ -93,4 +93,33 @@ test('owner edits site from dashboard and customer view applies brand, texts, th
  await page.goto(origin+'/admin.html');await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('[data-stat="new"]')).toHaveText('1');await expect(page.locator('.inquiry')).toContainText('Hauspflege');
  await page.locator('.note-editor textarea').fill('Rückruf am Dienstag');await page.locator('.note-editor button').click();await expect(page.locator('.note-editor .fine')).toContainText('Notiz gespeichert');
  await page.reload();await expect(page.locator('.note-editor textarea')).toHaveValue('Rückruf am Dienstag');
+});
+
+test('owner uploads logo and photos, publishes approved review, then removes all optional sections',async({page},testInfo)=>{
+ const sharp=(await import('sharp')).default;
+ const png=await sharp({create:{width:500,height:300,channels:4,background:{r:50,g:110,b:80,alpha:0.8}}}).png().toBuffer();
+ await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();await page.locator('#website-settings > summary').click();
+ for(const kind of ['logo','hero','gallery']){
+  await page.locator('#upload-'+kind).setInputFiles({name:'test-image.png',mimeType:'image/png',buffer:png});
+  await expect(page.locator(kind==='gallery'?'#selected-gallery img':`#selected-${kind} img`)).toBeVisible();
+  await expect(page.locator('#site-form button[type="submit"]')).toBeEnabled();
+ }
+ await page.locator('#selected-gallery input').fill('Test-only gallery caption');
+ await page.locator('[name="review_name_0"]').fill('Approved test author');await page.locator('[name="review_text_0"]').fill('Test fixture for a customer-authorized statement.');
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeVisible();await expect(page.locator('#hero-photo')).toBeVisible();
+ await expect(page.locator('#photo-gallery')).toBeVisible();await expect(page.locator('#gallery-grid figcaption')).toHaveText('Test-only gallery caption');
+ await expect(page.locator('#testimonial-grid')).toContainText('Approved test author');
+ const images=await page.locator('.header .company-logo, #hero-photo, #gallery-grid img').evaluateAll(nodes=>nodes.every(node=>node.complete&&node.naturalWidth>0));expect(images).toBeTruthy();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.screenshot({path:testInfo.outputPath('photos-and-reviews.png'),fullPage:true});
+ await page.goto(origin+'/admin.html');await page.locator('#website-settings > summary').click();
+ await page.locator('#selected-logo button').click();await page.locator('#selected-hero button').click();await page.locator('#selected-gallery button').filter({hasText:'Entfernen'}).click();
+ await page.locator('.media-library-details > summary').click();
+ const galleryFile=page.locator('.library-card').filter({hasText:'gallery'});
+ await galleryFile.getByRole('button',{name:'Wieder verwenden'}).click();await expect(page.locator('#selected-gallery img')).toBeVisible();
+ await page.locator('#selected-gallery button').filter({hasText:'Entfernen'}).click();
+ await page.locator('[name="review_name_0"]').fill('');await page.locator('[name="review_text_0"]').fill('');
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeHidden();await expect(page.locator('#hero-photo')).toBeHidden();await expect(page.locator('#photo-gallery')).toBeHidden();await expect(page.locator('#testimonials')).toBeHidden();
 });

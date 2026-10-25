@@ -67,3 +67,7 @@ In preview mode, users may type fictional contact details and inspect a local-on
 ### Server demo inquiries
 
 When `DEMO_ONLY=true`, the form can send a request to `/api/demo/inquiries`. It transmits only cleaning type, area, frequency, window option, privacy acknowledgement and anti-spam fields. The server rejects extra personal/contact fields and generates fixed fictional contact details. These marked test records appear in the owner dashboard and never send mail. The browser explains the substitution before submission. Static previews without this server capability still use a local-only preview. Real inquiries remain blocked, and free-instance test records may disappear on restart. Updating the connected GitHub branch triggers the hosting deployment; verify it before claiming the new flow is live.
+
+### Uploaded images
+
+Keep `DATA_DIR/uploads` on the same persistent volume as the database. The application serves only UUID-named optimized WebP files registered in SQLite. Configure off-site backups of the database and matching image directory. Free demos have no persistent image storage. Do not upload irreplaceable originals; keep the originals separately. The application does not fetch external image URLs. The editor library holds up to 40 optimized files, including unused uploads. Original images are not retained.

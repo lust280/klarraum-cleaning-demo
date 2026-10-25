@@ -14,7 +14,7 @@ npm test
 npm start
 ```
 
-No production npm dependencies. Development dependencies are only the Playwright test tools. Without configuration the server runs in preview mode, contact fields produce a local-only preview, and server submission is rejected. Default port: 3000. Use the existing cloud checkout; do not create a worktree unless requested.
+The production dependency `sharp` validates and optimizes uploaded images. Development dependencies are the Playwright test tools. Without configuration the server runs in preview mode, contact fields produce a local-only preview, and server submission is rejected. Default port: 3000. Use the existing cloud checkout; do not create a worktree unless requested.
 
 To configure a private local installation, copy `.env.example` to `.env.local`, fill it securely and run `node --env-file=.env.local server.mjs`. Never commit secrets or personal data. Generate a password hash with `npm run admin:hash` (password is hidden), and a separate application secret with `npm run secret:generate`. Do not use command-line arguments containing passwords.
 
@@ -56,6 +56,18 @@ Commit and push changes to `main`, then run `npm run deploy`. It runs the API/un
 
 ## Owner editing
 
-The dashboard now includes **Website & Leistungen bearbeiten**: brand name, public contact details, displayed service region/hours, hero copy, three service titles/descriptions and availability, optional windows, and three color themes. Settings are stored in SQLite with optimistic version checks. Unavailable services are rejected server-side and historical inquiry titles/prices remain intact. Public legal identity and mail delivery destinations remain separately configured deployment details. No arbitrary HTML, third-party image embeds or file uploads are accepted by this editor.
+The dashboard now includes **Website & Leistungen bearbeiten**: brand name, public contact details, displayed service region/hours, hero copy, three service titles/descriptions and availability, optional windows, and three color themes. Settings are stored in SQLite with optimistic version checks. Unavailable services are rejected server-side and historical inquiry titles/prices remain intact. Public legal identity and mail delivery destinations remain separately configured deployment details. No arbitrary HTML or third-party image embeds are accepted. Authenticated image uploads are validated, optimized and stored locally; see below.
 
 Status counters summarize the inbox. Private inquiry notes are owner-only and deleted with the inquiry. Settings and notes are included in database snapshots. Free Render's temporary filesystem still makes this a demonstration, not durable customer hosting.
+
+## Logos, photos and customer statements
+
+The website editor now accepts a logo, a hero photo and up to eight gallery images with captions and ordering. Up to 40 files can be held in the media library; remove unused files there to free space. Removing an image from the selection does not erase its file until explicitly deleted. Published images are protected against deletion until the owner removes the reference and saves.
+
+Uploads require owner authentication, CSRF and origin checks. Input is limited to 5 MB and 12 megapixels, signature-checked as JPEG/PNG/WebP, resized and re-encoded into WebP without original metadata. The original filename is never used as a path. SVG, GIF, HEIC and animated images are unsupported. Public image URLs are intended for website publication; upload only content you may publish.
+
+Three optional customer statements can be entered manually. There are no default fake testimonials, star ratings or invented review counts. The owner is responsible for authenticity, licenses and appropriate permission to publish identifiable people or customer statements. Empty gallery/review sections are hidden.
+
+Images live in `DATA_DIR/uploads`, alongside the database. `npm run backup` copies both the consistent database and its image set. Keep the `.sqlite` and matching `.sqlite.media` directory together. Free Render can lose both; durable customer deployment still needs persistent storage and off-site backup scheduling.
+
+Before customer handover, use the [Russian company checklist](docs/CLIENT-CHECKLIST-RU.md) to separate delivered features from deployment, legal and operational prerequisites.

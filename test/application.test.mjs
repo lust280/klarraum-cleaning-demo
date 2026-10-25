@@ -208,3 +208,43 @@ test('private notes, status totals and settings persist without changing stored 
  const settings=f.app.store.site();const content=structuredClone(settings.content);content.company.name='Persistent brand';f.app.store.setSite(settings.version,content);
  const reopened=new Store(f.config.dbPath);assert.equal(reopened.site().content.company.name,'Persistent brand');reopened.close();
 });
+
+test('image upload validates authorization and format, strips metadata, protects references and supports deletion',async t=>{
+ const sharp=(await import('sharp')).default;const f=await fixture(t);const headers=await f.login();
+ const input=await sharp({create:{width:900,height:300,channels:3,background:'#165444'}}).jpeg().withExif({IFD0:{Artist:'Private test metadata'}}).toBuffer();
+ async function upload(data=input,type='image/jpeg',auth=headers,kind='logo'){
+  const response=await fetch(f.config.origin+'/api/admin/media?kind='+kind,{method:'POST',headers:{Origin:f.config.origin,...auth,'Content-Type':type},body:data});return {status:response.status,data:await response.json()};
+ }
+ assert.equal((await upload(input,'image/jpeg',{})).status,401);
+ assert.equal((await upload(input,'image/jpeg',{Cookie:headers.Cookie})).status,403);
+ assert.equal((await upload(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),'image/svg+xml')).status,415);
+ assert.equal((await upload(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),'image/png')).status,400);
+ assert.equal((await upload(Buffer.alloc(5*1024*1024+1),'image/png')).status,413);
+ const saved=await upload();assert.equal(saved.status,201);assert.ok(saved.data.width<=600);
+ const publicResponse=await fetch(f.config.origin+`/media/${saved.data.id}.webp`);assert.equal(publicResponse.status,200);assert.equal(publicResponse.headers.get('content-type'),'image/webp');
+ const meta=await sharp(Buffer.from(await publicResponse.arrayBuffer())).metadata();assert.equal(meta.format,'webp');assert.equal(meta.exif,undefined);assert.ok(meta.width<=600);
+ const site=(await f.request('/api/admin/site',{headers})).data;site.content.media={logo:saved.data.id,hero:null,gallery:[]};site.content.testimonials=[{name:'Approved test author',text:'Test-only review fixture'}];
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:site})).status,200);
+ assert.equal((await f.request(`/api/admin/media/${saved.data.id}`,{method:'DELETE',headers})).status,409);
+ const current=(await f.request('/api/admin/site',{headers})).data;current.content.media.logo=null;
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:current})).status,200);
+ assert.equal((await f.request(`/api/admin/media/${saved.data.id}`,{method:'DELETE',headers})).status,200);
+ assert.equal((await fetch(f.config.origin+`/media/${saved.data.id}.webp`)).status,404);
+ const missing=(await f.request('/api/admin/site',{headers})).data;missing.content.media.logo=saved.data.id;
+ assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:missing})).status,400);
+});
+
+test('media rejects decompression-sized images and backup includes image files',async t=>{
+ const sharp=(await import('sharp')).default;const {execFileSync}=await import('node:child_process');const {readdir,readFile}=await import('node:fs/promises');
+ const f=await fixture(t);const headers=await f.login();
+ const large=await sharp({create:{width:4100,height:3000,channels:3,background:'white'}}).png().toBuffer();
+ const upload=data=>fetch(f.config.origin+'/api/admin/media?kind=gallery',{method:'POST',headers:{Origin:f.config.origin,...headers,'Content-Type':'image/png'},body:data});
+ assert.equal((await upload(large)).status,400);
+ const image=await sharp({create:{width:64,height:64,channels:4,background:{r:0,g:100,b:80,alpha:0.5}}}).png().toBuffer();
+ const response=await upload(image);assert.equal(response.status,201);const item=await response.json();
+ const dataDir=(await import('node:path')).dirname(f.config.dbPath);const backupDir=join(dataDir,'backups');
+ execFileSync(process.execPath,['scripts/backup.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,DATA_DIR:dataDir,BACKUP_DIR:backupDir},stdio:'pipe'});
+ const files=await readdir(backupDir);const name=files.find(name=>name.endsWith('.sqlite'));assert.ok(name);
+ assert.ok((await readFile(join(backupDir,name+'.media',item.id+'.webp'))).length>0);
+ const snapshot=new Store(join(backupDir,name));assert.equal(snapshot.listMedia().length,1);snapshot.close();
+});

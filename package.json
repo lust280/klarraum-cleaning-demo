@@ -17,5 +17,8 @@
   "type": "module",
   "devDependencies": {
     "@playwright/test": "^1.64.1"
+  },
+  "dependencies": {
+    "sharp": "^0.35.5"
   }
 }

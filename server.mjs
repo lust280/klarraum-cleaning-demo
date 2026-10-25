@@ -21,6 +21,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
     try {
       const url = new URL(req.url, config.origin);
       if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') return await app.handle(req,res,url);
+      if (url.pathname.startsWith('/media/')) return await app.serveMedia(req,res,url);
       if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405, {Allow:'GET, HEAD'}); return res.end(); }
       const pathname = decodeURIComponent(url.pathname);
       const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
