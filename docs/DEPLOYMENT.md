@@ -63,3 +63,7 @@ The template generates a private `ADMIN_PASSWORD` and independent `APP_SECRET` i
 This demonstration can sleep, have a slow first load, and lose its temporary database on restart/redeploy. `DEMO_ONLY=true` prevents enabling live inquiry collection accidentally. Do not enter real customer data or describe this free profile as a durable production installation. The paid persistent-disk template is now in `render-production.yaml` and is a separate decision.
 
 In preview mode, users may type fictional contact details and inspect a local-only inquiry preview. No inquiry POST occurs and no record appears in the dashboard. Real inquiry collection remains gated by the live configuration.
+
+### Server demo inquiries
+
+When `DEMO_ONLY=true`, the form can send a request to `/api/demo/inquiries`. It transmits only cleaning type, area, frequency, window option, privacy acknowledgement and anti-spam fields. The server rejects extra personal/contact fields and generates fixed fictional contact details. These marked test records appear in the owner dashboard and never send mail. The browser explains the substitution before submission. Static previews without this server capability still use a local-only preview. Real inquiries remain blocked, and free-instance test records may disappear on restart. Updating the connected GitHub branch triggers the hosting deployment; verify it before claiming the new flow is live.

@@ -4,7 +4,7 @@ const form = $('#quote');
 const service=$('#service'), area=$('#area'), frequency=$('#frequency'), windows=$('#windows');
 const result=$('#result'), error=$('#form-error'), submit=$('#submit-inquiry');
 const currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
-let pricing=DEFAULT_PRICING, live=false, token='', tokenAt=0, sending=false;
+let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
 const staticHost = location.hostname.endsWith('.github.io');
 async function api(path, options={}) {
@@ -37,7 +37,7 @@ form.addEventListener('submit',async event=>{
   if(!email.value.trim() && !phone.value.trim()){
     email.setCustomValidity('Bitte E-Mail oder Telefonnummer angeben.');email.reportValidity();email.setCustomValidity('');return;
   }
-  if(!live){
+  if(!live && !demoMode){
     $('#message').value=`DEMO — NICHT VERSENDET\n\nName: ${$('#customer-name').value}\nE-Mail: ${email.value || '—'}\nTelefon: ${phone.value || '—'}\nPLZ: ${$('#postcode').value}\nAdresse: ${$('#address').value || 'Wird abgestimmt'}\nWunschtermin: ${$('#date').value || 'Offen'}\nLeistung: ${service.selectedOptions[0].text}\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nPreisorientierung: ${$('#price').value}\nNachricht: ${$('#comments').value || '—'}`;
     $('#success-message').textContent='Demo: Ihre Eingaben wurden zur Vorschau zusammengestellt. Es wurde nichts versendet oder auf dem Server gespeichert. Diese Vorschau erscheint nicht in der Verwaltung.';
     $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
@@ -55,11 +55,12 @@ form.addEventListener('submit',async event=>{
     }
     const wait=2100-(Date.now()-tokenAt);
     if(wait>0) await new Promise(resolve=>setTimeout(resolve,wait));
-    const data=await api('api/inquiries',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({...payload,token})});
-    $('#success-message').textContent=`Vielen Dank! Ihre Anfrage wurde gespeichert. Nummer: ${data.id}. Preisorientierung: ${currency.format(data.price)}. Dies ist noch keine Termin- oder Auftragsbestätigung.`;
+    const transmitted=demoMode?{service:payload.service,area:payload.area,frequency:payload.frequency,windows:payload.windows,privacy:payload.privacy,website:payload.website,token}:{...payload,token};
+    const data=await api(demoMode?'api/demo/inquiries':'api/inquiries',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify(transmitted)});
+    $('#success-message').textContent=data.demo?`Testanfrage gespeichert. Nummer: ${data.id}. Öffnen Sie die Verwaltung und klicken Sie auf Aktualisieren. Dort erscheint „Demo-Kunde“ mit Ihren Reinigungsangaben. Kontaktdaten wurden nicht übertragen. Keine echte Buchung; Testdaten können bei einem Neustart verloren gehen.`:`Vielen Dank! Ihre Anfrage wurde gespeichert. Nummer: ${data.id}. Preisorientierung: ${currency.format(data.price)}. Dies ist noch keine Termin- oder Auftragsbestätigung.`;
     $('#demo-text').hidden=true;form.reset();requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
   }catch(err){error.textContent=err.message;error.hidden=false;}
-  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent='Unverbindliche Anfrage senden ↗';}
+  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Testanfrage an Verwaltung senden ↗':'Unverbindliche Anfrage senden ↗';}
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',()=>{service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
@@ -71,6 +72,14 @@ async function init(){
   try{
     const config=await api('api/config');pricing=config.pricing;updatePricingLabels();
     document.querySelectorAll('[data-company]').forEach(el=>el.textContent=config.business.name);
+    demoMode=Boolean(config.demoMode);
+    if(demoMode){
+      $('#connection-note').textContent='Server-Demo: Nur Reinigungsangaben werden in der Verwaltung gespeichert. Name, E-Mail, Telefon und Adresse werden NICHT übertragen; dort erscheinen feste fiktive Beispieldaten. Testdaten können bei einem Neustart verloren gehen.';
+      $('#submit-note').textContent='Testanfrage für die Verwaltung. Keine echte Buchung und kein E-Mail-Versand.';
+      submit.textContent='Testanfrage an Verwaltung senden ↗';
+      $('#customer-name').value='Demo-Kunde';$('#customer-email').value='demo@example.invalid';$('#postcode').value='90402';$('#address').value='Musterstraße 1 (fiktiv)';
+      const data=await api('api/form-token');token=data.token;tokenAt=Date.now();return;
+    }
     if(!config.live)return;
     live=true;$('#customer-fields').disabled=false;
     $('#mode-banner').textContent=`${config.business.name} · Nürnberg & Umgebung`;
@@ -84,7 +93,7 @@ async function init(){
     const data=await api('api/form-token');token=data.token;tokenAt=Date.now();
   }catch{
     $('#connection-note').textContent='Der Anfragedienst ist gerade nicht erreichbar. Diese Ansicht funktioniert nur als Demo; es wird nichts versendet.';
-    live=false;$('#customer-fields').disabled=false;
+    live=false;demoMode=false;$('#customer-fields').disabled=false;
     submit.textContent='Anfragetext vorbereiten (ohne Versand)';
     $('#submit-note').textContent='Keine Übermittlung möglich. Bitte später erneut versuchen.';
   }

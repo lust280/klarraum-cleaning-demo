@@ -55,3 +55,20 @@ test('preview allows typing but never transmits or saves contact data',async({pa
  await page.goto(origin+'/datenschutz.html');await expect(page.locator('#processing-details')).toContainText('Test-only privacy notice');
  config.live=true;
 });
+
+test('server demo sends cleaning parameters to admin but strips all entered personal details',async({page})=>{
+ config.live=false;config.demoMode=true;
+ let sent;
+ page.on('request',req=>{if(req.url().endsWith('/api/demo/inquiries') && req.method()==='POST')sent=req.postDataJSON();});
+ await page.goto(origin);
+ await expect(page.locator('#submit-inquiry')).toContainText('Testanfrage an Verwaltung');
+ await page.locator('#customer-name').fill('Do not transmit this name');await page.locator('#customer-email').fill('private@example.invalid');
+ await page.locator('#address').fill('Do not transmit this address');await page.locator('#area').fill('85');await page.locator('#privacy').check();
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Testanfrage gespeichert');
+ expect(sent.area).toBe(85);expect(sent.name).toBeUndefined();expect(sent.email).toBeUndefined();expect(sent.address).toBeUndefined();
+ await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
+ await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('.inquiry')).toContainText('Demo-Kunde');await expect(page.locator('.inquiry')).toContainText('85 m²');
+ await expect(page.locator('.inquiry')).not.toContainText('Do not transmit');await expect(page.locator('.inquiry')).toContainText('keine E-Mail');
+ await page.locator('.inquiry button').filter({hasText:'Löschen'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
+ config.demoMode=false;config.live=true;
+});

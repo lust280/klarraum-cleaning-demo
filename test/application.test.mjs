@@ -158,3 +158,18 @@ test('Render free demo uses its assigned origin, generated credentials and block
  assert.throws(()=>loadConfig({...env,ADMIN_PASSWORD:'short'}));
  assert.throws(()=>loadConfig({...env,ENABLE_INQUIRIES:'true'}));
 });
+
+test('server demo connects form to owner dashboard without accepting personal fields or sending mail',async t=>{
+ const f=await fixture(t,{config:{live:false,demoMode:true}});
+ const key=randomUUID();const body={service:'home',area:80,frequency:'once',windows:false,privacy:true,website:'',token:await f.token()};
+ const headers={'Idempotency-Key':key};
+ const saved=await f.request('/api/demo/inquiries',{method:'POST',headers,body});assert.equal(saved.status,201);assert.equal(saved.data.demo,true);
+ assert.equal((await f.request('/api/demo/inquiries',{method:'POST',headers,body})).status,200);
+ assert.equal((await f.request('/api/demo/inquiries',{method:'POST',headers:{'Idempotency-Key':randomUUID()},body:{...body,name:'Actual person'}})).status,400);
+ assert.equal((await f.request('/api/inquiries',{method:'POST',headers,body})).status,503);
+ await f.app.drain();assert.equal(f.notifications.length,0);
+ const auth=await f.login();const list=await f.request('/api/admin/inquiries',{headers:auth});assert.equal(list.data.total,1);
+ const item=list.data.items[0];assert.equal(item.name,'Demo-Kunde');assert.equal(item.email,'demo@example.invalid');assert.equal(item.area,80);assert.equal(item.demo,true);assert.equal(item.notification,'demo');
+ assert.equal((await f.request(`/api/admin/inquiries/${item.id}/retry-mail`,{method:'POST',headers:auth})).status,400);
+ assert.equal((await f.request(`/api/admin/inquiries/${item.id}`,{method:'DELETE',headers:auth})).status,200);
+});

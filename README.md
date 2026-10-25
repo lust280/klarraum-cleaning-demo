@@ -52,4 +52,4 @@ Commit and push changes to `main`, then run `npm run deploy`. It runs the API/un
 
 ## Deploy a free server demo directly
 
-[Deploy free demo to Render](https://render.com/deploy?repo=https://github.com/lust280/klarraum-cleaning-demo). The default `render.yaml` is free, with real inquiries disabled and temporary storage. Account quotas may apply. No Codex publication or Render API key is needed for this route. Read the direct-deployment section of docs/DEPLOYMENT.md. Paid persistent hosting is in the separate `render-production.yaml`.
+[Deploy free demo to Render](https://render.com/deploy?repo=https://github.com/lust280/klarraum-cleaning-demo). The default `render.yaml` is free, with real inquiries disabled and temporary storage. Its demo form saves cleaning parameters with server-generated fictional contacts in the owner dashboard; personal fields are never transmitted. Account quotas may apply. No Codex publication or Render API key is needed for this route. Read the direct-deployment section of docs/DEPLOYMENT.md. Paid persistent hosting is in the separate `render-production.yaml`.
