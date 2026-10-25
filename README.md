@@ -1,8 +1,8 @@
-# Klarraum — cleaning-company website and inquiry management
+# Klarraum — cleaning website and team planning
 
 German-language website with a price estimator, inquiry API, SQLite storage and a protected owner dashboard. Public design preview: https://lust280.github.io/klarraum-cleaning-demo/
 
-**The public GitHub Pages preview does not accept real inquiries.** GitHub Pages cannot run the backend. This repository now includes a server for a separate deployment. No real hosting account, company identity or email delivery has been configured or verified yet.
+**The public GitHub Pages preview does not accept real inquiries.** GitHub Pages cannot run the backend. This repository now includes a server for a separate deployment. A free Render server demo is also available at https://klarraum-demo.onrender.com. It uses fictional records and temporary storage; real business identity, mail delivery and durable production operation remain deployment work.
 
 ## Local development
 
@@ -85,3 +85,17 @@ Private proof photos are in `DATA_DIR/job-photos`, authenticated at `/private/jo
 Owner-only `/reports.html` provides Berlin-calendar monthly work summaries, date-assigned time corrections and explicit manual payment/refund entries. Job closure and quoted prices never count as collected money automatically. Payment mistakes are voided with a reason; original values are retained. Monthly archive revisions preserve JSON snapshots; later changes require a new revision.
 
 Export CSV or JSON, or use **Drucken / Als PDF speichern** to generate a PDF through the browser print dialog. This is an internal management report, not an invoice, certified fiscal archive, tax calculation, cash book or complete payroll/timesheet solution. See [monthly reporting](docs/MONTHLY-REPORTS-RU.md) for period rules, export fields and storage limits. Downloaded reports and full database/image backups serve different purposes.
+
+## Release 2.1 — installation and planning
+
+See [German installation and buyer guide](docs/INSTALL-DE.md), [English installation and buyer guide](docs/INSTALL-EN.md), [release scope](docs/RELEASE-PLAN-RU.md), and [marketplace prerequisites](docs/MARKETPLACE-READINESS-RU.md).
+
+- `npm run setup` creates a new private `.env.local` without overwriting existing credentials. `npm run start:local` loads that file. For Docker, after setup use `docker compose up -d --build`; the named data volume persists independently of the container. Configure HTTPS in the reverse proxy. Never run `docker compose down -v` unless deliberately destroying that installation's data.
+- `npm run doctor` checks an existing configured database without creating one or showing secrets. The owner-only `/system.html` shows configuration/backup indicators and operator guidance, not an independent certification of storage or delivery.
+- `npm run release` creates an allowlisted source `.tar.gz` and SHA-256 in ignored `dist/`. No databases, `.env.local`, node_modules, Git history or user photos are included. `npm run licenses` lists installed dependency license identifiers; retain native-library notices when distributing binaries.
+- `npm run restore -- --source /protected/name.sqlite --target /new/empty/data` validates and restores a complete database/photo set to a separate directory. It refuses existing data.
+- `/planning.html` provides owner-only customer/property records and history, paginated search, weekly/monthly calendar, finite recurring series and future cancellation. Editing records does not rewrite historical job details. A series is materialized once through an explicit end date, up to one year/120 visits; no infinite background recurrence engine is promised.
+- A job can link a property, whose data is copied as a historical snapshot. Calendar uses Europe/Berlin and rejects DST gaps/ambiguous wall times for new schedules. Overlaps are warnings, not a guarantee of employee availability or travel feasibility.
+- Employees have a private notification inbox. Optional Resend operational email is off by default and blocked in the demo; it is queued, retried at most five times, and contains no customer address. It is checked approximately once per minute while the server runs. A successful provider response does not prove inbox delivery.
+
+Interface controls support German/English through the header switch, stored locally in the browser. Buyer documentation and listing drafts are available in DE/EN. Company copy, customer/staff data and legal documents retain their entered language; the interface switch does not translate these records. Dates, schedules, currency and exports follow the German business context (Europe/Berlin, EUR). Unmapped validation messages retain the original German text. No marketplace account or paid listing was created by this release.

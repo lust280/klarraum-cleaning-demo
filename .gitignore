@@ -12,3 +12,5 @@ backups/
 .runtime/
 test-results/
 playwright-report/
+
+dist/

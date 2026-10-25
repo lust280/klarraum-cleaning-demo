@@ -1,3 +1,4 @@
+import {t as translateUI} from './i18n.js';
 import {applySite} from './site.js';
 import {estimate, DEFAULT_PRICING} from './pricing.js';
 const $ = selector => document.querySelector(selector);
@@ -21,16 +22,16 @@ function update(){
   catch { $('#price').value='Fläche prüfen'; }
 }
 function updatePricingLabels(){
-  $('#windows-label').textContent=`Fensterreinigung ergänzen (+${currency.format(pricing.windows)})`;
+  $('#windows-label').textContent=translateUI(`Fensterreinigung ergänzen (+${currency.format(pricing.windows)})`);
   for(const option of frequency.options){
-    const base={once:'Einmalig',weekly:'Wöchentlich',fortnightly:'Alle 2 Wochen'}[option.value];
+    const base={once:translateUI('Einmalig'),weekly:translateUI('Wöchentlich'),fortnightly:translateUI('Alle 2 Wochen')}[option.value];
     const discount=Math.round((1-pricing.discounts[option.value])*100);
     option.textContent=base+(discount?` · −${discount} %`:'');
   }
-  const labels={home:'Wohnung',office:'Büro',deep:'Grundreinigung'};
+  const labels={home:'Wohnung',office:'Büro',deep:translateUI('Grundreinigung')};
   const rateText=Object.entries(pricing.rates).filter(([key])=>siteConfig?.services[key]?.enabled!==false).map(([key,rate])=>`${siteConfig?.services[key]?.title||labels[key]} ${currency.format(rate)}/m²`).join(', ');
   const extra=siteConfig?.windowsEnabled===false?'':` Fenster zusätzlich ${currency.format(pricing.windows)}.`;
-  $('#pricing-explanation').textContent=`Orientierung: ${rateText}. Mindestpreis ${currency.format(pricing.minimum)}.${extra} Rabatt und Mindestpreis werden im Rechner berücksichtigt. Ein verbindliches Angebot folgt nach Abstimmung.`;
+  $('#pricing-explanation').textContent=translateUI(`Orientierung: ${rateText}. Mindestpreis ${currency.format(pricing.minimum)}.${extra} Rabatt und Mindestpreis werden im Rechner berücksichtigt. Ein verbindliches Angebot folgt nach Abstimmung.`);
   update();
 }
 form.addEventListener('input',()=>{if(!sending){requestKey=crypto.randomUUID();update();}});
@@ -44,10 +45,10 @@ form.addEventListener('submit',async event=>{
   }
   if(!live && !demoMode){
     $('#message').value=`DEMO — NICHT VERSENDET\n\nName: ${$('#customer-name').value}\nE-Mail: ${email.value || '—'}\nTelefon: ${phone.value || '—'}\nPLZ: ${$('#postcode').value}\nAdresse: ${$('#address').value || 'Wird abgestimmt'}\nWunschtermin: ${$('#date').value || 'Offen'}\nLeistung: ${service.selectedOptions[0].text}\nFläche: ${area.value} m²\nRhythmus: ${frequency.selectedOptions[0].text}\nFenster: ${windows.checked?'Ja':'Nein'}\nPreisorientierung: ${$('#price').value}\nNachricht: ${$('#comments').value || '—'}`;
-    $('#success-message').textContent='Demo: Ihre Eingaben wurden zur Vorschau zusammengestellt. Es wurde nichts versendet oder auf dem Server gespeichert. Diese Vorschau erscheint nicht in der Verwaltung.';
+    $('#success-message').textContent=translateUI('Demo: Ihre Eingaben wurden zur Vorschau zusammengestellt. Es wurde nichts versendet oder auf dem Server gespeichert. Diese Vorschau erscheint nicht in der Verwaltung.');
     $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
   }
-  sending=true;submit.disabled=true;submit.textContent='Wird gespeichert …';
+  sending=true;submit.disabled=true;submit.textContent=translateUI('Wird gespeichert …');
   const inputs=[...form.querySelectorAll('input,select,textarea')];
   const payload={service:service.value,area:Number(area.value),frequency:frequency.value,windows:windows.checked,
     name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
@@ -64,8 +65,8 @@ form.addEventListener('submit',async event=>{
     const data=await api(demoMode?'api/demo/inquiries':'api/inquiries',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify(transmitted)});
     $('#success-message').textContent=data.demo?`Testanfrage gespeichert. Nummer: ${data.id}. Öffnen Sie die Verwaltung und klicken Sie auf Aktualisieren. Dort erscheint „Demo-Kunde“ mit Ihren Reinigungsangaben. Kontaktdaten wurden nicht übertragen. Keine echte Buchung; Testdaten können bei einem Neustart verloren gehen.`:`Vielen Dank! Ihre Anfrage wurde gespeichert. Nummer: ${data.id}. Preisorientierung: ${currency.format(data.price)}. Dies ist noch keine Termin- oder Auftragsbestätigung.`;
     $('#demo-text').hidden=true;form.reset();requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
-  }catch(err){error.textContent=err.message;error.hidden=false;}
-  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Testanfrage an Verwaltung senden ↗︎':'Unverbindliche Anfrage senden ↗︎';}
+  }catch(err){error.textContent=translateUI(err.message);error.hidden=false;}
+  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?translateUI('Testanfrage an Verwaltung senden ↗︎'):translateUI('Unverbindliche Anfrage senden ↗︎');}
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',()=>{service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
@@ -80,21 +81,21 @@ async function init(){
     update();
     demoMode=Boolean(config.demoMode);
     if(demoMode){
-      $('#connection-note').textContent='Server-Demo: Nur Reinigungsangaben werden in der Verwaltung gespeichert. Name, E-Mail, Telefon und Adresse werden NICHT übertragen; dort erscheinen feste fiktive Beispieldaten. Testdaten können bei einem Neustart verloren gehen.';
-      $('#submit-note').textContent='Testanfrage für die Verwaltung. Keine echte Buchung und kein E-Mail-Versand.';
-      submit.textContent='Testanfrage an Verwaltung senden ↗︎';
+      $('#connection-note').textContent=translateUI('Server-Demo: Nur Reinigungsangaben werden in der Verwaltung gespeichert. Name, E-Mail, Telefon und Adresse werden NICHT übertragen; dort erscheinen feste fiktive Beispieldaten. Testdaten können bei einem Neustart verloren gehen.');
+      $('#submit-note').textContent=translateUI('Testanfrage für die Verwaltung. Keine echte Buchung und kein E-Mail-Versand.');
+      submit.textContent=translateUI('Testanfrage an Verwaltung senden ↗︎');
       $('#customer-name').value='Demo-Kunde';$('#customer-email').value='demo@example.invalid';$('#postcode').value='90402';$('#address').value='Musterstraße 1 (fiktiv)';
       const data=await api('api/form-token');token=data.token;tokenAt=Date.now();return;
     }
     if(!config.live)return;
     live=true;$('#customer-fields').disabled=false;
-    $('#mode-banner').textContent=`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Nürnberg & Umgebung'}`;
-    $('#connection-note').textContent='Unverbindliche Anfrage. Mindestens einen Kontaktweg angeben; * sind Pflichtfelder.';
-    $('#submit-note').textContent='Ihre Anfrage wird gespeichert. Ein Auftrag entsteht erst nach persönlicher Abstimmung.';
-    $('#price-note').textContent='Der Rechner zeigt eine unverbindliche Preisorientierung. Der konkrete Leistungsumfang und Endpreis werden vor einer Beauftragung abgestimmt.';
+    $('#mode-banner').textContent=translateUI(`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Nürnberg & Umgebung'}`);
+    $('#connection-note').textContent=translateUI('Unverbindliche Anfrage. Mindestens einen Kontaktweg angeben; * sind Pflichtfelder.');
+    $('#submit-note').textContent=translateUI('Ihre Anfrage wird gespeichert. Ein Auftrag entsteht erst nach persönlicher Abstimmung.');
+    $('#price-note').textContent=translateUI('Der Rechner zeigt eine unverbindliche Preisorientierung. Der konkrete Leistungsumfang und Endpreis werden vor einer Beauftragung abgestimmt.');
     $('.total small').textContent=config.business.priceNote;
     $('#footer-mode').textContent='Reinigungsservice';
-    submit.textContent='Unverbindliche Anfrage senden ↗︎';
+    submit.textContent=translateUI('Unverbindliche Anfrage senden ↗︎');
     $('#legal').querySelector('p').textContent='Eine Anfrage ist unverbindlich und keine Buchungsbestätigung. Die tatsächlichen Anbieter- und Datenschutzhinweise finden Sie über die Links im Fußbereich.';
     const data=await api('api/form-token');token=data.token;tokenAt=Date.now();
   }catch{

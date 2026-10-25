@@ -7,3 +7,8 @@ node_modules
 *.sqlite*
 *.log
 test
+
+dist
+e2e
+test-results
+playwright-report

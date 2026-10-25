@@ -1,0 +1,18 @@
+Klarraum — commercial distribution terms (draft for seller review)
+
+Copyright reserved by the respective rights holders. No open-source license is
+granted by publication of this repository. Third-party dependencies keep their
+own licenses; see THIRD-PARTY-NOTICES.md and the dependency packages.
+
+A paid customer's written order must identify the seller, buyer, version, price,
+number of company installations, permitted modifications, support, and updates.
+Unless that order says otherwise, the proposed grant is a non-exclusive right
+to operate and modify one installation for one company. It does not include
+resale or redistribution of the source, sublicensing it as a template, or
+exclusive rights. The seller may reuse the original code for other customers.
+
+These draft terms are not a signed contract and do not transfer rights by
+themselves. Marketplace purchases follow the applicable marketplace license.
+Mandatory statutory rights are unaffected. Final legal terms and third-party
+rights must be reviewed before accepting orders. No ready-to-use legal,
+tax, payroll or statutory time-recording compliance is promised by this draft.

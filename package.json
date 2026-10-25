@@ -1,6 +1,6 @@
 {
   "name": "klarraum-cleaning-demo",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "start": "node server.mjs",
@@ -9,7 +9,13 @@
     "admin:hash": "node scripts/hash-password.mjs",
     "secret:generate": "node --input-type=module -e \"import {randomBytes} from 'node:crypto';console.log(randomBytes(32).toString('base64url'))\"",
     "backup": "node scripts/backup.mjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "setup": "node scripts/setup.mjs",
+    "start:local": "node --env-file=.env.local server.mjs",
+    "release": "node scripts/package.mjs",
+    "restore": "node scripts/restore.mjs",
+    "licenses": "node scripts/licenses.mjs",
+    "doctor": "node --env-file-if-exists=.env.local scripts/doctor.mjs"
   },
   "engines": {
     "node": ">=24.13.0"
