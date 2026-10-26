@@ -7,6 +7,13 @@ import { createDirector } from './director.mjs';
 import { loadConfig } from './lib/config.mjs';
 
 export function createServerApp(config = loadConfig(), options = {}) {
+  // The public root is a US-facing fictional demo. Tenant installations carry
+  // their own selected locale in their path-scoped configuration.
+  if (config.demoMode && !config.basePath) {
+    config.timeZone='America/New_York';
+    config.currency='USD';
+    config.business={...config.business,postcodes:[]};
+  }
   let director;
   const activeRequests=new Set();
   const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
