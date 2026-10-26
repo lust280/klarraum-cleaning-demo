@@ -129,7 +129,15 @@ export function createDirector(config) {
         const expected=host===url.host?config.origin:`${url.protocol}//${host}`;
         if(req.headers.origin!==expected)fail(403,'Invalid origin.');
       }
-      const staticFile=(file,type)=>{const source=readFileSync(join(root,'director-public',file));const value=type.startsWith('text/html')?source.toString('utf8').replaceAll('Klarraum','KlarraumApp'):source;res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);};
+      const staticFile=(file,type)=>{
+        const source=readFileSync(join(root,'director-public',file));
+        let value=type.startsWith('text/html')?source.toString('utf8').replaceAll('Klarraum','KlarraumApp'):source;
+        if(file==='platform.html'){
+          value=value
+            .replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow"><meta name="description" content="KlarraumApp is operations software for cleaning businesses: customer bookings, team scheduling, jobs and reports."><link rel="canonical" href="https://klarraumapp.com/">');
+        }
+        res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);
+      };
       const mounted=config.mountedDemo&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
       if(mounted&&!mounted[2]){res.writeHead(302,{Location:route.pathname+'/'});return res.end();}
       if(host!==url.host || mounted) {

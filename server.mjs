@@ -35,6 +35,12 @@ export function createServerApp(config = loadConfig(), options = {}) {
       const url = new URL(req.url, config.origin);
       if(director?.maintenance&&url.pathname!=='/healthz'){res.writeHead(503,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Backup maintenance in progress. Retry shortly.'}));}
       activeRequests.add(res);res.once('finish',()=>activeRequests.delete(res));res.once('close',()=>activeRequests.delete(res));
+      // The custom production domain represents the platform. Keep the
+      // fictional cleaning-company page available inside tenant workspaces,
+      // but never use it as the public landing page or search result.
+      if(config.demoMode&&!config.basePath&&url.origin==='https://klarraumapp.com'&&url.pathname==='/'&&['GET','HEAD'].includes(req.method)){
+        res.writeHead(308,{Location:'/for-companies.html','Cache-Control':'no-store'});return res.end();
+      }
       if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/api/platform/')||url.pathname.startsWith('/companies/'))){
         director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:config.directorDataDir||resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true,quiesce,legacyDataDir:resolve(config.dbPath,'..'),legacyRuntime:{...config,dbPath:undefined,directorDataDir:undefined}});
         if(url.pathname==='/director.html')req.url='/';
