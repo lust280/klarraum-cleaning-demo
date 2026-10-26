@@ -21,7 +21,7 @@
     "platform:restore": "node scripts/platform-restore.mjs"
   },
   "engines": {
-    "node": ">=24.13.0"
+    "node": ">=24.22.1"
   },
   "type": "module",
   "devDependencies": {
