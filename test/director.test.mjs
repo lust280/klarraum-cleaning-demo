@@ -87,3 +87,26 @@ test('seat estimate separates invited and disabled employees and uses integer ce
  assert.equal((await f.post('logout',{})).status,200);
  assert.equal((await f.get('companies')).status,401);
 });
+test('mounted free demo serves a live director and two path-scoped companies without sharing owner sessions',async t=>{
+ const {createServerApp}=await import('../server.mjs');const {loadConfig}=await import('../lib/config.mjs');
+ const directory=await mkdtemp(join(tmpdir(),'klarraum-mounted-test-'));
+ const config={...loadConfig({DATA_DIR:directory,DEMO_ONLY:'true'}),passwordHash};const hosted=createServerApp(config);
+ await new Promise(r=>hosted.server.listen(0,'127.0.0.1',r));config.origin='http://127.0.0.1:'+hosted.server.address().port;
+ t.after(async()=>{if(hosted.director)await hosted.director.close();await new Promise(r=>hosted.server.close(r));await rm(directory,{recursive:true,force:true});});
+ async function request(path,{body,headers={},method=body?'POST':'GET'}={}){const r=await fetch(config.origin+path,{method,headers:{Origin:config.origin,'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});const text=await r.text();return {status:r.status,data:r.headers.get('content-type')?.includes('application/json')?JSON.parse(text):text,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};}
+ assert.equal((await request('/director.html')).status,200);assert.equal((await request('/api/director/companies')).status,401);
+ const login=await request('/api/director/login',{body:{password}});assert.equal(login.status,200);const director={Cookie:login.cookie,'X-CSRF-Token':login.data.csrf};const companies=[];
+ for(const name of ['Mounted A','Mounted B']){
+  const created=await request('/api/director/companies',{body:{name,baseCents:7900,included:3,seatCents:500},headers:director});assert.equal(created.status,201);
+  const u=new URL(created.data.inviteUrl),base='/companies/'+created.data.company.id+'/';assert.ok(u.pathname.startsWith(base));
+  assert.equal((await request(base+'api/owner-setup',{body:{token:new URLSearchParams(u.hash.slice(1)).get('token'),password}})).status,200);
+  const owner=await request(base+'api/admin/login',{body:{password}});assert.equal(owner.status,200);assert.ok(owner.headers.get('set-cookie').includes('Path='+base));
+  assert.equal((await request(base+'api/config')).data.site.company.name,name);
+  assert.equal((await request(base+'api/admin/customers',{headers:{Cookie:owner.cookie}})).status,200);
+  companies.push({base,cookie:owner.cookie});
+ }
+ assert.equal((await request(companies[1].base+'api/admin/employees',{headers:{Cookie:companies[0].cookie}})).status,401);
+ assert.equal((await request('/api/admin/session',{headers:{Cookie:companies[0].cookie}})).status,401);
+ assert.equal((await request('/api/director/companies',{headers:{Cookie:companies[0].cookie}})).status,401);
+ assert.equal((await request('/api/director/companies',{headers:director})).data.items.length,2);
+});

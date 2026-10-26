@@ -74,3 +74,10 @@ async function init(){
 }
 init();
 window.addEventListener('beforeunload',event=>{if(noteDrafts.size){event.preventDefault();event.returnValue='';}});
+
+// The shared-host director is available only on the root fictional-data demo.
+if(location.pathname==='/admin.html'&&!location.hostname.endsWith('.github.io')){
+ fetch(new URL('api/config',location.href)).then(r=>r.ok?r.json():null).then(config=>{
+  if(!config?.demoMode)return;const link=document.createElement('a');link.className='button small secondary';link.href='./director.html';link.textContent='Центральная панель';document.querySelector('header')?.append(link);
+ }).catch(()=>{});
+}

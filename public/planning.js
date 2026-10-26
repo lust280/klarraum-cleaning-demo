@@ -5,7 +5,7 @@ const keys={customer:crypto.randomUUID(),property:crypto.randomUUID()};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const iso=d=>d.toISOString().slice(0,10);
 function fail(e){$('#planning-error').textContent=translateUI(e.message);$('#planning-error').hidden=false;}
-async function api(path,options={}){const r=await fetch('/api/admin/'+path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});const data=await r.json();if(!r.ok)throw new Error(data.error||translateUI('Vorgang fehlgeschlagen.'));return data;}
+async function api(path,options={}){const r=await fetch(new URL('api/admin/'+path,location.href),{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});const data=await r.json();if(!r.ok)throw new Error(data.error||translateUI('Vorgang fehlgeschlagen.'));return data;}
 function act(name,fn){return button(name,async()=>{try{$('#planning-error').hidden=true;await fn();}catch(e){fail(e);}});}
 function option(select,id,name){let node=[...select.options].find(x=>x.value===id);if(!node){node=el('option');node.value=id;select.append(node);}node.textContent=name;return node;}
 function pagination(prefix,data,offset){$('#'+prefix+'-prev').disabled=offset===0;$('#'+prefix+'-next').disabled=offset+50>=data.total;const count=$('#'+prefix+'-count');if(count)count.textContent=translateUI(`${data.total} · ${data.total?offset+1:0}–${Math.min(data.total,offset+50)}`);}

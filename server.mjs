@@ -3,10 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApplication } from './lib/application.mjs';
+import { createDirector } from './director.mjs';
 import { loadConfig } from './lib/config.mjs';
 
 export function createServerApp(config = loadConfig(), options = {}) {
   const app = createApplication(config, options);
+  let director;
+  const directorPaths=new Set(['/director.html','/director.js','/director.css']);
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
   const server = createServer(async (req, res) => {
@@ -20,6 +23,11 @@ export function createServerApp(config = loadConfig(), options = {}) {
     for (const [name,value] of Object.entries(headers)) res.setHeader(name,value);
     try {
       const url = new URL(req.url, config.origin);
+      if(config.demoMode&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/companies/'))){
+        director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true});
+        if(url.pathname==='/director.html')req.url='/';
+        return director.server.emit('request',req,res);
+      }
       if (url.pathname.startsWith('/api/') || url.pathname === '/healthz') return await app.handle(req,res,url);
       if (url.pathname.startsWith('/media/')) return await app.serveMedia(req,res,url);
       if (url.pathname.startsWith('/private/jobs/')) return await app.serveJobPhoto(req,res,url);
@@ -41,8 +49,8 @@ export function createServerApp(config = loadConfig(), options = {}) {
   });
   server.headersTimeout = 15000;
   server.requestTimeout = 20000;
-  server.on('close', () => app.close());
-  return {server, app};
+  server.on('close', () => {app.close();if(director)director.close().catch(()=>{});});
+  return {server, app, get director(){return director;}};
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const {server} = createServerApp();

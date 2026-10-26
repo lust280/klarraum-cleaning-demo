@@ -24,10 +24,11 @@ export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
   const registry=join(config.dataDir,'director.sqlite'),store=new DirectorStore(registry);
   chmodSync(registry,0o600);store.bindAuth(digest(config.passwordHash));
+  let closing;
   const limiter=new RateLimiter(),children=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
   const cookieName=secure?'__Host-klarraum_director':'klarraum_director';
   const cookie=(token,age)=>`${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure?'; Secure':''}`;
-  const tenantOrigin=id=>`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
+  const tenantOrigin=id=>config.mountedDemo?`${config.origin}/companies/${id}`:`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
   const companyDir=id=>join(config.dataDir,'companies',id);
   function publicCompany(row) {
     let workers={active:0,invited:0,disabled:0},storage='not initialized';
@@ -71,7 +72,8 @@ export function createDirector(config) {
     if(item)fail(503,'Company is restarting. Retry shortly.');
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
-    const companyConfig=loadConfig({APP_ORIGIN:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,DEMO_ONLY:'true'});
+    const companyConfig=loadConfig({APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,DEMO_ONLY:'true'});
+    if(config.mountedDemo)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
     item={child,stopping:false,ready:null};children.set(row.id,item);
     item.ready=new Promise((resolveReady,reject)=>{
@@ -88,15 +90,19 @@ export function createDirector(config) {
     try {
       const host=req.headers.host?.toLowerCase(),route=new URL(req.url,config.origin),method=req.method;
       if(!host||req.url.startsWith('http'))fail(400,'Invalid request.');
+      if(config.mountedDemo&&host!==url.host)fail(404,'Unknown host.');
       if(method!=='GET'&&method!=='HEAD') {
         const expected=host===url.host?config.origin:`${url.protocol}//${host}`;
         if(req.headers.origin!==expected)fail(403,'Invalid origin.');
       }
       const staticFile=(file,type)=>{res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:readFileSync(join(root,'director-public',file)));};
-      if(host!==url.host) {
+      const mounted=config.mountedDemo&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
+      if(mounted&&!mounted[2]){res.writeHead(302,{Location:route.pathname+'/'});return res.end();}
+      if(host!==url.host || mounted) {
         const suffix='.'+config.domain+(url.port?':'+url.port:'');
-        if(!host.endsWith(suffix))fail(404,'Unknown company.');
-        const id=host.slice(0,-suffix.length);
+        if(!mounted&&!host.endsWith(suffix))fail(404,'Unknown company.');
+        const id=mounted?mounted[1]:host.slice(0,-suffix.length);
+        if(mounted){route.pathname=mounted[2];req.url=route.pathname+route.search;}
         if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(id))fail(404,'Unknown company.');
         const row=store.company(id);if(!row)fail(404,'Unknown company.');if(row.status!=='active')fail(423,'Company access is suspended. Data has not been deleted.');
         if(route.pathname==='/owner-setup.html'&&['GET','HEAD'].includes(method))return staticFile('owner-setup.html','text/html; charset=utf-8');
@@ -148,7 +154,7 @@ export function createDirector(config) {
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;
-  return {server,store,tenantOrigin,companyDir,async close(){await Promise.all([...children.keys()].map(stop));await new Promise(r=>server.close(r));store.close();}};
+  return {server,store,tenantOrigin,companyDir,close(){return closing ||= (async()=>{await Promise.all([...children.keys()].map(stop));await new Promise(r=>server.close(r));store.close();})();}};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   const director=createDirector(directorConfig());director.server.listen(Number(process.env.PORT||3100),'0.0.0.0',()=>console.log('Klarraum director started.'));
