@@ -5,7 +5,7 @@ const $ = selector => document.querySelector(selector);
 const form = $('#quote');
 const service=$('#service'), area=$('#area'), frequency=$('#frequency'), windows=$('#windows');
 const result=$('#result'), error=$('#form-error'), submit=$('#submit-inquiry');
-const currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
+let currencyCode='EUR',businessTimeZone='Europe/Berlin';let currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:currencyCode});
 let siteConfig=null;
 let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
@@ -70,13 +70,13 @@ form.addEventListener('submit',async event=>{
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',()=>{service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
-$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const setToday=()=>{$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());};setToday();
 async function init(){
   updatePricingLabels();
   $('#customer-fields').disabled=false;
   if(staticHost)return;
   try{
-    const config=await api('api/config');pricing=config.pricing;updatePricingLabels();
+    const config=await api('api/config');pricing=config.pricing;currencyCode=config.currency||currencyCode;businessTimeZone=config.timeZone||businessTimeZone;currency=new Intl.NumberFormat(navigator.language||'en-US',{style:'currency',currency:currencyCode});setToday();updatePricingLabels();
     if(config.site){siteConfig=config.site;applySite(config.site);updatePricingLabels();}
     update();
     demoMode=Boolean(config.demoMode);

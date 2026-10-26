@@ -50,7 +50,7 @@ export function createDirector(config) {
         workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));storage='readable';
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,trialEndsAt:row.trial_ends_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',trialEndsAt:row.trial_ends_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
   }
   async function body(req) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
@@ -102,7 +102,7 @@ export function createDirector(config) {
     if(item)fail(503,'Company is restarting. Retry shortly.');
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
-    const companyConfig=loadConfig({APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,DEMO_ONLY:'true'});
+    const companyConfig=loadConfig({APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'EUR',DEMO_ONLY:'true'});
     companyConfig.directorDisabled=true;
     if(config.mountedDemo)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
