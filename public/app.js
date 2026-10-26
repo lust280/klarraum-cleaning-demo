@@ -19,7 +19,7 @@ async function api(path, options={}) {
 function update(){
   result.hidden=true; error.hidden=true;
   try { $('#price').value=currency.format(estimate(service.value,Number(area.value),frequency.value,windows.checked,pricing)); }
-  catch { $('#price').value='Fläche prüfen'; }
+  catch { $('#price').value='Check area'; }
 }
 function updatePricingLabels(){
   $('#windows-label').textContent=`Add window cleaning (+${currency.format(pricing.windows)})`;

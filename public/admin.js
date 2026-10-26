@@ -6,14 +6,14 @@ const noteDrafts=new Map();
 const statusNames={new:translateUI('Neu'),contacted:translateUI('Kontaktiert'),confirmed:translateUI('Vereinbart'),completed:translateUI('Abgeschlossen')};
 const serviceNames={home:translateUI('Wohnung / Haus'),office:'Büro',deep:translateUI('Grundreinigung')};
 const frequencyNames={once:translateUI('Einmalig'),weekly:translateUI('Wöchentlich'),fortnightly:translateUI('Alle 2 Wochen')};
-const currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
-const dateFormat=new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Berlin'});
+const currency=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+const dateFormat=new Intl.DateTimeFormat('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:'America/New_York'});
 function showError(error){$('#admin-error').textContent=translateUI(error.message);$('#admin-error').hidden=false;}
 function clearError(){$('#admin-error').hidden=true;}
 async function api(path,options={}){
  const response=await fetch(new URL(path,location.href),{...options,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});
- const data=await response.json().catch(()=>({error:'Der Verwaltungsdienst ist nicht erreichbar.'}));
- if(!response.ok){if(response.status===401)showLogin();throw new Error(data.error||'Aktion fehlgeschlagen.');}
+ const data=await response.json().catch(()=>({error:'The administration service is unavailable.'}));
+ if(!response.ok){if(response.status===401)showLogin();throw new Error(data.error||'Action failed.');}
  return data;
 }
 function showLogin(){$('#dashboard').hidden=true;$('#login-panel').hidden=false;$('#logout').hidden=true;$('#inquiries').replaceChildren();csrf='';}
@@ -30,12 +30,12 @@ async function load(){
   const head=el('div',undefined,'inquiry-head');const title=el('div');title.append(el('h2',item.name),el('div',translateUI(`${dateFormat.format(item.createdAt)} · ${item.id.slice(0,8)}`),'meta'));
   head.append(title,el('span',statusNames[item.status],'badge'));card.append(head);
   const grid=el('div',undefined,'inquiry-grid');
-  for(const text of [`E-Mail: ${item.email||'—'}`,`Telefon: ${item.phone||'—'}`,`PLZ: ${item.postcode}`,`Adresse: ${item.address||'Wird abgestimmt'}`,`Leistung: ${item.serviceTitle||serviceNames[item.service]} · ${item.area} m²`,`Rhythmus: ${frequencyNames[item.frequency]}`,`Fenster: ${item.windows?'Ja':'Nein'}`,`Wunschtermin: ${item.date||'Offen'}`,`Preisorientierung: ${currency.format(item.price)}`])grid.append(el('p',text));
+  for(const text of [`Email: ${item.email||'—'}`,`Phone: ${item.phone||'—'}`,`Postal code: ${item.postcode}`,`Address: ${item.address||'To be agreed'}`,`Service: ${item.serviceTitle||serviceNames[item.service]} · ${item.area} m²`,`Frequency: ${frequencyNames[item.frequency]}`,`Windows: ${item.windows?'Yes':'No'}`,`Preferred date: ${item.date||'Open'}`,`Estimate: ${currency.format(item.price)}`])grid.append(el('p',text));
   card.append(grid);
   if(item.message)card.append(el('p',item.message));
-  const delivery={demo:'Testanfrage · keine E-Mail · Kontaktdaten fiktiv',sent:'Benachrichtigung versendet',pending:'Benachrichtigung ausstehend',failed:'Benachrichtigung fehlgeschlagen — Anfrage ist gespeichert'};
+  const delivery={demo:'Fictional test · no email · contact details omitted',sent:'Notification sent',pending:'Notification pending',failed:'Notification failed — inquiry was saved'};
   card.append(el('p',delivery[item.notification],`badge ${item.notification==='failed'?'failed':''}`));
-  const actions=el('div',undefined,'actions');const select=el('select');select.setAttribute('aria-label',`Status für ${item.name}`);
+  const actions=el('div',undefined,'actions');const select=el('select');select.setAttribute('aria-label',`Status for ${item.name}`);
   for(const [value,label] of Object.entries(statusNames)){const option=el('option',label);option.value=value;select.append(option);}select.value=item.status;
   select.addEventListener('change',async()=>{select.disabled=true;clearError();try{await api(`api/admin/inquiries/${item.id}`,{method:'PATCH',body:JSON.stringify({status:select.value})});await load();}catch(error){select.value=item.status;showError(error);}finally{select.disabled=false;}});
   actions.append(select);
@@ -69,8 +69,8 @@ $('#delete-cancel').addEventListener('click',()=>$('#delete-dialog').close());
 $('#delete-confirm').addEventListener('click',async()=>{const node=$('#delete-confirm');node.disabled=true;clearError();try{await api(`api/admin/inquiries/${deleteId}`,{method:'DELETE'});$('#delete-dialog').close();noteDrafts.delete(deleteId);if(offset>=total-1)offset=Math.max(0,offset-50);await load();}catch(error){showError(error);}finally{node.disabled=false;}});
 $('#pricing-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const fields=event.currentTarget.elements;const button=event.submitter;button.disabled=true;try{const pricing={rates:Object.fromEntries(['home','office','deep'].map(key=>[key,Number(fields[key].value)])),discounts:{once:1,weekly:1-Number(fields.weekly.value)/100,fortnightly:1-Number(fields.fortnightly.value)/100},minimum:Number(fields.minimum.value),windows:Number(fields.windows.value)};await api('api/admin/settings',{method:'PUT',body:JSON.stringify(pricing)});$('#pricing-status').textContent=translateUI('Preise gespeichert. Neue Kalkulationen verwenden diese Werte.');}catch(error){showError(error);}finally{button.disabled=false;}});
 async function init(){
- if(location.hostname.endsWith('.github.io')){$('#notice').textContent='Die öffentliche Vorschau hat keinen Administratorzugang. Die Verwaltung benötigt den eingerichteten Server.';return;}
- try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Melden Sie sich mit Ihrem Administrator-Passwort an. Wenn noch kein Server eingerichtet ist, ist keine Anmeldung möglich.';if(!error.message.includes('anmelden'))showError(error);}
+ if(location.hostname.endsWith('.github.io')){$('#notice').textContent='The public preview has no administrator access. Administration requires the configured server.';return;}
+ try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Sign in with your administrator password. Sign-in is unavailable until a server is configured.';if(!error.message.includes('sign in'))showError(error);}
 }
 init();
 window.addEventListener('beforeunload',event=>{if(noteDrafts.size){event.preventDefault();event.returnValue='';}});
@@ -78,6 +78,6 @@ window.addEventListener('beforeunload',event=>{if(noteDrafts.size){event.prevent
 // The shared-host director is available only on the root fictional-data demo.
 if(location.pathname==='/admin.html'&&!location.hostname.endsWith('.github.io')){
  fetch(new URL('api/config',location.href)).then(r=>r.ok?r.json():null).then(config=>{
-  if(!config?.demoMode)return;const link=document.createElement('a');link.className='button small secondary';link.href='./director.html';link.textContent='Центральная панель';document.querySelector('header')?.append(link);
+  if(!config?.demoMode)return;const link=document.createElement('a');link.className='button small secondary';link.href='./director.html';link.textContent='Director console';document.querySelector('header')?.append(link);
  }).catch(()=>{});
 }

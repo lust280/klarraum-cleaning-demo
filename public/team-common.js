@@ -2,12 +2,12 @@ import {t as translateUI} from './i18n.js';
 export const labels={assigned:translateUI('Geplant'),working:translateUI('In Arbeit'),paused:translateUI('Pausiert'),submitted:translateUI('Zur Prüfung'),closed:translateUI('Abgenommen'),cancelled:translateUI('Storniert')};
 export function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 export function button(label,fn,className='secondary'){const node=el('button',label,'button small '+className);node.type='button';node.addEventListener('click',async()=>{node.disabled=true;try{await fn();}finally{node.disabled=false;}});return node;}
-export function hours(milliseconds){return (milliseconds/3600000).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' Std.';}
+export function hours(milliseconds){return (milliseconds/3600000).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' hrs';}
 export function duration(milliseconds){const seconds=Math.floor(Math.max(0,milliseconds)/1000);return `${Math.floor(seconds/3600).toString().padStart(2,'0')}:${Math.floor(seconds/60)%60<10?'0':''}${Math.floor(seconds/60)%60}:${(seconds%60).toString().padStart(2,'0')}`;}
 export function displayJob(job){
  const card=el('article',undefined,'inquiry job-card');card.dataset.job=job.id;
  const head=el('div',undefined,'inquiry-head');head.append(el('h2',job.title),el('span',labels[job.state],'badge'));card.append(head);
- card.append(el('p',translateUI(`${job.scheduled_date} · ${job.scheduled_time} Uhr (Deutschland) · ${job.region}`),'meta'));
+ card.append(el('p',`${job.scheduled_date} · ${job.scheduled_time} · ${job.region}`,'meta'));
  const grid=el('div',undefined,'inquiry-grid');
  for(const text of [`Objekt: ${job.address}`,`Kontakt: ${job.customer||'—'} · ${job.contact||'—'}`,`Mitarbeiter: ${job.employeeName}`,`Geplant: ${job.planned_minutes} Minuten`])grid.append(el('p',translateUI(text)));card.append(grid);
  const time=el('strong',duration(job.workedMilliseconds),'work-time');card.append(time);
