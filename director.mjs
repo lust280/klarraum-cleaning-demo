@@ -4,6 +4,7 @@ import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {fork} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
+import {PlatformFinance, forecast, financeCsv} from './lib/platform-finance.mjs';
 import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
@@ -23,6 +24,7 @@ export function directorConfig(env=process.env) {
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
   const registry=join(config.dataDir,'director.sqlite'),store=new DirectorStore(registry);
+  const finance=new PlatformFinance(store);
   chmodSync(registry,0o600);store.bindAuth(digest(config.passwordHash));
   let closing;
   const limiter=new RateLimiter(),children=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
@@ -132,6 +134,20 @@ export function createDirector(config) {
       }
       if(route.pathname.startsWith('/api/director/')) {
         const auth=session(req,!['GET','HEAD'].includes(method));
+        const financePath=route.pathname.slice('/api/director/'.length);
+        if(financePath==='finance/report'&&method==='GET')return json(res,200,finance.report(route.searchParams.get('month')));
+        if(financePath==='finance/forecast'&&method==='POST')return json(res,200,forecast(await body(req)));
+        if(financePath==='finance/entries'&&method==='POST')return json(res,201,finance.add(await body(req),req.headers['idempotency-key']));
+        const voidMatch=/^finance\/entries\/([a-f0-9-]{36})\/void$/.exec(financePath);
+        if(voidMatch&&method==='POST')return json(res,200,finance.void(voidMatch[1],(await body(req)).reason));
+        if(financePath==='finance/snapshots'&&method==='GET')return json(res,200,{items:finance.snapshots(route.searchParams.get('month'))});
+        if(financePath==='finance/snapshots'&&method==='POST')return json(res,201,finance.snapshot((await body(req)).month));
+        const snapshotMatch=/^finance\/snapshots\/([a-f0-9-]{36})$/.exec(financePath);
+        if(snapshotMatch&&method==='GET'){
+          const report=finance.getSnapshot(snapshotMatch[1]);
+          if(route.searchParams.get('format')==='csv'){res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="platform-'+report.month+'.csv"'});return res.end(financeCsv(report));}
+          return json(res,200,report);
+        }
         if(route.pathname==='/api/director/session'&&method==='GET')return json(res,200,{csrf:auth.csrf});
         if(route.pathname==='/api/director/logout'&&method==='POST'){store.db.prepare('DELETE FROM director_sessions WHERE hash=?').run(auth.hash);res.setHeader('Set-Cookie',cookie('',0));return json(res,200,{ok:true});}
         if(route.pathname==='/api/director/companies'&&method==='GET')return json(res,200,{items:store.list().map(publicCompany)});
@@ -150,7 +166,7 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(files[route.pathname])return staticFile(...files[route.pathname]);fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });

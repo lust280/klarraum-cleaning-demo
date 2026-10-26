@@ -4,6 +4,7 @@ import {request as httpRequest} from 'node:http';
 import {mkdtemp,rm,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
 import {createDirector,directorConfig} from '../director.mjs';
 import {hashPassword} from '../lib/security.mjs';
 const password='director-test-password-only',passwordHash=await hashPassword(password);
@@ -110,4 +111,19 @@ test('mounted free demo serves a live director and two path-scoped companies wit
  assert.equal((await request('/api/admin/session',{headers:{Cookie:companies[0].cookie}})).status,401);
  assert.equal((await request('/api/director/companies',{headers:{Cookie:companies[0].cookie}})).status,401);
  assert.equal((await request('/api/director/companies',{headers:director})).data.items.length,2);
+});
+test('finance endpoints require director role, preserve snapshot export and do not infer revenue from paid flags',async t=>{
+ const f=await fixture(t),company=await f.create('Finance test');
+ assert.equal((await f.request('/api/director/finance/report?month=2026-10')).status,401);
+ assert.equal((await f.get('finance/report?month=2026-10')).data.incomeCents,0);
+ const current=(await f.get('companies')).data.items[0];await f.post('companies/'+current.id,{...current,payment:'paid'},'PUT');
+ assert.equal((await f.get('finance/report?month=2026-10')).data.incomeCents,0);
+ const entry={type:'expense',category:'hosting',amountCents:2900,date:'2026-10-26',companyId:null,note:'Fictional test expense'};
+ assert.equal((await f.request('/api/director/finance/entries',{body:entry,headers:{Cookie:f.auth.Cookie}})).status,403);
+ const headers={...f.auth,'Idempotency-Key':randomUUID()};
+ assert.equal((await f.request('/api/director/finance/entries',{body:entry,headers})).status,201);
+ assert.equal((await f.request('/api/director/finance/entries',{body:entry,headers})).status,201);
+ const saved=await f.post('finance/snapshots',{month:'2026-10'});assert.equal(saved.status,201);assert.equal(saved.data.expenseCents,2900);
+ const csv=await f.get('finance/snapshots/'+saved.data.id+'?format=csv');assert.equal(csv.status,200);assert.ok(csv.data.includes('Fictional test expense'));
+ const host=await f.activate(company),owner=await f.owner(host);assert.equal((await f.request('/api/director/finance/report?month=2026-10',{headers:owner})).status,401);
 });
