@@ -18,7 +18,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
   const activeRequests=new Set();
   const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
   async function quiesce(exclude){const until=Date.now()+15000;while([...activeRequests].some(item=>item!==exclude)){if(Date.now()>until)throw new Error('Active requests did not finish.');await new Promise(r=>setTimeout(r,25));}await app.drain();}
-  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/trial-activate.html','/platform.css','/platform.js','/trial-activate.js']);
+  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/platform-privacy.html','/platform-terms.html','/cookies.html','/trial-activate.html','/platform.css','/platform.js','/trial-activate.js']);
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
   const server = createServer(async (req, res) => {
