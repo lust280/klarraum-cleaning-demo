@@ -27,7 +27,7 @@ let language='en';try{const saved=localStorage.getItem('klarraum-director-langua
 export const lang=language;
 export const t=key=>messages[key]?.[{ru:0,en:1,de:2}[language]]??messages[key]?.[1]??key;
 export const money=value=>new Intl.NumberFormat({ru:'ru-RU',en:'en-IE',de:'de-DE'}[language],{style:'currency',currency:'EUR'}).format(value/100);
-export function translate(){document.documentElement.lang=language;document.title='Klarraum · '+t('title');for(const node of document.querySelectorAll('[data-i18n]'))node.textContent=t(node.dataset.i18n);const select=document.querySelector('#language');select.value=language;select.onchange=()=>{if(!confirm(t('reload'))){select.value=language;return;}try{localStorage.setItem('klarraum-director-language',select.value);location.reload();}catch{select.value=language;}};}
+export function translate(){document.documentElement.lang=language;document.title='KlarraumApp · '+t('title');for(const node of document.querySelectorAll('[data-i18n]'))node.textContent=t(node.dataset.i18n);const select=document.querySelector('#language');select.value=language;select.onchange=()=>{if(!confirm(t('reload'))){select.value=language;return;}try{localStorage.setItem('klarraum-director-language',select.value);location.reload();}catch{select.value=language;}};}
 const errors=[
  ['Backup password must contain 16–256 characters.','Пароль копии должен содержать 16–256 символов.','Backup-Passwort muss 16–256 Zeichen enthalten.'],
  ['Backup maintenance in progress. Retry shortly.','Создаётся резервная копия. Повторите действие немного позже.','Backup wird erstellt. Bitte kurz später erneut versuchen.'],
