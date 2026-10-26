@@ -41,6 +41,7 @@ test('two independent companies isolate owners, workers, activation links and di
  const hostA=await f.activate(a),hostB=await f.activate(b);
  assert.equal((await f.request('/api/owner-setup',{host:hostA,body:{token:new URL(a.inviteUrl).hash.slice(7),password}})).status,400);
  const ownerA=await f.owner(hostA),ownerB=await f.owner(hostB);
+ assert.equal((await f.request('/director.html',{host:hostA})).status,404);
  assert.equal((await f.request('/api/director/companies',{headers:ownerA})).status,401);
  assert.equal((await f.request('/api/admin/employees',{host:hostB,headers:ownerA})).status,401);
  assert.equal((await f.request('/api/admin/employees',{host:hostA,headers:f.auth})).status,401);

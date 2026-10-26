@@ -23,7 +23,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
     for (const [name,value] of Object.entries(headers)) res.setHeader(name,value);
     try {
       const url = new URL(req.url, config.origin);
-      if(config.demoMode&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/companies/'))){
+      if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/companies/'))){
         director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true});
         if(url.pathname==='/director.html')req.url='/';
         return director.server.emit('request',req,res);

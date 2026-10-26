@@ -73,6 +73,7 @@ export function createDirector(config) {
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
     const companyConfig=loadConfig({APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,DEMO_ONLY:'true'});
+    companyConfig.directorDisabled=true;
     if(config.mountedDemo)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
     item={child,stopping:false,ready:null};children.set(row.id,item);
