@@ -11,7 +11,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
   const activeRequests=new Set();
   const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
   async function quiesce(exclude){const until=Date.now()+15000;while([...activeRequests].some(item=>item!==exclude)){if(Date.now()>until)throw new Error('Active requests did not finish.');await new Promise(r=>setTimeout(r,25));}await app.drain();}
-  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-finance.js','/director-i18n.js','/director-backup.js']);
+  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/platform.css','/platform.js']);
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
   const server = createServer(async (req, res) => {
@@ -27,7 +27,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
       const url = new URL(req.url, config.origin);
       if(director?.maintenance&&url.pathname!=='/healthz'){res.writeHead(503,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Backup maintenance in progress. Retry shortly.'}));}
       activeRequests.add(res);res.once('finish',()=>activeRequests.delete(res));res.once('close',()=>activeRequests.delete(res));
-      if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/companies/'))){
+      if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/api/platform/')||url.pathname.startsWith('/companies/'))){
         director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:config.directorDataDir||resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true,quiesce,legacyDataDir:resolve(config.dbPath,'..'),legacyRuntime:{...config,dbPath:undefined,directorDataDir:undefined}});
         if(url.pathname==='/director.html')req.url='/';
         return director.server.emit('request',req,res);

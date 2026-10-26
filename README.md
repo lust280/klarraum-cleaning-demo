@@ -102,4 +102,4 @@ Interface controls support German/English through the header switch, stored loca
 
 ## Центральная панель / Director console
 
-Отдельный экспериментальный режим для независимых демонстрационных компаний: `npm run director`. Настройка, изоляция и ограничения: [docs/DIRECTOR-RU.md](docs/DIRECTOR-RU.md). Полная зашифрованная резервная копия и восстановление описаны в [docs/PLATFORM-BACKUP-RU.md](docs/PLATFORM-BACKUP-RU.md). Не включает автоматический биллинг или готовое публичное размещение.
+Отдельный экспериментальный режим для независимых демонстрационных компаний: `npm run director`. Настройка, изоляция и ограничения: [docs/DIRECTOR-RU.md](docs/DIRECTOR-RU.md). Публичная заявка компании и ручное одобрение описаны в [docs/COMPANY-ONBOARDING-RU.md](docs/COMPANY-ONBOARDING-RU.md); полная зашифрованная резервная копия и восстановление — в [docs/PLATFORM-BACKUP-RU.md](docs/PLATFORM-BACKUP-RU.md). Не включает автоматический биллинг или готовое публичное размещение.

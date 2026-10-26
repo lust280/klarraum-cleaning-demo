@@ -49,7 +49,7 @@ export function createDirector(config) {
         workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));storage='readable';
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,trialEndsAt:row.trial_ends_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
   }
   async function body(req) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
@@ -69,6 +69,18 @@ export function createDirector(config) {
     if(update&&(!['active','suspended'].includes(input.status)||!['trial','paid','overdue'].includes(input.payment)||!Number.isSafeInteger(input.version)))fail(400,'Invalid status/version.');
     return {...input,name:input.name.trim()};
   }
+  function checkedApplication(input) {
+    if(!input||typeof input!=='object')fail(400,'Invalid application.');
+    const text=(key,max,required=true)=>{const value=input[key]??'';if(typeof value!=='string'||(required&&!value.trim())||value.length>max||/[\x00-\x1f\x7f]/.test(value))fail(400,'Invalid application field.');return value.trim();};
+    const companyName=text('companyName',80),ownerName=text('ownerName',80),email=text('email',254).toLowerCase(),phone=text('phone',40,false),country=text('country',80,false),note=text('note',1000,false);
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail(400,'Enter a valid business email.');
+    if(!['en','de','ru'].includes(input.language))fail(400,'Invalid language.');
+    if(!Number.isSafeInteger(input.workers)||input.workers<0||input.workers>100000)fail(400,'Invalid worker count.');
+    if(input.consent!==true)fail(400,'Consent is required.');
+    if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test applications only. Use an email ending in .invalid.');
+    return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,note};
+  }
+  function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
   async function stop(id) {
     const item=children.get(id);if(!item)return;
     item.stopping=true;
@@ -134,6 +146,11 @@ export function createDirector(config) {
         proxy.on('error',()=>{if(!res.headersSent)json(res,502,{error:'Company unavailable. Retry shortly.'});else res.destroy();});
         req.on('aborted',()=>proxy.destroy());req.pipe(proxy);return;
       }
+      if(route.pathname==='/api/platform/status'&&method==='GET')return json(res,200,{demo:Boolean(config.mountedDemo)});
+      if(route.pathname==='/api/platform/applications'&&method==='POST') {
+        if(!limiter.allow('application:'+req.socket.remoteAddress,5,3600000,Date.now()))fail(429,'Too many applications. Try again later.');
+        const application=store.submitApplication(checkedApplication(await body(req)));return json(res,201,{applicationId:application.id,status:application.status});
+      }
       if(route.pathname==='/api/director/login'&&method==='POST') {
         if(!limiter.allow('login:'+req.socket.remoteAddress,8,900000,Date.now()))fail(429,'Too many attempts. Try later.');
         const input=await body(req);if(!await verifyPassword(input.password,config.passwordHash))fail(401,'Invalid credentials.');
@@ -188,6 +205,19 @@ export function createDirector(config) {
           const created=store.create(checked(await body(req)));
           return json(res,201,{company:publicCompany(created.row),inviteUrl:tenantOrigin(created.row.id)+'/owner-setup.html#token='+created.token});
         }
+        if(route.pathname==='/api/director/applications'&&method==='GET')return json(res,200,{items:store.applications().map(publicApplication)});
+        const applicationMatch=/^\/api\/director\/applications\/([a-f0-9-]{36})(?:\/(approve|status))?$/.exec(route.pathname);
+        if(applicationMatch) {
+          const application=store.application(applicationMatch[1]);if(!application)fail(404,'Application not found.');
+          if(applicationMatch[2]==='approve'&&method==='POST') {
+            const created=store.approveApplication(application.id,checked(await body(req)));
+            return json(res,201,{application:publicApplication(created.application),company:publicCompany(created.row),inviteUrl:tenantOrigin(created.row.id)+'/owner-setup.html#token='+created.token});
+          }
+          if(applicationMatch[2]==='status'&&method==='PUT') {
+            const input=await body(req);if(!Number.isSafeInteger(input.version))fail(400,'Invalid application version.');
+            return json(res,200,publicApplication(store.setApplicationStatus(application.id,input)));
+          }
+        }
         const match=/^\/api\/director\/companies\/([a-f0-9-]{36})(?:\/(invite|events))?$/.exec(route.pathname);
         if(match) {
           const row=store.company(match[1]);if(!row)fail(404,'Company not found.');
@@ -199,7 +229,7 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(files[route.pathname])return staticFile(...files[route.pathname]);fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });

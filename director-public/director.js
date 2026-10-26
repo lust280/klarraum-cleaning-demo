@@ -1,6 +1,7 @@
 import {t,money,translate,errorText} from './director-i18n.js';
 import {createFinance} from './director-finance.js';
 import {createBackupPanel} from './director-backup.js';
+import {createApplications} from './director-applications.js';
 translate();
 let csrf='',companies=[];
 const $=s=>document.querySelector(s);
@@ -19,7 +20,7 @@ function render(){
   const link=el('a',t('openSite'));link.href=c.origin;link.target='_blank';link.rel='noopener';card.append(link);
   const w=c.workers;card.append(el('p',w?`${t('active')}: ${w.active} · ${t('invited')}: ${w.invited} · ${t('disabled')}: ${w.disabled}`:t('unavailable')));
   card.append(el('p',`${t('owner')}: ${t(c.activated?'activated':'pending')} · ${t('access')}: ${t(c.status==='active'?'open':'suspended')}`));
-  card.append(el('p',c.estimatedCents===null?t('unavailable'):`${t('estimate')}: ${money(c.baseCents)} + ${Math.max(0,w.active-c.included)} × ${money(c.seatCents)} = ${money(c.estimatedCents)}/${t('monthUnit')}`));
+  card.append(el('p',c.estimatedCents===null?t('unavailable'):`${t('estimate')}: ${money(c.baseCents)} + ${Math.max(0,w.active-c.included)} × ${money(c.seatCents)} = ${money(c.estimatedCents)}/${t('monthUnit')}`));if(c.trialEndsAt)card.append(el('p',`Trial ends: ${new Date(c.trialEndsAt).toLocaleDateString(document.documentElement.lang)}`,'meta'));
   const form=el('form');form.append(label(t('name'),'name',c.name),label(t('base'),'base',c.baseCents/100,'number'),label(t('included'),'included',c.included,'number'),label(t('seat'),'seat',c.seatCents/100,'number'),select(t('access'),'status',c.status,[['active',t('open')],['suspended',t('suspended')]]),select(t('payment'),'payment',c.payment,[['trial',t('trial')],['paid',t('paid')],['overdue',t('overdue')]]));
   const save=el('button',t('save'));form.append(save);form.addEventListener('submit',e=>{e.preventDefault();busy(save,async()=>{await api('companies/'+c.id,{method:'PUT',body:{...tariff(form),status:form.elements.status.value,payment:form.elements.payment.value,version:c.version}});await refresh();});});card.append(form);
   const actions=el('div',undefined,'actions');if(!c.activated){const button=el('button',t('newInvite'),'secondary');button.onclick=()=>busy(button,async()=>{const data=await api('companies/'+c.id+'/invite',{method:'POST',body:{}});invite(data.inviteUrl);await refresh();});actions.append(button);}
@@ -31,7 +32,8 @@ function render(){
 const finance=createFinance({api,busy,el,label});
 const backups=createBackupPanel({api,busy,getCsrf:()=>csrf});
 async function refresh(){companies=(await api('companies')).items;render();}
-async function entered(){await refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
+const applications=createApplications({api,busy,el,label,invite,onApproved:refresh});
+async function entered(){await refresh();await applications.refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
 $('#login-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{csrf=(await api('login',{method:'POST',body:{password:e.target.elements.password.value}})).csrf;e.target.reset();await entered();});};
 $('#create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{const data=await api('companies',{method:'POST',body:tariff(e.target)});e.target.reset();invite(data.inviteUrl);await refresh();});};
 $('#refresh').onclick=e=>busy(e.target,refresh);$('#search').oninput=render;
