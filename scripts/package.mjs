@@ -9,7 +9,7 @@ const destination=resolve(process.env.RELEASE_DIR||join(root,'dist'));await mkdi
 const temporary=await mkdtemp(join(tmpdir(),'klarraum-release-'));
 const name='klarraum-'+pkg.version,folder=join(temporary,name);await mkdir(folder);
 // Explicit allowlist: never traverse data, .git, node_modules, .env*, screenshots or logs.
-const allowed=['lib','public','scripts','docs','test','e2e','server.mjs','pricing.test.mjs','playwright.config.mjs','package.json','package-lock.json','.node-version','.env.example','Dockerfile','compose.yaml','.dockerignore','render.yaml','render-production.yaml','README.md','CHANGELOG.md','LICENSE.txt','THIRD-PARTY-NOTICES.md'];
+const allowed=['director.mjs','director-public','lib','public','scripts','docs','test','e2e','server.mjs','pricing.test.mjs','playwright.config.mjs','package.json','package-lock.json','.node-version','.env.example','.env.director.example','Dockerfile','compose.yaml','.dockerignore','render.yaml','render-production.yaml','README.md','CHANGELOG.md','LICENSE.txt','THIRD-PARTY-NOTICES.md'];
 try {
  for(const item of allowed)await cp(join(root,item),join(folder,item),{recursive:true,dereference:false,verbatimSymlinks:true});
  const files=execFileSync('find',[folder,'-type','l'],{encoding:'utf8'}).trim();if(files)throw new Error('Release contains symbolic links; inspect source files.');

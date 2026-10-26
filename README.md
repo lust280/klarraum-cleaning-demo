@@ -99,3 +99,7 @@ See [German installation and buyer guide](docs/INSTALL-DE.md), [English installa
 - Employees have a private notification inbox. Optional Resend operational email is off by default and blocked in the demo; it is queued, retried at most five times, and contains no customer address. It is checked approximately once per minute while the server runs. A successful provider response does not prove inbox delivery.
 
 Interface controls support German/English through the header switch, stored locally in the browser. Buyer documentation and listing drafts are available in DE/EN. Company copy, customer/staff data and legal documents retain their entered language; the interface switch does not translate these records. Dates, schedules, currency and exports follow the German business context (Europe/Berlin, EUR). Unmapped validation messages retain the original German text. No marketplace account or paid listing was created by this release.
+
+## Центральная панель / Director console
+
+Отдельный экспериментальный режим для независимых демонстрационных компаний: `npm run director`. Настройка, изоляция и ограничения: [docs/DIRECTOR-RU.md](docs/DIRECTOR-RU.md). Не включает автоматический биллинг или готовое публичное размещение.

@@ -15,7 +15,8 @@
     "release": "node scripts/package.mjs",
     "restore": "node scripts/restore.mjs",
     "licenses": "node scripts/licenses.mjs",
-    "doctor": "node --env-file-if-exists=.env.local scripts/doctor.mjs"
+    "doctor": "node --env-file-if-exists=.env.local scripts/doctor.mjs",
+    "director": "node --env-file-if-exists=.env.director director.mjs"
   },
   "engines": {
     "node": ">=24.13.0"
