@@ -26,7 +26,7 @@ To configure a private local installation, copy `.env.example` to `.env.local`, 
 - Password hashing with scrypt, random server-side sessions stored as hashes, HttpOnly/SameSite cookies, secure cookies in production, origin and CSRF checks, login limits and security headers.
 - Owner dashboard at `/admin.html`: filter, paginate, change status, delete, retry notification and update prices/discounts.
 - Eight-hour session expiry, session invalidation when credentials or application secret change, configurable automatic active-data retention (90 days by default).
-- Consistent backup command and restoration verification in tests. Off-disk backups and their schedule still need configuring on the selected host.
+- Consistent backup command and restoration verification in tests. The director console can also download an encrypted full-platform backup; off-disk storage and its schedule still need configuring on the selected host.
 - Clearly marked legal templates. They are not a complete legal review or a substitute for real company information.
 
 ## Tests
@@ -102,4 +102,4 @@ Interface controls support German/English through the header switch, stored loca
 
 ## Центральная панель / Director console
 
-Отдельный экспериментальный режим для независимых демонстрационных компаний: `npm run director`. Настройка, изоляция и ограничения: [docs/DIRECTOR-RU.md](docs/DIRECTOR-RU.md). Не включает автоматический биллинг или готовое публичное размещение.
+Отдельный экспериментальный режим для независимых демонстрационных компаний: `npm run director`. Настройка, изоляция и ограничения: [docs/DIRECTOR-RU.md](docs/DIRECTOR-RU.md). Полная зашифрованная резервная копия и восстановление описаны в [docs/PLATFORM-BACKUP-RU.md](docs/PLATFORM-BACKUP-RU.md). Не включает автоматический биллинг или готовое публичное размещение.

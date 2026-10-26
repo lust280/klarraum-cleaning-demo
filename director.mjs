@@ -1,5 +1,9 @@
 import {createServer,request as httpRequest} from 'node:http';
-import {readFileSync,mkdirSync,existsSync,chmodSync} from 'node:fs';
+import {readFileSync,mkdirSync,existsSync,chmodSync,writeFileSync,unlinkSync,createReadStream} from 'node:fs';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {pipeline} from 'node:stream/promises';
+import {createPlatformBackup} from './lib/platform-backup.mjs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {fork} from 'node:child_process';
@@ -23,10 +27,12 @@ export function directorConfig(env=process.env) {
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
-  const registry=join(config.dataDir,'director.sqlite'),store=new DirectorStore(registry);
-  const finance=new PlatformFinance(store);
-  chmodSync(registry,0o600);store.bindAuth(digest(config.passwordHash));
-  let closing;
+  const marker=join(config.dataDir,'.platform-running'),markerToken=randomToken();
+  writeFileSync(marker,markerToken,{flag:'wx',mode:0o600});
+  let store,finance;const registry=join(config.dataDir,'director.sqlite');
+  try{store=new DirectorStore(registry);finance=new PlatformFinance(store);chmodSync(registry,0o600);store.bindAuth(digest(config.passwordHash));}catch(error){store?.close();unlinkSync(marker);throw error;}
+  let closing,maintenance=false;
+  const requests=new Set();
   const limiter=new RateLimiter(),children=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
   const cookieName=secure?'__Host-klarraum_director':'klarraum_director';
   const cookie=(token,age)=>`${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure?'; Secure':''}`;
@@ -81,7 +87,7 @@ export function createDirector(config) {
     item={child,stopping:false,ready:null};children.set(row.id,item);
     item.ready=new Promise((resolveReady,reject)=>{
       const timer=setTimeout(()=>{child.kill();reject(new Error('Company start timed out.'));},15000);timer.unref();
-      child.once('message',message=>{if(!Number.isInteger(message?.port)){child.kill();return;}clearTimeout(timer);resolveReady(message.port);});
+      child.once('message',message=>{if(!Number.isInteger(message?.port)){child.kill();return;}clearTimeout(timer);store.db.prepare('UPDATE companies SET initialized_at=COALESCE(initialized_at,?) WHERE id=?').run(Date.now(),row.id);resolveReady(message.port);});
       child.once('error',()=>{clearTimeout(timer);reject(new Error('Company start failed.'));});
       child.once('exit',()=>{clearTimeout(timer);if(children.get(row.id)===item)children.delete(row.id);reject(new Error('Company stopped.'));});
     });child.send(companyConfig);return item.ready;
@@ -91,6 +97,8 @@ export function createDirector(config) {
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     if(secure)res.setHeader('Strict-Transport-Security','max-age=31536000');
     try {
+      if(maintenance)fail(503,'Backup maintenance in progress. Retry shortly.');
+      requests.add(res);res.once('finish',()=>requests.delete(res));res.once('close',()=>requests.delete(res));
       const host=req.headers.host?.toLowerCase(),route=new URL(req.url,config.origin),method=req.method;
       if(!host||req.url.startsWith('http'))fail(400,'Invalid request.');
       if(config.mountedDemo&&host!==url.host)fail(404,'Unknown host.');
@@ -134,6 +142,31 @@ export function createDirector(config) {
       }
       if(route.pathname.startsWith('/api/director/')) {
         const auth=session(req,!['GET','HEAD'].includes(method));
+        if(route.pathname==='/api/director/backups/status'&&method==='GET'){
+          const value=store.db.prepare("SELECT value FROM director_meta WHERE key='last_backup'").get();
+          return json(res,200,{lastPrepared:value?JSON.parse(value.value):null,offsiteVerified:false,automatic:false});
+        }
+        if(route.pathname==='/api/director/backups/download'&&method==='POST'){
+          if(!limiter.allow('backup',3,900000,Date.now()))fail(429,'Too many backup requests. Try later.');
+          const input=await body(req);
+          if(typeof input.password!=='string'||input.password.length<16||input.password.length>256)fail(400,'Backup password must contain 16–256 characters.');
+          if(maintenance)fail(409,'A backup is already running.');
+          maintenance=true;let temporary;
+          try{
+            const until=Date.now()+15000;
+            while([...requests].some(item=>item!==res)){if(Date.now()>until)fail(503,'Active requests did not finish. Retry backup later.');await new Promise(r=>setTimeout(r,25));}
+            if(config.quiesce)await config.quiesce(res);
+            await Promise.all([...children.keys()].map(stop));
+            temporary=await mkdtemp(join(tmpdir(),'klarraum-backup-download-'));
+            const path=join(temporary,'platform.klrb');
+            const result=await createPlatformBackup({dataDir:config.dataDir,legacyDataDir:config.legacyDataDir||null,runtime:{mode:config.mountedDemo?'mounted-demo':'standalone',origin:config.origin,domain:config.domain,directorPasswordHash:config.passwordHash,legacy:config.legacyRuntime||null},password:input.password,destination:path,quiesced:true});
+            store.db.prepare("INSERT INTO director_meta VALUES('last_backup',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(result));
+            store.event(null,'backup_prepared',{createdAt:result.createdAt,companies:result.companies,size:result.size});
+            maintenance=false;
+            res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':result.size,'Content-Disposition':'attachment; filename="klarraum-platform-'+result.createdAt.slice(0,10)+'.klrb"'});
+            await pipeline(createReadStream(path),res);return;
+          }finally{maintenance=false;if(temporary)await rm(temporary,{recursive:true,force:true});}
+        }
         const financePath=route.pathname.slice('/api/director/'.length);
         if(financePath==='finance/report'&&method==='GET')return json(res,200,finance.report(route.searchParams.get('month')));
         if(financePath==='finance/forecast'&&method==='POST')return json(res,200,forecast(await body(req)));
@@ -166,12 +199,12 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(files[route.pathname])return staticFile(...files[route.pathname]);fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;
-  return {server,store,tenantOrigin,companyDir,close(){return closing ||= (async()=>{await Promise.all([...children.keys()].map(stop));await new Promise(r=>server.close(r));store.close();})();}};
+  return {server,store,tenantOrigin,companyDir,get maintenance(){return maintenance;},close(){return closing ||= (async()=>{await Promise.all([...children.keys()].map(stop));await new Promise(r=>server.close(r));store.close();if(existsSync(marker)&&readFileSync(marker,'utf8')===markerToken)unlinkSync(marker);})();}};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   const director=createDirector(directorConfig());director.server.listen(Number(process.env.PORT||3100),'0.0.0.0',()=>console.log('Klarraum director started.'));

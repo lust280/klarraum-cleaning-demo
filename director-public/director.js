@@ -1,5 +1,6 @@
 import {t,money,translate,errorText} from './director-i18n.js';
 import {createFinance} from './director-finance.js';
+import {createBackupPanel} from './director-backup.js';
 translate();
 let csrf='',companies=[];
 const $=s=>document.querySelector(s);
@@ -28,8 +29,9 @@ function render(){
  if(!companies.length)target.append(el('p',t('empty')));finance.companyOptions(companies);
 }
 const finance=createFinance({api,busy,el,label});
+const backups=createBackupPanel({api,busy,getCsrf:()=>csrf});
 async function refresh(){companies=(await api('companies')).items;render();}
-async function entered(){await refresh();await finance.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
+async function entered(){await refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
 $('#login-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{csrf=(await api('login',{method:'POST',body:{password:e.target.elements.password.value}})).csrf;e.target.reset();await entered();});};
 $('#create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{const data=await api('companies',{method:'POST',body:tariff(e.target)});e.target.reset();invite(data.inviteUrl);await refresh();});};
 $('#refresh').onclick=e=>busy(e.target,refresh);$('#search').oninput=render;

@@ -14,7 +14,7 @@ async function fixture(t){
  const d=createDirector(config);await new Promise(r=>d.server.listen(0,'127.0.0.1',r));
  const port=d.server.address().port;
  async function request(path,{host='director.localhost:3100',body,method=body?'POST':'GET',headers={}}={}){
-  return new Promise((resolve,reject)=>{const req=httpRequest({hostname:'127.0.0.1',port,path,method,headers:{Host:host,Origin:'http://'+host,'Content-Type':'application/json',...headers}},res=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>{const text=Buffer.concat(chunks).toString();resolve({status:res.statusCode,data:res.headers['content-type']?.includes('application/json')?JSON.parse(text):text,headers:res.headers});});});req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));});
+  return new Promise((resolve,reject)=>{const req=httpRequest({hostname:'127.0.0.1',port,path,method,headers:{Host:host,Origin:'http://'+host,'Content-Type':'application/json',...headers}},res=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>{const raw=Buffer.concat(chunks),text=raw.toString();resolve({raw,status:res.statusCode,data:res.headers['content-type']?.includes('application/json')?JSON.parse(text):text,headers:res.headers});});});req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));});
  }
  t.after(async()=>{await d.close();await rm(directory,{recursive:true,force:true});});
  const login=await request('/api/director/login',{body:{password}});assert.equal(login.status,200);
@@ -126,4 +126,29 @@ test('finance endpoints require director role, preserve snapshot export and do n
  const saved=await f.post('finance/snapshots',{month:'2026-10'});assert.equal(saved.status,201);assert.equal(saved.data.expenseCents,2900);
  const csv=await f.get('finance/snapshots/'+saved.data.id+'?format=csv');assert.equal(csv.status,200);assert.ok(csv.data.includes('Fictional test expense'));
  const host=await f.activate(company),owner=await f.owner(host);assert.equal((await f.request('/api/director/finance/report?month=2026-10',{headers:owner})).status,401);
+});
+test('director can download an encrypted consistent backup while company owners cannot; original company resumes',async t=>{
+ const {writeFile}=await import('node:fs/promises');const {inspectPlatformBackup,restorePlatformBackup}=await import('../lib/platform-backup.mjs');
+ const f=await fixture(t),company=await f.create('Backup company'),host=await f.activate(company),owner=await f.owner(host);
+ const backupPassword='test-backup-download-password';
+ assert.equal((await f.request('/api/director/backups/status',{headers:owner})).status,401);
+ assert.equal((await f.request('/api/director/backups/download',{body:{password:backupPassword},headers:{Cookie:f.auth.Cookie}})).status,403);
+ assert.equal((await f.get('backups/status')).data.automatic,false);
+ const download=await f.post('backups/download',{password:backupPassword});assert.equal(download.status,200);assert.equal(download.raw.subarray(0,8).toString(),'KLRPLAT1');
+ const path=join(f.directory,'download.klrb');await writeFile(path,download.raw);const checked=await inspectPlatformBackup({source:path,password:backupPassword});assert.equal(checked.companies,1);
+ const restored=await restorePlatformBackup({source:path,password:backupPassword,target:join(f.directory,'recovery')});assert.equal(restored.sessionsRevoked,true);
+ assert.equal((await f.request('/api/admin/employees',{host,headers:owner})).status,200);assert.equal((await f.get('backups/status')).data.lastPrepared.companies,1);assert.equal(f.d.maintenance,false);
+});
+test('graceful hosted shutdown releases the platform marker and allows restart on persistent storage',async t=>{
+ const {fork}=await import('node:child_process');const {once}=await import('node:events');const {access}=await import('node:fs/promises');
+ const dir=await mkdtemp(join(tmpdir(),'platform-restart-'));let child;
+ t.after(async()=>{if(child?.exitCode===null){child.kill('SIGTERM');await once(child,'exit');}await rm(dir,{recursive:true,force:true});});
+ for(let i=0;i<2;i++){
+  child=fork(new URL('../server.mjs',import.meta.url),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,DATA_DIR:dir,DEMO_ONLY:'true',ADMIN_PASSWORD_HASH:passwordHash,APP_ORIGIN:'http://director.localhost:3100',PORT:'0'}});
+  const [message]=await once(child,'message');
+  const status=await new Promise((resolve,reject)=>{const r=httpRequest({hostname:'127.0.0.1',port:message.port,path:'/director.html',headers:{Host:'director.localhost:3100'}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});r.on('error',reject);r.end();});assert.equal(status,200);
+  await access(join(dir,'director','.platform-running'));
+  const exited=once(child,'exit');child.kill('SIGTERM');await exited;
+  await assert.rejects(access(join(dir,'director','.platform-running')));
+ }
 });

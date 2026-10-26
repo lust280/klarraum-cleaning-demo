@@ -7,9 +7,11 @@ import { createDirector } from './director.mjs';
 import { loadConfig } from './lib/config.mjs';
 
 export function createServerApp(config = loadConfig(), options = {}) {
-  const app = createApplication(config, options);
   let director;
-  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-finance.js','/director-i18n.js']);
+  const activeRequests=new Set();
+  const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
+  async function quiesce(exclude){const until=Date.now()+15000;while([...activeRequests].some(item=>item!==exclude)){if(Date.now()>until)throw new Error('Active requests did not finish.');await new Promise(r=>setTimeout(r,25));}await app.drain();}
+  const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-finance.js','/director-i18n.js','/director-backup.js']);
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
   const server = createServer(async (req, res) => {
@@ -23,8 +25,10 @@ export function createServerApp(config = loadConfig(), options = {}) {
     for (const [name,value] of Object.entries(headers)) res.setHeader(name,value);
     try {
       const url = new URL(req.url, config.origin);
+      if(director?.maintenance&&url.pathname!=='/healthz'){res.writeHead(503,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Backup maintenance in progress. Retry shortly.'}));}
+      activeRequests.add(res);res.once('finish',()=>activeRequests.delete(res));res.once('close',()=>activeRequests.delete(res));
       if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/companies/'))){
-        director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true});
+        director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:config.directorDataDir||resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true,quiesce,legacyDataDir:resolve(config.dbPath,'..'),legacyRuntime:{...config,dbPath:undefined,directorDataDir:undefined}});
         if(url.pathname==='/director.html')req.url='/';
         return director.server.emit('request',req,res);
       }
@@ -53,10 +57,10 @@ export function createServerApp(config = loadConfig(), options = {}) {
   return {server, app, get director(){return director;}};
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const {server} = createServerApp();
-  server.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => console.log('Klarraum server started.'));
+  const hosted = createServerApp(), {server} = hosted;
+  server.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => {console.log('Klarraum server started.');process.send?.({port:server.address().port});});
   for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => {
-    server.close(() => process.exit(0));
+    server.close(async () => {if(hosted.director)await hosted.director.close();process.exit(0);});
     setTimeout(() => process.exit(1), 15000).unref();
   });
 }

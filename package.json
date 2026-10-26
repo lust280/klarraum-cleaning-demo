@@ -16,7 +16,9 @@
     "restore": "node scripts/restore.mjs",
     "licenses": "node scripts/licenses.mjs",
     "doctor": "node --env-file-if-exists=.env.local scripts/doctor.mjs",
-    "director": "node --env-file-if-exists=.env.director director.mjs"
+    "director": "node --env-file-if-exists=.env.director director.mjs",
+    "platform:backup": "node scripts/platform-backup.mjs",
+    "platform:restore": "node scripts/platform-restore.mjs"
   },
   "engines": {
     "node": ">=24.13.0"
