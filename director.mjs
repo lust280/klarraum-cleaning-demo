@@ -9,6 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {fork} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
 import {PlatformFinance, forecast, financeCsv} from './lib/platform-finance.mjs';
+import {sendTrialVerification} from './lib/trial-mail.mjs';
 import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
@@ -23,7 +24,7 @@ export function directorConfig(env=process.env) {
   if(!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)||parsed.hostname===domain||parsed.hostname.endsWith('.'+domain))throw new Error('Use a distinct director hostname and company base domain.');
   if(parsed.protocol!=='https:'&&!(parsed.hostname.endsWith('.localhost')&&domain.endsWith('.localhost')))throw new Error('Public director requires HTTPS.');
   if(!validPasswordHash(env.DIRECTOR_PASSWORD_HASH))throw new Error('Set DIRECTOR_PASSWORD_HASH using npm run admin:hash.');
-  return {origin,domain:domain.toLowerCase(),passwordHash:env.DIRECTOR_PASSWORD_HASH,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning:20};
+  return {origin,domain:domain.toLowerCase(),passwordHash:env.DIRECTOR_PASSWORD_HASH,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning:20,trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
@@ -79,6 +80,15 @@ export function createDirector(config) {
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test applications only. Use an email ending in .invalid.');
     return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,note};
+  }
+  function checkedTrial(input) {
+    if(!input||typeof input!=='object')fail(400,'Invalid trial registration.');
+    const text=(key,max)=>{const value=input[key];if(typeof value!=='string'||!value.trim()||value.length>max||/[\x00-\x1f\x7f]/.test(value))fail(400,'Invalid trial registration field.');return value.trim();};
+    const companyName=text('companyName',80),ownerName=text('ownerName',80),email=text('email',254).toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail(400,'Enter a valid business email.');
+    if(!['en','de','ru'].includes(input.language))fail(400,'Invalid language.');
+    if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test registrations only. Use an email ending in .invalid.');
+    return {companyName,ownerName,email,language:input.language};
   }
   function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
   async function stop(id) {
@@ -147,6 +157,22 @@ export function createDirector(config) {
         req.on('aborted',()=>proxy.destroy());req.pipe(proxy);return;
       }
       if(route.pathname==='/api/platform/status'&&method==='GET')return json(res,200,{demo:Boolean(config.mountedDemo)});
+      if(route.pathname==='/api/platform/trials'&&method==='POST') {
+        if(!limiter.allow('trial:'+req.socket.remoteAddress,3,3600000,Date.now()))fail(429,'Too many trial registrations. Try again later.');
+        const input=checkedTrial(await body(req));
+        if(!config.mountedDemo&&!config.trialEmailSender&&(!config.trialMail?.key||!config.trialMail?.from))fail(503,'Trial email delivery is not configured.');
+        const created=store.createTrialSignup(input),activationUrl=config.origin+'/trial-activate.html#token='+created.token;
+        try {if(config.mountedDemo){}else if(config.trialEmailSender)await config.trialEmailSender({...input,url:activationUrl});else await sendTrialVerification(config.trialMail,{...input,url:activationUrl});}
+        catch(error){store.removeTrialSignup(created.row.id);throw error;}
+        store.event(null,'trial_verification_sent',{trialId:created.row.id,companyName:input.companyName});
+        return json(res,202,{ok:true,demoActivationUrl:config.mountedDemo?activationUrl:undefined});
+      }
+      if(route.pathname==='/api/platform/trials/activate'&&method==='POST') {
+        const input=await body(req);if(typeof input?.token!=='string'||!/^[\w-]{43}$/.test(input.token))fail(400,'Invalid trial verification link.');
+        let passwordHash;try{passwordHash=await hashPassword(input.password);}catch{fail(400,'Password must have 14–256 characters.');}
+        const signup=store.trialByToken(input.token);const tariff={name:signup?.company_name,baseCents:0,included:0,seatCents:0};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
+        return json(res,201,{ok:true,company:publicCompany(created.row),foundingOffer:created.foundingOffer,loginUrl:tenantOrigin(created.row.id)+'/admin.html'});
+      }
       if(route.pathname==='/api/platform/applications'&&method==='POST') {
         if(!limiter.allow('application:'+req.socket.remoteAddress,5,3600000,Date.now()))fail(429,'Too many applications. Try again later.');
         const application=store.submitApplication(checkedApplication(await body(req)));return json(res,201,{applicationId:application.id,status:application.status});
@@ -205,6 +231,8 @@ export function createDirector(config) {
           const created=store.create(checked(await body(req)));
           return json(res,201,{company:publicCompany(created.row),inviteUrl:tenantOrigin(created.row.id)+'/owner-setup.html#token='+created.token});
         }
+        const trialMatch=/^\/api\/director\/companies\/([a-f0-9-]{36})\/trial\/extend$/.exec(route.pathname);
+        if(trialMatch&&method==='POST')return json(res,200,publicCompany(store.extendTrial(trialMatch[1])));
         if(route.pathname==='/api/director/applications'&&method==='GET')return json(res,200,{items:store.applications().map(publicApplication)});
         const applicationMatch=/^\/api\/director\/applications\/([a-f0-9-]{36})(?:\/(approve|status))?$/.exec(route.pathname);
         if(applicationMatch) {
@@ -229,7 +257,7 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(files[route.pathname])return staticFile(...files[route.pathname]);fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });

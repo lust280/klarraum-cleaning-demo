@@ -10,7 +10,7 @@ import {hashPassword} from '../lib/security.mjs';
 const password='director-test-password-only',passwordHash=await hashPassword(password);
 async function fixture(t){
  const directory=await mkdtemp(join(tmpdir(),'klarraum-director-'));
- const config=directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:directory});
+ const deliveries=[],config={...directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:directory}),trialEmailSender:async message=>deliveries.push(message)};
  const d=createDirector(config);await new Promise(r=>d.server.listen(0,'127.0.0.1',r));
  const port=d.server.address().port;
  async function request(path,{host='director.localhost:3100',body,method=body?'POST':'GET',headers={}}={}){
@@ -24,7 +24,7 @@ async function fixture(t){
  const create=async name=>{const r=await post('companies',{name,baseCents:7900,included:3,seatCents:500});assert.equal(r.status,201);return r.data;};
  const activate=async item=>{const u=new URL(item.inviteUrl);const r=await request('/api/owner-setup',{host:u.host,body:{token:new URLSearchParams(u.hash.slice(1)).get('token'),password}});assert.equal(r.status,200);return u.host;};
  const owner=async host=>{const r=await request('/api/admin/login',{host,body:{password}});assert.equal(r.status,200);return {Cookie:r.headers['set-cookie'][0].split(';')[0],'X-CSRF-Token':r.data.csrf};};
- return {d,directory,request,post,get,create,activate,owner,auth};
+ return {d,directory,request,post,get,create,activate,owner,auth,deliveries};
 }
 test('director authentication is separate; CSRF, origin, host and path checks protect registry',async t=>{
  const f=await fixture(t);
@@ -45,6 +45,15 @@ test('public company applications require review before a separate 15-day trial 
  const approved=await f.post('applications/'+item.id+'/approve',{name:'North Star Cleaning',baseCents:7900,included:3,seatCents:500,version:reviewing.data.version});assert.equal(approved.status,201);assert.ok(approved.data.inviteUrl.includes('/owner-setup.html#token='));assert.equal(approved.data.application.foundingOffer,true);assert.equal(approved.data.company.payment,'trial');assert.ok(approved.data.company.trialEndsAt>Date.now()+14*24*3600000);
  assert.equal((await f.post('applications/'+item.id+'/approve',{name:'North Star Cleaning',baseCents:0,included:0,seatCents:0,version:reviewing.data.version})).status,409);
  const host=await f.activate(approved.data),owner=await f.owner(host);assert.equal((await f.request('/api/director/applications',{headers:owner})).status,401);assert.equal((await f.request('/api/admin/session',{host,headers:owner})).status,200);
+});
+test('self-service trial creates no company before email confirmation and activates only once',async t=>{
+ const f=await fixture(t),registration={companyName:'Instant Trial',ownerName:'Trial Owner',email:'trial@example.test',language:'en'};
+ assert.equal((await f.request('/api/platform/trials',{body:{...registration,email:'bad'}})).status,400);
+ const requested=await f.request('/api/platform/trials',{body:registration});assert.equal(requested.status,202);assert.equal(f.deliveries.length,1);assert.match(f.deliveries[0].url,/trial-activate\.html#token=/);assert.equal((await f.get('companies')).data.items.length,0);
+ const token=new URL(f.deliveries[0].url).hash.slice(7);assert.equal((await f.request('/api/platform/trials/activate',{body:{token,password:'short'}})).status,400);
+ const activated=await f.request('/api/platform/trials/activate',{body:{token,password:'a safe trial owner password'}});assert.equal(activated.status,201);assert.equal(activated.data.company.payment,'trial');assert.ok(activated.data.company.trialEndsAt>Date.now()+14*24*3600000);assert.equal(activated.data.foundingOffer,true);assert.equal((await f.request('/api/platform/trials/activate',{body:{token,password:'another safe owner password'}})).status,400);
+ const host=new URL(activated.data.loginUrl).host,login=await f.request('/api/admin/login',{host,body:{password:'a safe trial owner password'}});assert.equal(login.status,200);const owner={Cookie:login.headers['set-cookie'][0].split(';')[0],'X-CSRF-Token':login.data.csrf};assert.equal((await f.request('/api/admin/session',{host,headers:owner})).status,200);
+ const company=(await f.get('companies')).data.items[0];assert.equal((await f.post('companies/'+company.id+'/trial/extend',{})).status,200);
 });
 test('two independent companies isolate owners, workers, activation links and director access',async t=>{
  const f=await fixture(t),a=await f.create('Alpha'),b=await f.create('Beta');
@@ -106,7 +115,7 @@ test('mounted free demo serves a live director and two path-scoped companies wit
  await new Promise(r=>hosted.server.listen(0,'127.0.0.1',r));config.origin='http://127.0.0.1:'+hosted.server.address().port;
  t.after(async()=>{if(hosted.director)await hosted.director.close();await new Promise(r=>hosted.server.close(r));await rm(directory,{recursive:true,force:true});});
  async function request(path,{body,headers={},method=body?'POST':'GET'}={}){const r=await fetch(config.origin+path,{method,headers:{Origin:config.origin,'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});const text=await r.text();return {status:r.status,data:r.headers.get('content-type')?.includes('application/json')?JSON.parse(text):text,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};}
- assert.equal((await request('/director.html')).status,200);assert.match((await request('/for-companies.html')).data,/Apply for your trial/);assert.equal((await request('/platform.js')).status,200);assert.equal((await request('/api/platform/applications',{body:{companyName:'Fictional Demo',ownerName:'Test Owner',email:'owner@example.invalid',phone:'',country:'',language:'en',workers:2,note:'',consent:true}})).status,201);assert.equal((await request('/api/platform/applications',{body:{companyName:'Real address blocked',ownerName:'Test Owner',email:'owner@example.com',phone:'',country:'',language:'en',workers:2,note:'',consent:true}})).status,400);assert.equal((await request('/api/director/companies')).status,401);
+ assert.equal((await request('/director.html')).status,200);assert.match((await request('/for-companies.html')).data,/Start your 15-day trial/);assert.equal((await request('/platform.js')).status,200);assert.equal((await request('/trial-activate.html')).status,200);assert.equal((await request('/api/platform/applications',{body:{companyName:'Fictional Demo',ownerName:'Test Owner',email:'owner@example.invalid',phone:'',country:'',language:'en',workers:2,note:'',consent:true}})).status,201);assert.equal((await request('/api/platform/trials',{body:{companyName:'Fictional Trial',ownerName:'Test Owner',email:'owner@example.invalid',language:'en'}})).status,202);assert.equal((await request('/api/platform/trials',{body:{companyName:'Real address blocked',ownerName:'Test Owner',email:'owner@example.com',language:'en'}})).status,400);assert.equal((await request('/api/director/companies')).status,401);
  const login=await request('/api/director/login',{body:{password}});assert.equal(login.status,200);const director={Cookie:login.cookie,'X-CSRF-Token':login.data.csrf};const companies=[];
  for(const name of ['Mounted A','Mounted B']){
   const created=await request('/api/director/companies',{body:{name,baseCents:7900,included:3,seatCents:500},headers:director});assert.equal(created.status,201);
