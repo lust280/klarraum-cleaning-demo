@@ -169,7 +169,7 @@ test('server demo connects form to owner dashboard without accepting personal fi
  assert.equal((await f.request('/api/inquiries',{method:'POST',headers,body})).status,503);
  await f.app.drain();assert.equal(f.notifications.length,0);
  const auth=await f.login();const list=await f.request('/api/admin/inquiries',{headers:auth});assert.equal(list.data.total,1);
- const item=list.data.items[0];assert.equal(item.name,'Demo-Kunde');assert.equal(item.email,'demo@example.invalid');assert.equal(item.area,80);assert.equal(item.demo,true);assert.equal(item.notification,'demo');
+ const item=list.data.items[0];assert.equal(item.name,'Demo customer');assert.equal(item.email,'demo@example.invalid');assert.equal(item.area,80);assert.equal(item.demo,true);assert.equal(item.notification,'demo');
  assert.equal((await f.request(`/api/admin/inquiries/${item.id}/retry-mail`,{method:'POST',headers:auth})).status,400);
  assert.equal((await f.request(`/api/admin/inquiries/${item.id}`,{method:'DELETE',headers:auth})).status,200);
 });

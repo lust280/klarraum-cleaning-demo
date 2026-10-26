@@ -1,11 +1,11 @@
 export function defaultSite(business = {}) {
   return {
-    company:{name:business.name || 'Klarraum',phone:business.phone || '',email:business.email || '',address:business.address || '',hours:'Nach Vereinbarung',area:'Nürnberg & Umgebung',theme:'forest'},
-    hero:{title:'Ein sauberes Zuhause.',subtitle:'Ein freier Kopf.',description:'Weniger putzen. Mehr leben. Entdecken Sie eine Reinigung, die zu Ihrem Alltag passt — mit klaren Leistungen und einem Preis, den Sie verstehen.'},
+    company:{name:business.name || 'Klarraum',phone:business.phone || '',email:business.email || '',address:business.address || '',hours:'By appointment',area:'Your local service area',theme:'forest'},
+    hero:{title:'A cleaner home.',subtitle:'More room to breathe.',description:'Spend less time cleaning and more time living. Explore a service that fits your routine, with clear options and an estimate you can understand.'},
     services:{
-      home:{title:'Wohnungsreinigung',description:'Küche, Bad, Böden und Oberflächen. Für ein Zuhause, in das Sie gerne zurückkommen.',enabled:true},
-      office:{title:'Büroreinigung',description:'Frische Arbeitsplätze und gepflegte Gemeinschaftsräume. Platz für gute Ideen.',enabled:true},
-      deep:{title:'Grundreinigung',description:'Wenn es etwas gründlicher sein darf: ein frischer Start für Ihre Räume.',enabled:true},
+      home:{title:'Home cleaning',description:'Kitchens, bathrooms, floors and surfaces. Come home to a space that feels cared for.',enabled:true},
+      office:{title:'Office cleaning',description:'Fresh workspaces and welcoming shared areas, leaving more room for good work.',enabled:true},
+      deep:{title:'Deep cleaning',description:'When your space needs more attention: a fresh start for every room.',enabled:true},
     },
     windowsEnabled:true,media:{logo:null,hero:null,gallery:[]},testimonials:[],
   };
@@ -15,12 +15,12 @@ export function applySite(site) {
   applySiteMedia(site);
   const set = (selector,value) => document.querySelectorAll(selector).forEach(node=>{node.textContent=value;});
   set('[data-company]',site.company.name);
-  document.querySelectorAll('.logo').forEach(node=>node.setAttribute('aria-label',site.company.name+' Startseite'));
+  document.querySelectorAll('.logo').forEach(node=>node.setAttribute('aria-label',site.company.name+' homepage'));
   document.documentElement.dataset.theme=site.company.theme;
   document.title=`${site.company.name} — ${site.company.area}`;
   const meta=document.querySelector('meta[name="description"]');if(meta)meta.content=`${site.company.name}: ${site.hero.description}`;
   set('#hero-title',site.hero.title);set('#hero-subtitle',site.hero.subtitle);set('#hero-description',site.hero.description);
-  set('#service-area',`Reinigung · ${site.company.area}`);set('#footer-location',site.company.area);
+  set('#service-area',`Cleaning · ${site.company.area}`);set('#footer-location',site.company.area);
   for(const [key,item] of Object.entries(site.services)){
     const card=document.querySelector(`[data-service-card="${key}"]`);
     if(card){card.hidden=!item.enabled;card.querySelector('h3').textContent=item.title;card.querySelector('p').textContent=item.description;}
@@ -50,8 +50,8 @@ export function applySiteMedia(site){
  const hero=document.querySelector('#hero-photo');
  if(hero){
   const scene=hero.parentElement;scene.classList.toggle('has-photo',Boolean(media.hero));hero.hidden=!media.hero;
-  if(media.hero){hero.src=new URL(`media/${media.hero}.webp`,location.href).href;hero.alt=`Foto von ${site.company.name}`;scene.removeAttribute('role');scene.removeAttribute('aria-label');}
-  else{hero.removeAttribute('src');scene.setAttribute('role','img');scene.setAttribute('aria-label','Illustration eines hellen Wohnraums mit Sofa, Pflanze und Sonnenlicht');}
+  if(media.hero){hero.src=new URL(`media/${media.hero}.webp`,location.href).href;hero.alt=`Photo from ${site.company.name}`;scene.removeAttribute('role');scene.removeAttribute('aria-label');}
+  else{hero.removeAttribute('src');scene.setAttribute('role','img');scene.setAttribute('aria-label','Illustration of a bright living room with a sofa, plant and sunlight');}
  }
  const gallery=document.querySelector('#photo-gallery'),grid=document.querySelector('#gallery-grid');
  if(gallery&&grid){

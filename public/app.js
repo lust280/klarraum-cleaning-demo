@@ -5,7 +5,7 @@ const $ = selector => document.querySelector(selector);
 const form = $('#quote');
 const service=$('#service'), area=$('#area'), frequency=$('#frequency'), windows=$('#windows');
 const result=$('#result'), error=$('#form-error'), submit=$('#submit-inquiry');
-let currencyCode='EUR',businessTimeZone='Europe/Berlin';let currency=new Intl.NumberFormat('de-DE',{style:'currency',currency:currencyCode});
+let currencyCode='USD',businessTimeZone='America/New_York';let currency=new Intl.NumberFormat('en-US',{style:'currency',currency:currencyCode});
 let siteConfig=null;
 let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
@@ -84,12 +84,12 @@ async function init(){
       $('#connection-note').textContent=translateUI('Server-Demo: Nur Reinigungsangaben werden in der Verwaltung gespeichert. Name, E-Mail, Telefon und Adresse werden NICHT übertragen; dort erscheinen feste fiktive Beispieldaten. Testdaten können bei einem Neustart verloren gehen.');
       $('#submit-note').textContent=translateUI('Testanfrage für die Verwaltung. Keine echte Buchung und kein E-Mail-Versand.');
       submit.textContent=translateUI('Testanfrage an Verwaltung senden ↗︎');
-      $('#customer-name').value='Demo-Kunde';$('#customer-email').value='demo@example.invalid';$('#postcode').value='90402';$('#address').value='Musterstraße 1 (fiktiv)';
+      $('#customer-name').value='Demo customer';$('#customer-email').value='demo@example.invalid';$('#postcode').value='10001';$('#address').value='123 Example Street (fictional)';
       const data=await api('api/form-token');token=data.token;tokenAt=Date.now();return;
     }
     if(!config.live)return;
     live=true;$('#customer-fields').disabled=false;
-    $('#mode-banner').textContent=translateUI(`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Nürnberg & Umgebung'}`);
+    $('#mode-banner').textContent=translateUI(`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Your local service area'}`);
     $('#connection-note').textContent=translateUI('Unverbindliche Anfrage. Mindestens einen Kontaktweg angeben; * sind Pflichtfelder.');
     $('#submit-note').textContent=translateUI('Ihre Anfrage wird gespeichert. Ein Auftrag entsteht erst nach persönlicher Abstimmung.');
     $('#price-note').textContent=translateUI('Der Rechner zeigt eine unverbindliche Preisorientierung. Der konkrete Leistungsumfang und Endpreis werden vor einer Beauftragung abgestimmt.');

@@ -563,7 +563,9 @@ Grund / Rückmeldung für den Mitarbeiter	Reason / feedback for employee
 Nachvollziehbarer Korrekturgrund	Explain the correction
 Besondere Wünsche oder Hinweise	Special requests or notes`;
 export const english=Object.freeze(Object.fromEntries((pairs+'\n'+additional).split('\n').map(line=>line.split('\t'))));
-export const language=(()=>{try{return localStorage.getItem('klarraum-language')==='en'?'en':'de';}catch{return 'de';}})();
+// The platform's current launch language is English. Company-facing text can be
+// localized later without leaving a half-translated language switch in production.
+export const language='en';
 export function t(value){
  if(language!=='en'||typeof value!=='string')return value;
  if(Object.hasOwn(english,value))return english[value];
@@ -580,5 +582,4 @@ if(typeof document!=='undefined'){
   for(const node of nodes){if(node.parentElement?.closest('script,style'))continue;const source=node.nodeValue,trimmed=source.trim();if(trimmed)node.nodeValue=source.replace(trimmed,t(trimmed));}
   for(const node of document.querySelectorAll('[placeholder],[aria-label]'))for(const attribute of ['placeholder','aria-label'])if(node.hasAttribute(attribute))node.setAttribute(attribute,t(node.getAttribute(attribute)));
  }
- const header=document.querySelector('.header');if(header){const button=document.createElement('button');button.type='button';button.className='button small secondary';button.textContent=language==='en'?'Deutsch':'English';button.setAttribute('aria-label',language==='en'?'Switch interface to German':'Oberfläche auf Englisch umstellen');let dirty=false;document.addEventListener('input',()=>{dirty=true;});button.addEventListener('click',()=>{if(dirty&&!confirm(language==='en'?'Reload and discard unsaved input?':'Neu laden und ungespeicherte Eingaben verwerfen?'))return;try{localStorage.setItem('klarraum-language',language==='en'?'de':'en');window.dispatchEvent(new Event('klarraum-language-changing'));location.reload();}catch{button.textContent=language==='en'?'Browser storage unavailable':'Browserspeicher nicht verfügbar';}});header.append(button);}
 }
