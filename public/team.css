@@ -2,3 +2,6 @@
 .job-photos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.job-photos img{width:100%;aspect-ratio:4/3;object-fit:cover;border:1px solid var(--line);border-radius:5px}.job-photo-upload{margin-top:25px;padding-top:20px;border-top:1px solid var(--line)}@media(max-width:680px){.job-photos{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .admin h1,.job-card h2,.employee-card h3{overflow-wrap:anywhere}
+
+/* New work updates must be visible before an employee scrolls to the job list. */
+.notifications-panel{border:2px solid var(--line);background:#fff}.notifications-panel summary{display:flex;align-items:center;justify-content:space-between;gap:12px}.notification-count{display:none;min-width:27px;height:27px;padding:2px 8px;border-radius:999px;background:#bd3a26;color:#fff;font-weight:800;line-height:23px;text-align:center;box-shadow:0 0 0 3px #f7dfd9}.notifications-panel.has-unread{border-color:#bd3a26;box-shadow:0 0 0 3px #f7dfd9}.notifications-panel.has-unread .notification-count{display:inline-block}.notification-item.unread{margin:8px 0;padding:14px 12px;background:#fff4e9;border-left:4px solid #bd3a26;border-radius:6px}.notification-item.unread p{font-weight:700}.notification-item.unread .button{margin-top:8px}
