@@ -202,6 +202,13 @@ test('owner can edit brand and service settings, reject stale edits and block un
   assert.equal((await f.request('/api/admin/site',{method:'PUT',headers,body:{version:saved.data.version,content:value}})).status,400);
  }
  const created=await f.submit();assert.equal(created.status,201);const listed=(await f.request('/api/admin/inquiries',{headers})).data.items[0];assert.equal(listed.serviceTitle,'Hauspflege');
+ const bookingSettings=structuredClone(saved.data.content);bookingSettings.booking={enabled:true,dateEnabled:false,timeEnabled:false};
+ const bookingSaved=await f.request('/api/admin/site',{method:'PUT',headers,body:{version:saved.data.version,content:bookingSettings}});assert.equal(bookingSaved.status,200);
+ const dateFree=await f.submit({date:'2026-11-02',preferredTime:'10:00'});assert.equal(dateFree.status,201);
+ const dateFreeRow=(await f.request('/api/admin/inquiries',{headers})).data.items.find(item=>item.id===dateFree.data.id);assert.equal(dateFreeRow.date,'');assert.equal(dateFreeRow.preferredTime,'');
+ const paused=structuredClone(bookingSaved.data.content);paused.booking.enabled=false;
+ const pausedSaved=await f.request('/api/admin/site',{method:'PUT',headers,body:{version:bookingSaved.data.version,content:paused}});assert.equal(pausedSaved.status,200);
+ assert.equal((await f.submit()).status,503);
 });
 
 test('private notes, status totals and settings persist without changing stored inquiry details',async t=>{

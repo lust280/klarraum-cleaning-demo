@@ -7,6 +7,7 @@ const service=$('#service'), area=$('#area'), frequency=$('#frequency'), windows
 const result=$('#result'), error=$('#form-error'), submit=$('#submit-inquiry');
 let currencyCode='USD',businessTimeZone='America/New_York';let currency=new Intl.NumberFormat('en-US',{style:'currency',currency:currencyCode});
 let siteConfig=null;
+let bookingConfig={enabled:true,dateEnabled:true,timeEnabled:true};
 let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
 const staticHost = location.hostname.endsWith('.github.io');
@@ -52,7 +53,7 @@ form.addEventListener('submit',async event=>{
   const inputs=[...form.querySelectorAll('input,select,textarea')];
   const payload={service:service.value,area:Number(area.value),frequency:frequency.value,windows:windows.checked,
     name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
-    address:$('#address').value,date:$('#date').value,preferredTime:$('#preferred-time').value,message:$('#comments').value,
+    address:$('#address').value,date:bookingConfig.dateEnabled?$('#date').value:'',preferredTime:bookingConfig.timeEnabled?$('#preferred-time').value:'',message:$('#comments').value,
     privacy:$('#privacy').checked,website:$('#website').value};
   inputs.forEach(input=>input.disabled=true);
   try{
@@ -77,7 +78,7 @@ async function init(){
   if(staticHost)return;
   try{
     const config=await api('api/config');pricing=config.pricing;currencyCode=config.currency||currencyCode;businessTimeZone=config.timeZone||businessTimeZone;currency=new Intl.NumberFormat(navigator.language||'en-US',{style:'currency',currency:currencyCode});setToday();updatePricingLabels();
-    if(config.site){siteConfig=config.site;applySite(config.site);updatePricingLabels();}
+    if(config.site){siteConfig=config.site;bookingConfig={...bookingConfig,...(config.site.booking||{})};applySite(config.site);updatePricingLabels();}
     update();
     demoMode=Boolean(config.demoMode);
     if(demoMode){
@@ -88,6 +89,7 @@ async function init(){
       const data=await api('api/form-token');token=data.token;tokenAt=Date.now();return;
     }
     if(!config.live)return;
+    if(!bookingConfig.enabled){ $('#connection-note').textContent='Online requests are currently paused. Please contact the company directly.'; return; }
     live=true;$('#customer-fields').disabled=false;
     $('#mode-banner').textContent=translateUI(`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Your local service area'}`);
     $('#connection-note').textContent='Non-binding inquiry. Provide at least one way to contact you; * fields are required.';

@@ -19,9 +19,17 @@ async function api(path,options={}){
 function showLogin(){$('#dashboard').hidden=true;$('#login-panel').hidden=false;$('#logout').hidden=true;$('#inquiries').replaceChildren();csrf='';}
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 function button(text,action,className='secondary'){const node=el('button',text,`button small ${className}`);node.type='button';node.addEventListener('click',async()=>{node.disabled=true;clearError();try{await action();}catch(error){showError(error);}finally{node.disabled=false;}});return node;}
+const localDate=()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:dateFormat.resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const value=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${value.year}-${value.month}-${value.day}`;};
+async function loadToday(){
+ const day=localDate();
+ const data=await api(`api/admin/calendar?from=${day}&to=${day}&employee=`);
+ const list=$('#today-jobs');
+ const jobs=data.items||[];
+ list.replaceChildren(...(jobs.length?jobs.map(job=>{const link=el('a',undefined,'today-job');link.href='./operations.html?job='+encodeURIComponent(job.id);link.append(el('strong',job.time||'—'),el('span',job.title||'Untitled job'),el('small',`${job.employeeName||'Unassigned'} · ${job.minutes||0} min`));return link;}):[el('p','No jobs scheduled today.','empty-state compact-empty')]));
+}
 async function load(){
  const filter=$('#status-filter').value;
- const [data,summary]=await Promise.all([api(`api/admin/inquiries?offset=${offset}&status=${encodeURIComponent(filter)}`),api('api/admin/summary')]);
+ const [data,summary]=await Promise.all([api(`api/admin/inquiries?offset=${offset}&status=${encodeURIComponent(filter)}`),api('api/admin/summary'),loadToday()]);
  document.querySelectorAll('[data-stat]').forEach(node=>node.textContent=String(summary[node.dataset.stat]));
  total=data.total;$('#count').textContent=translateUI(`${total} Anfrage${total===1?'':'n'} · ${total?offset+1:0}–${Math.min(offset+50,total)}`);
  $('#previous').disabled=offset===0;$('#next').disabled=offset+50>=total;

@@ -7,7 +7,7 @@ export function defaultSite(business = {}) {
       office:{title:'Office cleaning',description:'Fresh workspaces and welcoming shared areas, leaving more room for good work.',enabled:true},
       deep:{title:'Deep cleaning',description:'When your space needs more attention: a fresh start for every room.',enabled:true},
     },
-    windowsEnabled:true,media:{logo:null,hero:null,gallery:[]},testimonials:[],
+    windowsEnabled:true,booking:{enabled:true,dateEnabled:true,timeEnabled:true},media:{logo:null,hero:null,gallery:[]},testimonials:[],
   };
 }
 
@@ -32,6 +32,16 @@ export function applySite(site) {
   if(select && !site.services[select.value]?.enabled)select.value=Object.keys(site.services).find(key=>site.services[key].enabled);
   const windows=document.querySelector('#windows');
   if(windows){windows.closest('label').hidden=!site.windowsEnabled;if(!site.windowsEnabled)windows.checked=false;}
+  const booking={enabled:true,dateEnabled:true,timeEnabled:true,...(site.booking||{})};
+  const quote=document.querySelector('#quote');
+  if(quote){
+    quote.hidden=!booking.enabled;
+    const date=document.querySelector('#date'), time=document.querySelector('#preferred-time');
+    if(date){date.closest('label').hidden=!booking.dateEnabled;if(!booking.dateEnabled)date.value='';}
+    if(time){time.closest('label').hidden=!booking.timeEnabled;if(!booking.timeEnabled)time.value='';}
+  }
+  const requestIntro=document.querySelector('#booking-unavailable');
+  if(requestIntro)requestIntro.hidden=booking.enabled;
   set('#contact-company',site.company.name);set('#contact-hours',site.company.hours);set('#contact-address',site.company.address);
   const phone=document.querySelector('#contact-phone'),email=document.querySelector('#contact-email');
   if(phone){phone.hidden=!site.company.phone;phone.textContent=site.company.phone;phone.href='tel:'+site.company.phone.replace(/[^+\d]/g,'');}
