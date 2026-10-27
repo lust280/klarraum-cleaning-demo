@@ -87,6 +87,16 @@ test('login brute force is rate limited',async t=>{
  assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password}})).status,429);
 });
 
+test('owner can save a custom-domain request without activating it prematurely',async t=>{
+ const f=await fixture(t),headers=await f.login();
+ const initial=await f.request('/api/admin/company-preferences',{headers});assert.equal(initial.status,200);assert.equal(initial.data.customDomain,'');assert.equal(initial.data.domainStatus,'not-requested');
+ const saved=await f.request('/api/admin/company-preferences',{method:'PUT',headers,body:{timeZone:'America/New_York',currency:'USD',customDomain:'BrightClean.Example.COM'}});
+ assert.equal(saved.status,200);assert.equal(saved.data.customDomain,'brightclean.example.com');assert.equal(saved.data.domainStatus,'pending-hosting');
+ assert.equal((await f.request('/api/admin/company-preferences',{headers})).data.customDomain,'brightclean.example.com');
+ assert.equal((await f.request('/api/admin/company-preferences',{method:'PUT',headers,body:{timeZone:'America/New_York',currency:'USD',customDomain:'https://not-a-domain.example/path'}})).status,400);
+ assert.equal((await f.request('/api/admin/company-preferences',{method:'PUT',headers,body:{timeZone:'America/New_York',currency:'USD',customDomain:'klarraumapp.com'}})).status,400);
+});
+
 test('pricing updates are validated and historical quotes stay unchanged',async t=>{
  const f=await fixture(t);await f.submit();const headers=await f.login();
  const current=(await f.request('/api/admin/settings',{headers})).data.pricing;
