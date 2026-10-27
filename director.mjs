@@ -13,6 +13,7 @@ import {sendTrialVerification} from './lib/trial-mail.mjs';
 import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
+import {planFor,planEstimate,requestedPlanForWorkers,storageState} from './lib/plans.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const fail=(status,message)=>{const error=new Error(message);error.status=status;throw error;};
@@ -40,17 +41,21 @@ export function createDirector(config) {
   const tenantOrigin=id=>config.mountedDemo?`${config.origin}/companies/${id}`:`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
   const companyDir=id=>join(config.dataDir,'companies',id);
   function publicCompany(row) {
-    let workers={active:0,invited:0,disabled:0},storage='not initialized';
+    let workers={active:0,invited:0,disabled:0},storage='not initialized',storageBytes=0;
     const path=join(companyDir(row.id),'klarraum.sqlite');
     if(existsSync(path)) {
       let db;
       try {
         db=new DatabaseSync(path,{readOnly:true});db.exec('PRAGMA busy_timeout=1000');
         const counts=db.prepare('SELECT SUM(CASE WHEN active=1 AND password_hash IS NOT NULL THEN 1 ELSE 0 END) AS active,SUM(CASE WHEN active=1 AND password_hash IS NULL THEN 1 ELSE 0 END) AS invited,SUM(CASE WHEN active=0 THEN 1 ELSE 0 END) AS disabled FROM employees').get();
-        workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));storage='readable';
+        workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));
+        const hasTable=name=>Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name));
+        storageBytes=(hasTable('job_photos')?db.prepare('SELECT COALESCE(SUM(size),0) AS bytes FROM job_photos').get().bytes:0)+(hasTable('media')?db.prepare('SELECT COALESCE(SUM(size),0) AS bytes FROM media').get().bytes:0);
+        storage='readable';
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
+    const plan=planFor(row.plan_key)||planFor('custom');
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,planKey:plan.key,planName:plan.name,storageLimitBytes:plan.storageBytes,storageBytes,storageState:storageState(plan.storageBytes,storageBytes),version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'USD',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?planEstimate(plan,workers.active)??(row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents):null};
   }
   async function body(req) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
@@ -75,6 +80,7 @@ export function createDirector(config) {
   function checked(input,update=false) {
     if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>80||/[\x00-\x1f\x7f]/.test(input.name))fail(400,'Company name: 1–80 characters.');
     for(const key of ['baseCents','included','seatCents'])if(!Number.isSafeInteger(input[key])||input[key]<0||input[key]>(key==='included'?100000:10000000))fail(400,'Invalid tariff. Use whole cents and whole seats.');
+    if(input.planKey!==undefined&&!planFor(input.planKey))fail(400,'Invalid plan.');
     if(update&&(!['active','suspended'].includes(input.status)||!['trial','paid','overdue'].includes(input.payment)||!Number.isSafeInteger(input.version)))fail(400,'Invalid status/version.');
     const date=value=>{if(value===null||value===undefined||value==='')return null;if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))fail(400,'Use a valid payment date.');const at=Date.parse(value+'T00:00:00Z');if(!Number.isSafeInteger(at))fail(400,'Use a valid payment date.');return at;};
     return {...input,name:input.name.trim(),paymentDueAt:update?date(input.paymentDueAt):null,lastPaidAt:update?date(input.lastPaidAt):null};
@@ -88,7 +94,9 @@ export function createDirector(config) {
     if(!Number.isSafeInteger(input.workers)||input.workers<0||input.workers>100000)fail(400,'Invalid worker count.');
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test applications only. Use an email ending in .invalid.');
-    return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,note,consentVersion:'2026-10-26'};
+    const recommended=requestedPlanForWorkers(input.workers),plan=planFor(input.planKey)||recommended;
+    if((recommended.key==='custom'&&plan.key!=='custom')||(recommended.key!=='custom'&&plan.key!==recommended.key))fail(400,'Choose the plan that matches the team size. Use Custom for 21+ workers.');
+    return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,planKey:plan.key,note,consentVersion:'2026-10-27'};
   }
   function checkedTrial(input) {
     if(!input||typeof input!=='object')fail(400,'Invalid trial registration.');
@@ -98,9 +106,10 @@ export function createDirector(config) {
     if(!['en','de','ru'].includes(input.language))fail(400,'Invalid language.');
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test registrations only. Use an email ending in .invalid.');
-    return {companyName,ownerName,email,language:input.language,consentVersion:'2026-10-26'};
+    const plan=planFor(input.planKey||'solo');if(!plan||plan.key==='custom')fail(400,'Choose a standard plan or request assisted setup.');
+    return {companyName,ownerName,email,language:input.language,planKey:plan.key,consentVersion:'2026-10-27'};
   }
-  function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
+  function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,planKey:row.plan_key||'custom',note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
   async function stop(id) {
     const item=children.get(id);if(!item)return;
     item.stopping=true;
@@ -167,6 +176,10 @@ export function createDirector(config) {
           store.activate(id,input.token,hash);await stop(id);return json(res,200,{ok:true});
         }
         if(!row.password_hash)fail(503,'Owner activation is required before this company can be opened.');
+        if(route.pathname==='/api/platform-plan'&&method==='GET') {
+          ownerSession(req,id);const company=publicCompany(row);
+          return json(res,200,{planKey:company.planKey,planName:company.planName,monthlyCents:company.estimatedCents,activeWorkers:company.workers?.active??null,includedWorkers:company.included,storageBytes:company.storageBytes,storageLimitBytes:company.storageLimitBytes,storageState:company.storageState,currency:company.currency});
+        }
         if(route.pathname==='/api/platform-support') {
           ownerSession(req,id,method!=='GET'&&method!=='HEAD');
           if(method==='GET'){const unread=store.supportUnread(id,'director');store.markSupportRead(id,'director');return json(res,200,{items:store.support(id),unread});}
@@ -194,7 +207,7 @@ export function createDirector(config) {
       if(route.pathname==='/api/platform/trials/activate'&&method==='POST') {
         const input=await body(req);if(typeof input?.token!=='string'||!/^[\w-]{43}$/.test(input.token))fail(400,'Invalid trial verification link.');
         let passwordHash;try{passwordHash=await hashPassword(input.password);}catch{fail(400,'Password must have 14–256 characters.');}
-        const signup=store.trialByToken(input.token);const tariff={name:signup?.company_name,baseCents:0,included:0,seatCents:0};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
+        const signup=store.trialByToken(input.token),plan=planFor(signup?.plan_key||'solo');const tariff={name:signup?.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
         return json(res,201,{ok:true,company:publicCompany(created.row),foundingOffer:created.foundingOffer,loginUrl:tenantOrigin(created.row.id)+'/admin.html'});
       }
       if(route.pathname==='/api/platform/applications'&&method==='POST') {
@@ -262,7 +275,8 @@ export function createDirector(config) {
         if(applicationMatch) {
           const application=store.application(applicationMatch[1]);if(!application)fail(404,'Application not found.');
           if(applicationMatch[2]==='approve'&&method==='POST') {
-            const created=store.approveApplication(application.id,checked(await body(req)));
+            const input=await body(req),plan=planFor(application.plan_key)||requestedPlanForWorkers(application.workers);if(plan.key==='custom')fail(400,'Custom plan must be agreed before approval.');if(!Number.isSafeInteger(input.version))fail(400,'Invalid application version.');
+            const created=store.approveApplication(application.id,{...checked({name:input.name||application.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents}),planKey:plan.key,version:input.version});
             return json(res,201,{application:publicApplication(created.application),company:publicCompany(created.row),inviteUrl:tenantOrigin(created.row.id)+'/owner-setup.html#token='+created.token});
           }
           if(applicationMatch[2]==='status'&&method==='PUT') {
