@@ -50,7 +50,7 @@ export function createDirector(config) {
         workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));storage='readable';
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
   }
   async function body(req) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
@@ -256,12 +256,14 @@ export function createDirector(config) {
             return json(res,200,publicApplication(store.setApplicationStatus(application.id,input)));
           }
         }
-        const match=/^\/api\/director\/companies\/([a-f0-9-]{36})(?:\/(invite|events))?$/.exec(route.pathname);
+        const match=/^\/api\/director\/companies\/([a-f0-9-]{36})(?:\/(invite|events|support))?$/.exec(route.pathname);
         if(match) {
           const row=store.company(match[1]);if(!row)fail(404,'Company not found.');
           if(!match[2]&&method==='PUT') {store.update(row.id,checked(await body(req),true));if(store.company(row.id).status==='suspended')await stop(row.id);return json(res,200,publicCompany(store.company(row.id)));}
           if(match[2]==='invite'&&method==='POST'){if(row.password_hash)fail(409,'Owner already activated. Password recovery requires the operator procedure.');const token=store.invite(row.id);return json(res,200,{inviteUrl:tenantOrigin(row.id)+'/owner-setup.html#token='+token});}
           if(match[2]==='events'&&method==='GET')return json(res,200,{items:store.db.prepare('SELECT action,details,created_at FROM director_events WHERE company_id=? ORDER BY id DESC LIMIT 100').all(row.id)});
+          if(match[2]==='support'&&method==='GET'){store.markSupportRead(row.id);return json(res,200,{items:store.support(row.id)});}
+          if(match[2]==='support'&&method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');return json(res,201,{item:store.addSupport(row.id,'director',message)});}
         }
         fail(404,'Not found.');
       }
