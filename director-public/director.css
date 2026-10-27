@@ -6,4 +6,4 @@
 
 /* The director console is also used on phones and through browser translation. */
 *{min-width:0}body{overflow-x:hidden}button{white-space:normal}@media(max-width:600px){header{flex-wrap:wrap}header>*{max-width:100%}.actions button,.actions a{flex:1 1 130px}}
-.company-group-title{margin:32px 0 10px}.company-card{border-left:6px solid #ad7724}.company-card.payment-paid{border-left-color:#2f7d4b}.company-card.payment-overdue{border-left-color:#b23a2e}.payment-summary{font-weight:700}
+.company-group{margin:24px 0;background:#fff;border:1px solid #d5ddd5;border-radius:12px;overflow:hidden}.company-group>summary{padding:18px 22px;background:#edf3ed;font-size:20px}.company-group-list{padding:14px}.company-group-list article{margin:10px 0}.company-card{border-left:6px solid #ad7724}.company-card.payment-paid{border-left-color:#2f7d4b}.company-card.payment-overdue{border-left-color:#b23a2e}.payment-summary{font-weight:700}
