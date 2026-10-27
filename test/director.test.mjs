@@ -36,6 +36,12 @@ test('director authentication is separate; CSRF, origin, host and path checks pr
  const list=await f.get('companies');assert.deepEqual(list.data.items,[]);
  assert.equal((await stat(join(f.directory,'director.sqlite'))).mode&0o777,0o600);
 });
+test('production platform configuration requires an HTTPS director and limits active company processes',()=>{
+ const production=directorConfig({NODE_ENV:'production',DIRECTOR_ORIGIN:'https://platform.example.com',COMPANY_BASE_DOMAIN:'companies.example.com',DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:'/tmp/klarraum-production-config',MAX_COMPANY_PROCESSES:'5'});
+ assert.equal(production.production,true);assert.equal(production.mountedDemo,false);assert.equal(production.maxRunning,5);
+ assert.throws(()=>directorConfig({NODE_ENV:'production',DIRECTOR_ORIGIN:'http://platform.example.com',COMPANY_BASE_DOMAIN:'companies.example.com',DIRECTOR_PASSWORD_HASH:passwordHash}),/requires HTTPS/);
+ assert.throws(()=>directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,MAX_COMPANY_PROCESSES:'21'}),/MAX_COMPANY_PROCESSES/);
+});
 test('public company applications require review before a separate 15-day trial company is created',async t=>{
  const f=await fixture(t),application={companyName:'North Star Cleaning',ownerName:'Sam Owner',email:'sam@example.test',phone:'+49 100',country:'Germany',language:'en',workers:8,planKey:'growth',note:'Need team planning.',consent:true};
  assert.equal((await f.request('/api/platform/applications',{body:{...application,email:'not-an-email'}})).status,400);

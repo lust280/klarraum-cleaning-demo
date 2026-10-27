@@ -25,7 +25,9 @@ export function directorConfig(env=process.env) {
   if(!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)||parsed.hostname===domain||parsed.hostname.endsWith('.'+domain))throw new Error('Use a distinct director hostname and company base domain.');
   if(parsed.protocol!=='https:'&&!(parsed.hostname.endsWith('.localhost')&&domain.endsWith('.localhost')))throw new Error('Public director requires HTTPS.');
   if(!validPasswordHash(env.DIRECTOR_PASSWORD_HASH))throw new Error('Set DIRECTOR_PASSWORD_HASH using npm run admin:hash.');
-  return {origin,domain:domain.toLowerCase(),passwordHash:env.DIRECTOR_PASSWORD_HASH,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning:20,trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
+  const maxRunning=Number(env.MAX_COMPANY_PROCESSES||20);
+  if(!Number.isSafeInteger(maxRunning)||maxRunning<1||maxRunning>20)throw new Error('MAX_COMPANY_PROCESSES must be 1–20.');
+  return {origin,domain:domain.toLowerCase(),passwordHash:env.DIRECTOR_PASSWORD_HASH,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
@@ -121,7 +123,7 @@ export function createDirector(config) {
     if(item)fail(503,'Company is restarting. Retry shortly.');
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
-    const companyConfig=loadConfig({APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'EUR',DEMO_ONLY:'true'});
+    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',ENABLE_INQUIRIES:'false',DEMO_ONLY:config.mountedDemo?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false'});
     companyConfig.directorDisabled=true;
     if(config.mountedDemo)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
