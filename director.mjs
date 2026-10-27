@@ -150,8 +150,8 @@ export function createDirector(config) {
         const expected=host===url.host?config.origin:`${url.protocol}//${host}`;
         if(req.headers.origin!==expected)fail(403,'Invalid origin.');
       }
-      const staticFile=(file,type)=>{
-        const source=readFileSync(join(root,'director-public',file));
+      const staticFile=(file,type,directory='director-public')=>{
+        const source=readFileSync(join(root,directory,file));
         let value=type.startsWith('text/html')?source.toString('utf8').replaceAll('Klarraum','KlarraumApp'):source;
         if(file==='platform.html'){
           value=value
@@ -301,7 +301,9 @@ export function createDirector(config) {
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
       const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
-      if(files[route.pathname])return staticFile(...files[route.pathname]);fail(404,'Not found.');
+      if(files[route.pathname])return staticFile(...files[route.pathname]);
+      const customerPreviewFiles={'/customer-preview.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/pricing.js':['pricing.js','text/javascript; charset=utf-8'],'/site.js':['site.js','text/javascript; charset=utf-8'],'/i18n.js':['i18n.js','text/javascript; charset=utf-8'],'/favicon.svg':['favicon.svg','image/svg+xml'],'/impressum.html':['impressum.html','text/html; charset=utf-8'],'/datenschutz.html':['datenschutz.html','text/html; charset=utf-8'],'/customer-terms.html':['customer-terms.html','text/html; charset=utf-8'],'/customer-cookies.html':['customer-cookies.html','text/html; charset=utf-8']};
+      if(customerPreviewFiles[route.pathname])return staticFile(...customerPreviewFiles[route.pathname],'public');fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;

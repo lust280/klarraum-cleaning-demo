@@ -26,6 +26,8 @@ Object.assign(messages,{
  marketingPage:['Публичная страница KlarraumApp','Public KlarraumApp page','Öffentliche KlarraumApp-Seite'],
  marketingPageHelp:['Используйте эту страницу в постах и рекламе для владельцев клининговых компаний. На ней объясняется платформа и есть переход к 15-дневному пробному периоду.','Use this page in posts and advertisements for cleaning-company owners. It explains the platform and leads to the 15-day trial.','Diese Seite ist für Posts und Werbung an Reinigungsunternehmen. Sie erklärt die Plattform und führt zum 15-tägigen Testzeitraum.'],
  openMarketingPage:['Открыть публичную страницу ↗','Open public page ↗','Öffentliche Seite öffnen ↗'],
+ openCustomerPreview:['Открыть предпросмотр калькулятора ↗','Open customer calculator preview ↗','Vorschau des Kundenrechners öffnen ↗'],
+ customerPreviewHelp:['Это безопасный визуальный предпросмотр: он считает цену, но не сохраняет и не отправляет данные клиента.','This is a safe visual preview: it calculates a price but does not save or send customer details.','Dies ist eine sichere visuelle Vorschau: Sie berechnet den Preis, speichert oder sendet aber keine Kundendaten.'],
 });
 let language='en';try{const saved=localStorage.getItem('klarraum-director-language');if(['ru','en','de'].includes(saved))language=saved;}catch{}
 export const lang=language;

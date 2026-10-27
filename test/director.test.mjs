@@ -32,6 +32,8 @@ test('director authentication is separate; CSRF, origin, host and path checks pr
  assert.equal((await f.request('/api/director/companies',{body:{},headers:{Cookie:f.auth.Cookie}})).status,403);
  assert.equal((await f.request('/api/director/companies',{body:{},headers:{...f.auth,Origin:'http://evil.test'}})).status,403);
  assert.equal((await f.request('/api/director/companies',{host:'evil.test',headers:f.auth})).status,404);
+ assert.equal((await f.request('/customer-preview.html')).status,200);
+ assert.equal((await f.request('/app.js')).status,200);
  assert.equal((await f.post('companies',{name:'../escape',baseCents:-1,included:0,seatCents:0})).status,400);
  const list=await f.get('companies');assert.deepEqual(list.data.items,[]);
  assert.equal((await stat(join(f.directory,'director.sqlite'))).mode&0o777,0o600);
