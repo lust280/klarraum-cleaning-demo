@@ -21,6 +21,12 @@ function update(){
   result.hidden=true; error.hidden=true;
   try { $('#price').value=currency.format(estimate(service.value,Number(area.value),frequency.value,windows.checked,pricing)); }
   catch { $('#price').value='Check area'; }
+  const selectedService=service.selectedOptions[0]?.textContent||'';
+  const selectedFrequency=frequency.selectedOptions[0]?.textContent||'';
+  const summaryService=$('#summary-service'),summaryFrequency=$('#summary-frequency');
+  if(summaryService)summaryService.textContent=selectedService;if(summaryFrequency)summaryFrequency.textContent=selectedFrequency;
+  document.querySelectorAll('[data-service-select]').forEach(button=>button.classList.toggle('active',button.dataset.serviceSelect===service.value));
+  document.querySelectorAll('[data-frequency]').forEach(button=>button.classList.toggle('active',button.dataset.frequency===frequency.value));
 }
 function updatePricingLabels(){
   $('#windows-label').textContent=`Add window cleaning (+${currency.format(pricing.windows)})`;
@@ -69,7 +75,8 @@ form.addEventListener('submit',async event=>{
   }catch(err){error.textContent=translateUI(err.message);error.hidden=false;}
   finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Send fictional test to owner ↗︎':'Send inquiry ↗︎';}
 });
-document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',()=>{service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
+document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
+document.querySelectorAll('[data-frequency]').forEach(button=>button.addEventListener('click',()=>{frequency.value=button.dataset.frequency;requestKey=crypto.randomUUID();update();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
 const setToday=()=>{$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());};setToday();
 async function init(){
