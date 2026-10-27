@@ -6,6 +6,7 @@
     "start": "node server.mjs",
     "test": "node --test pricing.test.mjs test/*.test.mjs",
     "test:preflight": "npm test && playwright test",
+    "test:platform-smoke": "node --test test/platform-smoke.test.mjs && playwright test e2e/workflow.spec.mjs --project=mobile",
     "deploy": "node scripts/publish.mjs",
     "admin:hash": "node scripts/hash-password.mjs",
     "secret:generate": "node --input-type=module -e \"import {randomBytes} from 'node:crypto';console.log(randomBytes(32).toString('base64url'))\"",
