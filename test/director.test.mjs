@@ -41,6 +41,8 @@ test('production platform configuration requires an HTTPS director and limits ac
  assert.equal(production.production,true);assert.equal(production.mountedDemo,false);assert.equal(production.maxRunning,5);
  assert.throws(()=>directorConfig({NODE_ENV:'production',DIRECTOR_ORIGIN:'http://platform.example.com',COMPANY_BASE_DOMAIN:'companies.example.com',DIRECTOR_PASSWORD_HASH:passwordHash}),/requires HTTPS/);
  assert.throws(()=>directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,MAX_COMPANY_PROCESSES:'21'}),/MAX_COMPANY_PROCESSES/);
+ const hosted=directorConfig({DIRECTOR_ORIGIN:'https://platform.example.com',COMPANY_BASE_DOMAIN:'companies.example.com',DIRECTOR_PASSWORD:'a safe hosted director password',APP_SECRET:'a'.repeat(32)});
+ assert.match(hosted.passwordHash,/^scrypt:/);
 });
 test('public company applications require review before a separate 15-day trial company is created',async t=>{
  const f=await fixture(t),application={companyName:'North Star Cleaning',ownerName:'Sam Owner',email:'sam@example.test',phone:'+49 100',country:'Germany',language:'en',workers:8,planKey:'growth',note:'Need team planning.',consent:true};

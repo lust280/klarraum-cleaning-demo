@@ -24,7 +24,9 @@ services:
         sync: false
       - key: DIRECTOR_DATA_DIR
         value: /var/data/director
-      - key: DIRECTOR_PASSWORD_HASH
+      - key: APP_SECRET
+        generateValue: true
+      - key: DIRECTOR_PASSWORD
         sync: false
       - key: MAX_COMPANY_PROCESSES
         value: "5"

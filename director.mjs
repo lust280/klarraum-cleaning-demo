@@ -12,7 +12,7 @@ import {PlatformFinance, forecast, financeCsv} from './lib/platform-finance.mjs'
 import {sendTrialVerification} from './lib/trial-mail.mjs';
 import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
-import {digest,randomToken,verifyPassword,hashPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
+import {digest,randomToken,verifyPassword,hashPassword,hashHostedPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
 import {planFor,planEstimate,requestedPlanForWorkers,storageState} from './lib/plans.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
@@ -24,10 +24,11 @@ export function directorConfig(env=process.env) {
   if(parsed.origin!==origin||!['http:','https:'].includes(parsed.protocol)||parsed.username||parsed.password)throw new Error('Invalid DIRECTOR_ORIGIN.');
   if(!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)||parsed.hostname===domain||parsed.hostname.endsWith('.'+domain))throw new Error('Use a distinct director hostname and company base domain.');
   if(parsed.protocol!=='https:'&&!(parsed.hostname.endsWith('.localhost')&&domain.endsWith('.localhost')))throw new Error('Public director requires HTTPS.');
-  if(!validPasswordHash(env.DIRECTOR_PASSWORD_HASH))throw new Error('Set DIRECTOR_PASSWORD_HASH using npm run admin:hash.');
+  const passwordHash=env.DIRECTOR_PASSWORD_HASH||(env.DIRECTOR_PASSWORD?hashHostedPassword(env.DIRECTOR_PASSWORD,env.APP_SECRET):'');
+  if(!validPasswordHash(passwordHash))throw new Error('Set DIRECTOR_PASSWORD_HASH, or set DIRECTOR_PASSWORD with a separate 32+ character APP_SECRET.');
   const maxRunning=Number(env.MAX_COMPANY_PROCESSES||20);
   if(!Number.isSafeInteger(maxRunning)||maxRunning<1||maxRunning>20)throw new Error('MAX_COMPANY_PROCESSES must be 1–20.');
-  return {origin,domain:domain.toLowerCase(),passwordHash:env.DIRECTOR_PASSWORD_HASH,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
+  return {origin,domain:domain.toLowerCase(),passwordHash,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
