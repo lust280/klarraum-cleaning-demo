@@ -3,3 +3,5 @@
 @media(max-width:900px){.calendar-spacer{display:none}}
 
 .calendar-job>span,.calendar-job>strong,.calendar-job>small{display:block}.calendar-job>strong{margin:5px 0;hyphens:auto;overflow-wrap:break-word}.calendar-job>small{margin-top:6px;font-size:11px}.calendar-time{font-weight:600}
+.calendar-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:680px){.calendar-filters{grid-template-columns:1fr}}
