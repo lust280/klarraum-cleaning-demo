@@ -28,7 +28,7 @@ export function directorConfig(env=process.env) {
   if(!validPasswordHash(passwordHash))throw new Error('Set DIRECTOR_PASSWORD_HASH, or set DIRECTOR_PASSWORD with a separate 32+ character APP_SECRET.');
   const maxRunning=Number(env.MAX_COMPANY_PROCESSES||20);
   if(!Number.isSafeInteger(maxRunning)||maxRunning<1||maxRunning>20)throw new Error('MAX_COMPANY_PROCESSES must be 1–20.');
-  return {origin,domain:domain.toLowerCase(),passwordHash,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
+  return {origin,domain:domain.toLowerCase(),passwordHash,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',pathPreview:env.PLATFORM_PATH_PREVIEW==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
@@ -41,7 +41,7 @@ export function createDirector(config) {
   const limiter=new RateLimiter(),children=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
   const cookieName=secure?'__Host-klarraum_director':'klarraum_director';
   const cookie=(token,age)=>`${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure?'; Secure':''}`;
-  const tenantOrigin=id=>config.mountedDemo?`${config.origin}/companies/${id}`:`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
+  const tenantOrigin=id=>(config.mountedDemo||config.pathPreview)?`${config.origin}/companies/${id}`:`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
   const companyDir=id=>join(config.dataDir,'companies',id);
   function publicCompany(row) {
     let workers={active:0,invited:0,disabled:0},storage='not initialized',storageBytes=0;
@@ -124,9 +124,10 @@ export function createDirector(config) {
     if(item)fail(503,'Company is restarting. Retry shortly.');
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
-    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:config.mountedDemo?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',ENABLE_INQUIRIES:'false',DEMO_ONLY:config.mountedDemo?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false'});
+    const pathPreview=config.mountedDemo||config.pathPreview;
+    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',ENABLE_INQUIRIES:'false',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false'});
     companyConfig.directorDisabled=true;
-    if(config.mountedDemo)companyConfig.basePath='/companies/'+row.id;
+    if(pathPreview)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
     item={child,stopping:false,ready:null};children.set(row.id,item);
     item.ready=new Promise((resolveReady,reject)=>{
@@ -159,7 +160,7 @@ export function createDirector(config) {
         }
         res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);
       };
-      const mounted=config.mountedDemo&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
+      const mounted=(config.mountedDemo||config.pathPreview)&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
       if(mounted&&!mounted[2]){res.writeHead(302,{Location:route.pathname+'/'});return res.end();}
       if(host!==url.host || mounted) {
         const suffix='.'+config.domain+(url.port?':'+url.port:'');
