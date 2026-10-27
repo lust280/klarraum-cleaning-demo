@@ -531,6 +531,8 @@ Archiv öffnen	Open archive
 Noch kein Monatsstand gespeichert.	No monthly snapshots saved yet.
 Bitte den ausgewählten Monat zuerst laden.	Load the selected month first.
 Zahlungseintrag gespeichert. Es wurde kein Geld eingezogen oder überwiesen.	Payment entry saved. No money was charged or transferred.
+Archivversion	Archive version
+Automatisch erzeugte Testanfrage. Keine echten Kontaktdaten.	Automatically generated test inquiry. No real contact details.
 Monatsberichte benötigen den eingerichteten Server.	Monthly reports require the configured server.
 Berichtsdienst nicht erreichbar.	Report service unavailable.
  · Aktueller Stand	 · Current snapshot
@@ -570,7 +572,7 @@ export function t(value){
  if(language!=='en'||typeof value!=='string')return value;
  if(Object.hasOwn(english,value))return english[value];
  const trimmed=value.trim();if(trimmed!==value&&Object.hasOwn(english,trimmed))return value.slice(0,value.length-value.trimStart().length)+english[trimmed]+value.slice(value.trimEnd().length);
- const formats=[[/^(.* · \d+) Einsätze$/,'$1 jobs'],[/^(\d+) Termine storniert\.$/,'$1 visits cancelled.'],[/^\((\d+) ungelesen\)$/,'($1 unread)'],[/^(\d+) Serientermine angelegt\. $/,'$1 recurring visits created. '],[/^Version (.+)$/,'Version $1'],[/^Objekt: (.*)$/,'Property: $1'],[/^Kontakt: (.*)$/,'Contact: $1'],[/^Mitarbeiter: (.*)$/,'Employee: $1'],[/^Geplant: (\d+) Minuten$/,'Planned: $1 minutes'],[/^Rückmeldung: (.*)$/s,'Feedback: $1'],[/^Bericht: (.*)$/s,'Report: $1'],[/^(\d+) (Auftrag|Aufträge) · (.*)$/,'$1 jobs · $3'],[/^(\d+) Mitarbeiter · (.*)$/,'$1 employees · $2'],[/^(\d+) Anfrage(n?) · (.*)$/,'$1 inquiries · $3']];
+ const formats=[[/^(.* · \d+) Einsätze$/,'$1 jobs'],[/^(\d+) Termine storniert\.$/,'$1 visits cancelled.'],[/^\((\d+) ungelesen\)$/,'($1 unread)'],[/^(\d+) Serientermine angelegt\.$/,'$1 recurring visits created.'],[/^Version (.+)$/,'Version $1'],[/^Objekt: (.*)$/,'Property: $1'],[/^Kontakt: (.*)$/,'Contact: $1'],[/^Mitarbeiter: (.*)$/,'Employee: $1'],[/^Geplant: (\d+) Minuten$/,'Planned: $1 minutes'],[/^Rückmeldung: (.*)$/s,'Feedback: $1'],[/^Bericht: (.*)$/s,'Report: $1'],[/^(\d+) (Auftrag|Aufträge) · (.*)$/,'$1 jobs · $3'],[/^(\d+) Mitarbeiter · (.*)$/,'$1 employees · $2'],[/^(\d+) Anfrage(n?) · (.*)$/,'$1 inquiries · $3']];
  for(const [pattern,replacement] of formats)if(pattern.test(value))return value.replace(pattern,replacement);
  return value;
 }

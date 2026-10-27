@@ -20,26 +20,26 @@ test.afterAll(async()=>{await app.drain();await new Promise(resolve=>server.clos
 test('customer submits, owner manages, updates prices and deletes; no unsafe HTML rendering',async({page},testInfo)=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
- await expect(page.locator('#price')).toHaveText('126,00 €');
+ await expect(page.locator('#price')).toHaveText('€126.00');
  await page.locator('#area').fill('100');await page.locator('#frequency').selectOption('weekly');await page.locator('#windows').check();
- await expect(page.locator('#price')).toHaveText('202,00 €');
+ await expect(page.locator('#price')).toHaveText('€202.00');
  await page.locator('#customer-name').fill('Browser Test');await page.locator('#customer-email').fill('browser@example.invalid');
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Test address');
  await page.locator('#comments').fill('<img src=x onerror="window.__unsafe=true">');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Ihre Anfrage wurde gespeichert');
- await expect(page.locator('#success-message')).toContainText('202,00');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Thank you. Your inquiry was saved.');
+ await expect(page.locator('#success-message')).toContainText('€202.00');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('customer.png'),fullPage:true});
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
  await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('.inquiry')).toContainText('browser@example.invalid');
  await expect(page.locator('.inquiry')).toContainText('<img src=x');expect(await page.evaluate(()=>window.__unsafe)).toBeUndefined();
- await page.locator('.inquiry select').selectOption('contacted');await expect(page.locator('.inquiry-head .badge')).toHaveText('Kontaktiert');
- await page.locator('.settings summary').click();await page.locator('[name="home"]').fill('2.50');await page.locator('#pricing-form button').click();await expect(page.locator('#pricing-status')).toContainText('Preise gespeichert');
+ await page.locator('.inquiry select').selectOption('contacted');await expect(page.locator('.inquiry-head .badge')).toHaveText('Contacted');
+ await page.locator('.settings summary').first().click();await page.locator('[name="home"]').fill('2.50');await page.locator('#pricing-form button').click();await expect(page.locator('#pricing-status')).toContainText('Prices saved');
  await page.screenshot({path:testInfo.outputPath('admin.png'),fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
- await page.locator('.inquiry button').filter({hasText:'Löschen'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
+ await page.locator('.inquiry button').filter({hasText:'Delete'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
  await page.locator('#logout').click();await expect(page.locator('#login-panel')).toBeVisible();
- await page.goto(origin);await expect(page.locator('#price')).toHaveText('175,00 €');
+ await page.goto(origin);await expect(page.locator('#price')).toHaveText('€175.00');
  expect(errors).toEqual([]);
 });
 
@@ -49,7 +49,7 @@ test('preview allows typing but never transmits or saves contact data',async({pa
  await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
  await page.locator('#customer-name').fill('Demo customer');await page.locator('#customer-email').fill('demo@example.invalid');
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Fictional example street 1');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Es wurde nichts versendet');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Demo: your details were prepared as a preview.');
  await expect(page.locator('#message')).toHaveValue(/Fictional example street 1/);
  expect(submissions).toEqual([]);expect(app.store.list('',0).total).toBe(0);
  await page.goto(origin+'/datenschutz.html');await expect(page.locator('#processing-details')).toContainText('Test-only privacy notice');
@@ -61,15 +61,15 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
  let sent;
  page.on('request',req=>{if(req.url().endsWith('/api/demo/inquiries') && req.method()==='POST')sent=req.postDataJSON();});
  await page.goto(origin);
- await expect(page.locator('#submit-inquiry')).toContainText('Testanfrage an Verwaltung');
+ await expect(page.locator('#submit-inquiry')).toContainText('Send fictional test to owner');
  await page.locator('#customer-name').fill('Do not transmit this name');await page.locator('#customer-email').fill('private@example.invalid');
  await page.locator('#address').fill('Do not transmit this address');await page.locator('#area').fill('85');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Testanfrage gespeichert');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Fictional test saved.');
  expect(sent.area).toBe(85);expect(sent.name).toBeUndefined();expect(sent.email).toBeUndefined();expect(sent.address).toBeUndefined();
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
- await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('.inquiry')).toContainText('Demo-Kunde');await expect(page.locator('.inquiry')).toContainText('85 m²');
- await expect(page.locator('.inquiry')).not.toContainText('Do not transmit');await expect(page.locator('.inquiry')).toContainText('keine E-Mail');
- await page.locator('.inquiry button').filter({hasText:'Löschen'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
+ await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('.inquiry')).toContainText('Demo customer');await expect(page.locator('.inquiry')).toContainText('85 m²');
+ await expect(page.locator('.inquiry')).not.toContainText('Do not transmit');await expect(page.locator('.inquiry')).toContainText('contact details omitted');
+ await page.locator('.inquiry button').filter({hasText:'Delete'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
  config.demoMode=false;config.live=true;
 });
 
@@ -80,7 +80,7 @@ test('owner edits site from dashboard and customer view applies brand, texts, th
  await page.locator('[name="company_phone"]').fill('+49 911 1234567');await page.locator('[name="company_email"]').fill('info@example.invalid');
  await page.locator('[name="company_area"]').fill('Nürnberg & Fürth');await page.locator('[name="hero_title"]').fill('Mehr Zeit für Sie.');
  await page.locator('[name="home_title"]').fill('Hauspflege');await page.locator('[name="office_enabled"]').uncheck();await page.locator('[name="windowsEnabled"]').uncheck();
- await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
  await page.screenshot({path:testInfo.outputPath('website-editor.png'),fullPage:true});
  await page.goto(origin);await expect(page.locator('#hero-title')).toHaveText('Mehr Zeit für Sie.');await expect(page.locator('[data-company]').first()).toHaveText('Nordlicht Reinigung');
  await expect(page.locator('html')).toHaveAttribute('data-theme','navy');await expect(page.locator('[data-service-card="office"]')).toBeHidden();await expect(page.locator('#windows')).toBeHidden();await expect(page.locator('[data-service-promise="office"]')).toBeHidden();await expect(page.locator('#pricing-explanation')).not.toContainText('Büroreinigung');
@@ -89,9 +89,9 @@ test('owner edits site from dashboard and customer view applies brand, texts, th
  await page.screenshot({path:testInfo.outputPath('customized-site.png'),fullPage:true});
  // Create a normal inquiry under the customized service and verify internal notes.
  await page.locator('#customer-name').fill('Notes Test');await page.locator('#customer-email').fill('notes@example.invalid');await page.locator('#postcode').fill('90402');await page.locator('#privacy').check();await page.locator('#submit-inquiry').click();
- await expect(page.locator('#success-message')).toContainText('Ihre Anfrage wurde gespeichert');
+ await expect(page.locator('#success-message')).toContainText('Thank you. Your inquiry was saved.');
  await page.goto(origin+'/admin.html');await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('[data-stat="new"]')).toHaveText('1');await expect(page.locator('.inquiry')).toContainText('Hauspflege');
- await page.locator('.note-editor textarea').fill('Rückruf am Dienstag');await page.locator('.note-editor button').click();await expect(page.locator('.note-editor .fine')).toContainText('Notiz gespeichert');
+ await page.locator('.note-editor textarea').fill('Rückruf am Dienstag');await page.locator('.note-editor button').click();await expect(page.locator('.note-editor .fine')).toContainText('Note saved.');
  await page.reload();await expect(page.locator('.note-editor textarea')).toHaveValue('Rückruf am Dienstag');
 });
 
@@ -106,7 +106,7 @@ test('owner uploads logo and photos, publishes approved review, then removes all
  }
  await page.locator('#selected-gallery input').fill('Test-only gallery caption');
  await page.locator('[name="review_name_0"]').fill('Approved test author');await page.locator('[name="review_text_0"]').fill('Test fixture for a customer-authorized statement.');
- await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
  await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeVisible();await expect(page.locator('#hero-photo')).toBeVisible();
  await expect(page.locator('#photo-gallery')).toBeVisible();await expect(page.locator('#gallery-grid figcaption')).toHaveText('Test-only gallery caption');
  await expect(page.locator('#testimonial-grid')).toContainText('Approved test author');
@@ -114,12 +114,12 @@ test('owner uploads logo and photos, publishes approved review, then removes all
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('photos-and-reviews.png'),fullPage:true});
  await page.goto(origin+'/admin.html');await page.locator('#website-settings > summary').click();
- await page.locator('#selected-logo button').click();await page.locator('#selected-hero button').click();await page.locator('#selected-gallery button').filter({hasText:'Entfernen'}).click();
+ await page.locator('#selected-logo button').click();await page.locator('#selected-hero button').click();await page.locator('#selected-gallery button').filter({hasText:'Remove'}).click();
  await page.locator('.media-library-details > summary').click();
  const galleryFile=page.locator('.library-card').filter({hasText:'gallery'});
- await galleryFile.getByRole('button',{name:'Wieder verwenden'}).click();await expect(page.locator('#selected-gallery img')).toBeVisible();
- await page.locator('#selected-gallery button').filter({hasText:'Entfernen'}).click();
+ await galleryFile.getByRole('button',{name:'Reuse'}).click();await expect(page.locator('#selected-gallery img')).toBeVisible();
+ await page.locator('#selected-gallery button').filter({hasText:'Remove'}).click();
  await page.locator('[name="review_name_0"]').fill('');await page.locator('[name="review_text_0"]').fill('');
- await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website gespeichert');
+ await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
  await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeHidden();await expect(page.locator('#hero-photo')).toBeHidden();await expect(page.locator('#photo-gallery')).toBeHidden();await expect(page.locator('#testimonials')).toBeHidden();
 });
