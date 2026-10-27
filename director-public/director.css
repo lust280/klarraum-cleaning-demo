@@ -6,3 +6,4 @@
 
 /* The director console is also used on phones and through browser translation. */
 *{min-width:0}body{overflow-x:hidden}button{white-space:normal}@media(max-width:600px){header{flex-wrap:wrap}header>*{max-width:100%}.actions button,.actions a{flex:1 1 130px}}
+.company-group-title{margin:32px 0 10px}.company-card{border-left:6px solid #ad7724}.company-card.payment-paid{border-left-color:#2f7d4b}.company-card.payment-overdue{border-left-color:#b23a2e}.payment-summary{font-weight:700}

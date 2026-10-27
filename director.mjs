@@ -50,7 +50,7 @@ export function createDirector(config) {
         workers=Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v||0]));storage='readable';
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',trialEndsAt:row.trial_ends_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'EUR',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,estimatedCents:workers?row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents:null};
   }
   async function body(req) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
@@ -68,7 +68,8 @@ export function createDirector(config) {
     if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>80||/[\x00-\x1f\x7f]/.test(input.name))fail(400,'Company name: 1–80 characters.');
     for(const key of ['baseCents','included','seatCents'])if(!Number.isSafeInteger(input[key])||input[key]<0||input[key]>(key==='included'?100000:10000000))fail(400,'Invalid tariff. Use whole cents and whole seats.');
     if(update&&(!['active','suspended'].includes(input.status)||!['trial','paid','overdue'].includes(input.payment)||!Number.isSafeInteger(input.version)))fail(400,'Invalid status/version.');
-    return {...input,name:input.name.trim()};
+    const date=value=>{if(value===null||value===undefined||value==='')return null;if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))fail(400,'Use a valid payment date.');const at=Date.parse(value+'T00:00:00Z');if(!Number.isSafeInteger(at))fail(400,'Use a valid payment date.');return at;};
+    return {...input,name:input.name.trim(),paymentDueAt:update?date(input.paymentDueAt):null,lastPaidAt:update?date(input.lastPaidAt):null};
   }
   function checkedApplication(input) {
     if(!input||typeof input!=='object')fail(400,'Invalid application.');
