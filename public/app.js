@@ -52,7 +52,7 @@ form.addEventListener('submit',async event=>{
   const inputs=[...form.querySelectorAll('input,select,textarea')];
   const payload={service:service.value,area:Number(area.value),frequency:frequency.value,windows:windows.checked,
     name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
-    address:$('#address').value,date:$('#date').value,message:$('#comments').value,
+    address:$('#address').value,date:$('#date').value,preferredTime:$('#preferred-time').value,message:$('#comments').value,
     privacy:$('#privacy').checked,website:$('#website').value};
   inputs.forEach(input=>input.disabled=true);
   try{

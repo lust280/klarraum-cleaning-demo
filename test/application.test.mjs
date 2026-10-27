@@ -38,19 +38,19 @@ async function fixture(t,options={}) {
 
 test('save, calculate on server, notify without contact data, and deduplicate retries',async t=>{
  const f=await fixture(t);const key=randomUUID();
- const response=await f.submit({price:0},key);assert.equal(response.status,201);assert.equal(response.data.price,126);
+ const response=await f.submit({price:0,preferredTime:'10:30'},key);assert.equal(response.status,201);assert.equal(response.data.price,126);
  await f.app.drain();assert.equal(f.notifications.length,1);
  const mail=JSON.parse(f.notifications[0].body);assert.ok(!mail.text.includes('customer@example.invalid'));
- const repeat=await f.submit({price:0},key);assert.equal(repeat.status,200);assert.equal(repeat.data.id,response.data.id);
+ const repeat=await f.submit({price:0,preferredTime:'10:30'},key);assert.equal(repeat.status,200);assert.equal(repeat.data.id,response.data.id);
  const changed=await f.submit({name:'Different'},key);assert.equal(changed.status,409);
  const headers=await f.login();const list=await f.request('/api/admin/inquiries',{headers});
- assert.equal(list.data.total,1);assert.equal(list.data.items[0].notification,'sent');assert.equal(list.data.items[0].email,'customer@example.invalid');
+ assert.equal(list.data.total,1);assert.equal(list.data.items[0].notification,'sent');assert.equal(list.data.items[0].email,'customer@example.invalid');assert.equal(list.data.items[0].preferredTime,'10:30');
  assert.equal(list.headers.get('cache-control'),'no-store');
 });
 
 test('validate personal data, area, service region, date, privacy, honeypot and form token',async t=>{
  const f=await fixture(t);
- for(const invalid of [{name:''},{email:'',phone:''},{email:'bad'},{email:'a@b.c\nBcc: x@y.z'},{phone:'abc'},{postcode:'12345'},{postcode:'9040'},{date:'2026-02-30'},{date:'2025-01-01'},{date:'2030-01-01'},{area:1001},{area:20.5},{service:'__proto__'},{windows:'true'},{privacy:false},{message:'x'.repeat(2001)},{website:'spam'},{token:'forged'}]){
+ for(const invalid of [{name:''},{email:'',phone:''},{email:'bad'},{email:'a@b.c\nBcc: x@y.z'},{phone:'abc'},{postcode:'12345'},{postcode:'9040'},{date:'2026-02-30'},{date:'2025-01-01'},{date:'2030-01-01'},{preferredTime:'25:00'},{area:1001},{area:20.5},{service:'__proto__'},{windows:'true'},{privacy:false},{message:'x'.repeat(2001)},{website:'spam'},{token:'forged'}]){
   const response=await f.submit(invalid);assert.equal(response.status,400,JSON.stringify(invalid));
  }
  const body={token:(await f.request('/api/form-token')).data.token};

@@ -22,6 +22,10 @@ Object.assign(messages,{
  reviewTrial:['Страница активации пробного периода','Trial activation page','Seite zur Testaktivierung'],
  reviewLegal:['Юридическая информация','Legal notice','Impressum'],
  reviewPrivacy:['Политика конфиденциальности','Privacy notice','Datenschutzhinweise'],
+ reviewTenantHelp:['Страницы клиентов компании, владельца, команды и работников появляются после создания компании. Они не открываются по общему адресу платформы.','Customer, owner, team and employee pages become available after a company is created. They do not open on the shared platform address.','Kunden-, Inhaber-, Team- und Mitarbeiterseiten stehen nach dem Anlegen einer Firma bereit. Sie öffnen nicht über die gemeinsame Plattformadresse.'],
+ marketingPage:['Публичная страница KlarraumApp','Public KlarraumApp page','Öffentliche KlarraumApp-Seite'],
+ marketingPageHelp:['Используйте эту страницу в постах и рекламе для владельцев клининговых компаний. На ней объясняется платформа и есть переход к 15-дневному пробному периоду.','Use this page in posts and advertisements for cleaning-company owners. It explains the platform and leads to the 15-day trial.','Diese Seite ist für Posts und Werbung an Reinigungsunternehmen. Sie erklärt die Plattform und führt zum 15-tägigen Testzeitraum.'],
+ openMarketingPage:['Открыть публичную страницу ↗','Open public page ↗','Öffentliche Seite öffnen ↗'],
 });
 let language='en';try{const saved=localStorage.getItem('klarraum-director-language');if(['ru','en','de'].includes(saved))language=saved;}catch{}
 export const lang=language;

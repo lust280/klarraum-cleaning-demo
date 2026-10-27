@@ -30,7 +30,7 @@ async function load(){
   const head=el('div',undefined,'inquiry-head');const title=el('div');title.append(el('h2',item.name),el('div',translateUI(`${dateFormat.format(item.createdAt)} · ${item.id.slice(0,8)}`),'meta'));
   head.append(title,el('span',statusNames[item.status],'badge'));card.append(head);
   const grid=el('div',undefined,'inquiry-grid');
-  for(const text of [`Email: ${item.email||'—'}`,`Phone: ${item.phone||'—'}`,`Postal code: ${item.postcode}`,`Address: ${item.address||'To be agreed'}`,`Service: ${item.serviceTitle||serviceNames[item.service]} · ${item.area} m²`,`Frequency: ${frequencyNames[item.frequency]}`,`Windows: ${item.windows?'Yes':'No'}`,`Preferred date: ${item.date||'Open'}`,`Estimate: ${currency.format(item.price)}`])grid.append(el('p',text));
+  for(const text of [`Email: ${item.email||'—'}`,`Phone: ${item.phone||'—'}`,`Postal code: ${item.postcode}`,`Address: ${item.address||'To be agreed'}`,`Service: ${item.serviceTitle||serviceNames[item.service]} · ${item.area} m²`,`Frequency: ${frequencyNames[item.frequency]}`,`Windows: ${item.windows?'Yes':'No'}`,`Preferred date: ${item.date||'Open'}`,`Preferred time: ${item.preferredTime||'Open'}`,`Estimate: ${currency.format(item.price)}`])grid.append(el('p',text));
   card.append(grid);
   if(item.message)card.append(el('p',item.message));
   const delivery={demo:'Fictional test · no email · contact details omitted',sent:'Notification sent',pending:'Notification pending',failed:'Notification failed — inquiry was saved'};
