@@ -3,7 +3,7 @@ import {createFinance} from './director-finance.js';
 import {createBackupPanel} from './director-backup.js';
 import {createApplications} from './director-applications.js';
 translate();
-let csrf='',companies=[];
+let csrf='',companies=[],dashboardFilter='all';
 const $=s=>document.querySelector(s);
 function error(message=''){$('#error').textContent=errorText(message);$('#error').hidden=!message;if(message)$('#error').scrollIntoView({behavior:'smooth',block:'nearest'});}
 async function api(path,options={}){const response=await fetch('/api/director/'+path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers},body:options.body===undefined?undefined:JSON.stringify(options.body)});const data=await response.json();if(!response.ok){if(response.status===401){$('#dashboard').hidden=true;$('#login').hidden=false;$('#logout').hidden=true;}throw new Error(data.error||t('failed'));}return data;}
@@ -14,14 +14,16 @@ const catalogue={solo:{baseCents:2900,included:1,seatCents:0},starter:{baseCents
 const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Growth — $149'],['business','Business — $219'],['custom','Custom']];
 const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=catalogue[planKey]||catalogue.custom;return {name:form.elements.name.value,planKey,...plan};};
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
-function teamBand(c){const n=c.workers?.active||0;return n===0?[0,'No active employees']:n<=5?[1,'1–5 employees']:n<=10?[2,'6–10 employees']:n<=15?[3,'11–15 employees']:n<=50?[4,'16–50 employees']:[5,'51+ employees'];}
+function planBand(c){return planChoices.findIndex(([key])=>key===c.planKey);}
+function matchesDashboard(c){if(dashboardFilter==='all')return true;if(dashboardFilter==='enabled')return c.status==='active';if(dashboardFilter==='workers')return (c.workers?.active||0)>0;return c.planKey===dashboardFilter;}
 function invite(url){$('#invite-url').value=url;$('#invitation').hidden=false;$('#invite-url').focus();$('#invite-url').select();}
 async function busy(button,task){button.disabled=true;button.setAttribute('aria-busy','true');error();try{await task();}catch(e){error(e.message);}finally{button.disabled=false;button.removeAttribute('aria-busy');}}
 function render(){
  const target=$('#companies');target.replaceChildren();const query=$('#search').value.toLowerCase();let last=-1,groupTarget=target;
- for(const c of companies.filter(c=>(c.name+' '+c.id+' '+c.origin+' '+c.timeZone).toLowerCase().includes(query)).sort((a,b)=>teamBand(a)[0]-teamBand(b)[0]||a.name.localeCompare(b.name))){
-  const [band,title]=teamBand(c);if(band!==last){last=band;const group=el('details',undefined,'company-group'),summary=el('summary',title);groupTarget=el('div',undefined,'company-group-list');group.append(summary,groupTarget);target.append(group);}
-  const card=el('article',undefined,'company-card payment-'+c.payment);card.append(el('h2',c.name),el('p',`${title} · ${c.timeZone} · joined ${new Date(c.createdAt).toLocaleDateString(document.documentElement.lang)}`,'meta'));
+ const visible=companies.filter(c=>matchesDashboard(c)&&(c.name+' '+c.id+' '+c.origin+' '+c.timeZone).toLowerCase().includes(query)).sort((a,b)=>planBand(a)-planBand(b)||a.name.localeCompare(b.name));
+ for(const c of visible){
+  const band=planBand(c),title=planChoices[band]?.[1]||'Custom';if(band!==last){last=band;const group=el('details',undefined,'company-group');group.open=true;const summary=el('summary',title);groupTarget=el('div',undefined,'company-group-list');group.append(summary,groupTarget);target.append(group);}
+  const card=el('article',undefined,'company-card payment-'+c.payment);card.append(el('h2',c.name),el('p',`${c.planName} · ${c.timeZone} · joined ${new Date(c.createdAt).toLocaleDateString(document.documentElement.lang)}`,'meta'));
   const gb=bytes=>`${(bytes/1024**3).toFixed(bytes>=10*1024**3?0:1)} GB`;card.append(el('p',`Plan: ${c.planName} · ${c.storageLimitBytes?`${gb(c.storageBytes)} of ${gb(c.storageLimitBytes)} used (${c.storageState.level})`:'storage agreed individually'}`,'meta'));
   const link=el('a',t('openSite'));link.href=c.origin;link.target='_blank';link.rel='noopener';card.append(link);
   const w=c.workers;card.append(el('p',w?`${t('active')}: ${w.active} · ${t('invited')}: ${w.invited} · ${t('disabled')}: ${w.disabled}`:t('unavailable')));
@@ -33,8 +35,10 @@ function render(){
   if(c.payment==='trial'){const extend=el('button','Add 15 trial days','secondary');extend.onclick=()=>busy(extend,async()=>{await api('companies/'+c.id+'/trial/extend',{method:'POST',body:{}});await refresh();});actions.append(extend);}
   const history=el('button',t('history'),'secondary'),out=el('pre');history.onclick=()=>busy(history,async()=>{const data=await api('companies/'+c.id+'/events');out.textContent=data.items.map(x=>new Date(x.created_at).toLocaleString(document.documentElement.lang)+' · '+x.action+'\n'+x.details).join('\n\n');});actions.append(history);card.append(actions,thread,out);groupTarget.append(card);
  }
- const totals=$('#totals');totals.replaceChildren(el('p',`${t('total')}: ${companies.length}`),el('p',`${t('open')}: ${companies.filter(c=>c.status==='active').length}`),el('p',`${t('activeWorkers')}: ${companies.reduce((n,c)=>n+(c.workers?.active||0),0)}${companies.some(c=>!c.workers)?' ('+t('partial')+')':''}`));
- if(!companies.length)target.append(el('p',t('empty')));finance.companyOptions(companies);
+ const metric=(title,value,filter)=>{const node=el('button',`${title}: ${value}`,'dashboard-metric'+(dashboardFilter===filter?' selected':''));node.type='button';node.onclick=()=>{dashboardFilter=filter;render();document.querySelector('#companies').scrollIntoView({behavior:'smooth',block:'start'});};return node;};
+ const totals=$('#totals');totals.replaceChildren(metric(t('total'),companies.length,'all'),metric(t('open'),companies.filter(c=>c.status==='active').length,'enabled'),metric(t('activeWorkers'),companies.reduce((n,c)=>n+(c.workers?.active||0),'workers')));
+ const overview=$('#plan-overview');overview.replaceChildren(el('h2','Plans and companies'));for(const [key,title] of planChoices){const members=companies.filter(c=>c.planKey===key);if(!members.length&&key==='custom')continue;overview.append(metric(`${title} · companies`,members.length,key));}
+ if(!visible.length)target.append(el('p',companies.length?'No companies match this view.':t('empty')));finance.companyOptions(companies);
 }
 document.addEventListener('invalid',event=>{if(event.target.closest('form')){event.target.setAttribute('aria-invalid','true');error(t('completeFields'));}},true);
 document.addEventListener('input',event=>{if(event.target.closest('form'))event.target.removeAttribute('aria-invalid');});
@@ -43,7 +47,7 @@ const finance=createFinance({api,busy,el,label});
 const backups=createBackupPanel({api,busy,getCsrf:()=>csrf});
 async function refresh(){companies=(await api('companies')).items;render();}
 const applications=createApplications({api,busy,el,label,invite,onApproved:refresh});
-async function entered(){await refresh();await applications.refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
+async function entered(){const status=await fetch('/api/platform/status').then(r=>r.ok?r.json():null).catch(()=>null);$('#demo-notice').hidden=!status?.demo;await refresh();await applications.refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
 $('#login-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{csrf=(await api('login',{method:'POST',body:{password:e.target.elements.password.value}})).csrf;e.target.reset();await entered();});};
 $('#create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{const data=await api('companies',{method:'POST',body:tariff(e.target)});e.target.reset();invite(data.inviteUrl);await refresh();});};
 $('#refresh').onclick=e=>busy(e.target,refresh);$('#search').oninput=render;
