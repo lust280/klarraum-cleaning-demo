@@ -64,6 +64,14 @@ export function createDirector(config) {
     if(!result)fail(401,'Session expired.');
     if(write&&req.headers['x-csrf-token']!==result.csrf)fail(403,'Invalid security token.');return {...result,hash:digest(token)};
   }
+  function ownerSession(req,id,write=false) {
+    const name=config.mountedDemo?'klarraum_company_'+id+'_session':secure?'__Host-klarraum_session':'klarraum_session';
+    const token=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1);
+    if(!token||!/^[\w-]{43}$/.test(token))fail(401,'Sign in as the company owner.');
+    const path=join(companyDir(id),'klarraum.sqlite');if(!existsSync(path))fail(503,'Company storage is not ready.');
+    let db;
+    try {db=new DatabaseSync(path,{readOnly:true});db.exec('PRAGMA busy_timeout=1000');const result=db.prepare('SELECT csrf,expires_at FROM sessions WHERE token_hash=?').get(digest(token));if(!result||result.expires_at<=Date.now())fail(401,'Session expired. Sign in again.');if(write&&req.headers['x-csrf-token']!==result.csrf)fail(403,'Invalid security token.');return result;} finally {db?.close();}
+  }
   function checked(input,update=false) {
     if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>80||/[\x00-\x1f\x7f]/.test(input.name))fail(400,'Company name: 1–80 characters.');
     for(const key of ['baseCents','included','seatCents'])if(!Number.isSafeInteger(input[key])||input[key]<0||input[key]>(key==='included'?100000:10000000))fail(400,'Invalid tariff. Use whole cents and whole seats.');
@@ -159,6 +167,12 @@ export function createDirector(config) {
           store.activate(id,input.token,hash);await stop(id);return json(res,200,{ok:true});
         }
         if(!row.password_hash)fail(503,'Owner activation is required before this company can be opened.');
+        if(route.pathname==='/api/platform-support') {
+          ownerSession(req,id,method!=='GET'&&method!=='HEAD');
+          if(method==='GET'){const unread=store.supportUnread(id,'director');store.markSupportRead(id,'director');return json(res,200,{items:store.support(id),unread});}
+          if(method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');return json(res,201,{item:store.addSupport(id,'company',message)});}
+          fail(405,'Method not allowed.');
+        }
         const port=await start(row);
         if(store.company(id)?.status!=='active')fail(423,'Company access suspended.');
         const headers={...req.headers};delete headers['x-forwarded-for'];delete headers['x-forwarded-host'];delete headers['x-forwarded-proto'];
@@ -262,7 +276,7 @@ export function createDirector(config) {
           if(!match[2]&&method==='PUT') {store.update(row.id,checked(await body(req),true));if(store.company(row.id).status==='suspended')await stop(row.id);return json(res,200,publicCompany(store.company(row.id)));}
           if(match[2]==='invite'&&method==='POST'){if(row.password_hash)fail(409,'Owner already activated. Password recovery requires the operator procedure.');const token=store.invite(row.id);return json(res,200,{inviteUrl:tenantOrigin(row.id)+'/owner-setup.html#token='+token});}
           if(match[2]==='events'&&method==='GET')return json(res,200,{items:store.db.prepare('SELECT action,details,created_at FROM director_events WHERE company_id=? ORDER BY id DESC LIMIT 100').all(row.id)});
-          if(match[2]==='support'&&method==='GET'){store.markSupportRead(row.id);return json(res,200,{items:store.support(row.id)});}
+          if(match[2]==='support'&&method==='GET'){store.markSupportRead(row.id,'company');return json(res,200,{items:store.support(row.id)});}
           if(match[2]==='support'&&method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');return json(res,201,{item:store.addSupport(row.id,'director',message)});}
         }
         fail(404,'Not found.');

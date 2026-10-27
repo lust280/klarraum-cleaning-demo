@@ -89,6 +89,20 @@ test('two independent companies isolate owners, workers, activation links and di
  const events=await f.get('companies/'+current.id+'/events');assert.ok(events.data.items.some(e=>e.action==='owner_activated'));
  assert.ok(!JSON.stringify(events.data).includes('password_hash'));
 });
+test('company owner and director exchange private support messages without cross-company access',async t=>{
+ const f=await fixture(t),a=await f.create('Support Alpha'),b=await f.create('Support Beta');
+ const hostA=await f.activate(a),hostB=await f.activate(b),ownerA=await f.owner(hostA),ownerB=await f.owner(hostB);
+ assert.equal((await f.request('/api/platform-support',{host:hostA})).status,401);
+ assert.equal((await f.request('/api/platform-support',{host:hostA,headers:{Cookie:ownerA.Cookie},body:{message:'Missing CSRF'}})).status,403);
+ const sent=await f.request('/api/platform-support',{host:hostA,headers:ownerA,body:{message:'Please help with a fictional setup.'}});assert.equal(sent.status,201);assert.equal(sent.data.item.sender,'company');
+ let company=(await f.get('companies')).data.items.find(item=>item.id===a.company.id);assert.equal(company.unreadSupport,1);
+ const thread=await f.get('companies/'+a.company.id+'/support');assert.equal(thread.status,200);assert.deepEqual(thread.data.items.map(item=>item.sender),['company']);
+ company=(await f.get('companies')).data.items.find(item=>item.id===a.company.id);assert.equal(company.unreadSupport,0);
+ const reply=await f.post('companies/'+a.company.id+'/support',{message:'This is a fictional reply.'});assert.equal(reply.status,201);assert.equal(reply.data.item.sender,'director');
+ const ownerThread=await f.request('/api/platform-support',{host:hostA,headers:ownerA});assert.equal(ownerThread.status,200);assert.equal(ownerThread.data.unread,1);assert.deepEqual(ownerThread.data.items.map(item=>item.sender),['company','director']);assert.ok(ownerThread.data.items[1].read_at);
+ const afterRead=await f.request('/api/platform-support',{host:hostA,headers:ownerA});assert.equal(afterRead.data.unread,0);
+ assert.equal((await f.request('/api/platform-support',{host:hostB,headers:ownerB})).data.items.length,0);
+});
 test('reissuing owner invitation invalidates previous link and cannot reset activated owner',async t=>{
  const f=await fixture(t),item=await f.create('Invitation test');
  const replacement=await f.post('companies/'+item.company.id+'/invite',{});assert.equal(replacement.status,200);
