@@ -5,7 +5,7 @@ import {createApplications} from './director-applications.js';
 translate();
 let csrf='',companies=[];
 const $=s=>document.querySelector(s);
-function error(message=''){$('#error').textContent=errorText(message);$('#error').hidden=!message;}
+function error(message=''){$('#error').textContent=errorText(message);$('#error').hidden=!message;if(message)$('#error').scrollIntoView({behavior:'smooth',block:'nearest'});}
 async function api(path,options={}){const response=await fetch('/api/director/'+path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers},body:options.body===undefined?undefined:JSON.stringify(options.body)});const data=await response.json();if(!response.ok){if(response.status===401){$('#dashboard').hidden=true;$('#login').hidden=false;$('#logout').hidden=true;}throw new Error(data.error||t('failed'));}return data;}
 function el(tag,text,cls){const item=document.createElement(tag);if(text!==undefined)item.textContent=text;if(cls)item.className=cls;return item;}
 function label(text,name,value,type='text'){const node=el('label',text),input=el('input');Object.assign(input,{name,value,type,required:true});if(type==='number'){input.min='0';input.max='100000';input.step=name==='included'?'1':'0.01';}else input.maxLength=80;node.append(input);return node;}
@@ -16,7 +16,7 @@ const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=ca
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
 function teamBand(c){const n=c.workers?.active||0;return n===0?[0,'No active employees']:n<=5?[1,'1–5 employees']:n<=10?[2,'6–10 employees']:n<=15?[3,'11–15 employees']:n<=50?[4,'16–50 employees']:[5,'51+ employees'];}
 function invite(url){$('#invite-url').value=url;$('#invitation').hidden=false;$('#invite-url').focus();$('#invite-url').select();}
-async function busy(button,task){button.disabled=true;error();try{await task();}catch(e){error(e.message);}finally{button.disabled=false;}}
+async function busy(button,task){button.disabled=true;button.setAttribute('aria-busy','true');error();try{await task();}catch(e){error(e.message);}finally{button.disabled=false;button.removeAttribute('aria-busy');}}
 function render(){
  const target=$('#companies');target.replaceChildren();const query=$('#search').value.toLowerCase();let last=-1,groupTarget=target;
  for(const c of companies.filter(c=>(c.name+' '+c.id+' '+c.origin+' '+c.timeZone).toLowerCase().includes(query)).sort((a,b)=>teamBand(a)[0]-teamBand(b)[0]||a.name.localeCompare(b.name))){
@@ -36,6 +36,9 @@ function render(){
  const totals=$('#totals');totals.replaceChildren(el('p',`${t('total')}: ${companies.length}`),el('p',`${t('open')}: ${companies.filter(c=>c.status==='active').length}`),el('p',`${t('activeWorkers')}: ${companies.reduce((n,c)=>n+(c.workers?.active||0),0)}${companies.some(c=>!c.workers)?' ('+t('partial')+')':''}`));
  if(!companies.length)target.append(el('p',t('empty')));finance.companyOptions(companies);
 }
+document.addEventListener('invalid',event=>{if(event.target.closest('form')){event.target.setAttribute('aria-invalid','true');error(t('completeFields'));}},true);
+document.addEventListener('input',event=>{if(event.target.closest('form'))event.target.removeAttribute('aria-invalid');});
+document.addEventListener('change',event=>{if(event.target.closest('form'))event.target.removeAttribute('aria-invalid');});
 const finance=createFinance({api,busy,el,label});
 const backups=createBackupPanel({api,busy,getCsrf:()=>csrf});
 async function refresh(){companies=(await api('companies')).items;render();}
