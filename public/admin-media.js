@@ -47,7 +47,7 @@ export function renderMediaEditor(content,api,onChange){
  request=api;changed=onChange;media=structuredClone(content.media||{logo:null,hero:null,gallery:[]});renderSelected();
  const reviews=$('#review-fields');reviews.replaceChildren();
  for(let i=0;i<3;i++){
-  const item=content.testimonials?.[i]||{name:'',text:''};const section=node('fieldset');const legend=node('legend',`Kundenstimme ${i+1} (optional)`);section.append(legend);
+  const item=content.testimonials?.[i]||{name:'',text:''};const section=node('fieldset');const legend=node('legend',`Customer statement ${i+1} (optional)`);section.append(legend);
   const nameLabel=node('label',translateUI('Freigegebener Anzeigename'));const name=node('input');name.name=`review_name_${i}`;name.maxLength=80;name.value=item.name;nameLabel.append(name);
   const textLabel=node('label',translateUI('Originaler oder abgestimmter Bewertungstext'));const text=node('textarea');text.name=`review_text_${i}`;text.rows=3;text.maxLength=600;text.value=item.text;textLabel.append(text);section.append(nameLabel,textLabel);reviews.append(section);
  }
