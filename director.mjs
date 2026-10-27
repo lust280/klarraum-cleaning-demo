@@ -182,7 +182,7 @@ export function createDirector(config) {
         if(!row.password_hash)fail(503,'Owner activation is required before this company can be opened.');
         if(route.pathname==='/api/platform-plan'&&method==='GET') {
           ownerSession(req,id);const company=publicCompany(row);
-          return json(res,200,{planKey:company.planKey,planName:company.planName,monthlyCents:company.estimatedCents,activeWorkers:company.workers?.active??null,includedWorkers:company.included,storageBytes:company.storageBytes,storageLimitBytes:company.storageLimitBytes,storageState:company.storageState,currency:company.currency});
+          return json(res,200,{companyName:company.name,planKey:company.planKey,planName:company.planName,monthlyCents:company.estimatedCents,activeWorkers:company.workers?.active??null,includedWorkers:company.included,storageBytes:company.storageBytes,storageLimitBytes:company.storageLimitBytes,storageState:company.storageState,currency:company.currency});
         }
         if(route.pathname==='/api/platform-support') {
           ownerSession(req,id,method!=='GET'&&method!=='HEAD');
