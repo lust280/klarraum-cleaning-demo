@@ -25,6 +25,12 @@ function render(content){
   section.append(label,field(key+'_title',translateUI('Anzeigename'),service.title,80),field(key+'_description',translateUI('Beschreibung'),service.description,400,true));services.append(section);
  }
  form.elements.windowsEnabled.checked=content.windowsEnabled;
+ const booking=content.booking||{enabled:true,dateEnabled:true,timeEnabled:true};
+ const bookingFields=document.querySelector('#booking-fields');bookingFields.replaceChildren();
+ for(const [key,label,description] of [['enabled','Accept online inquiries','Show or pause the public form'],['dateEnabled','Ask for preferred date','Let customers choose a date'],['timeEnabled','Ask for preferred time','Let customers choose a time']]){
+  const item=document.createElement('label');item.className='booking-toggle';const input=document.createElement('input');input.type='checkbox';input.name='booking_'+key;input.checked=booking[key]!==false;
+  const copy=document.createElement('span');const title=document.createElement('strong');title.textContent=label;const text=document.createElement('small');text.textContent=description;copy.append(title,text);item.append(input,copy);bookingFields.append(item);
+ }
  renderMediaEditor(content,request,()=>{dirty=true;status.textContent=translateUI('Ungespeicherte Änderungen');});
 }
 export function hasSiteChanges(){return dirty;}
