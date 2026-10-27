@@ -9,3 +9,7 @@ input:not([type=checkbox]),textarea,select{width:100%;border:1px solid var(--lin
 
 /* Interface language control stays usable on narrow screens. */
 .header{flex-wrap:wrap;gap:12px}.header>nav{flex-wrap:wrap}@media(max-width:680px){.header .logo{max-width:100%;flex:1 1 50%}}
+
+/* Translation tools can insert extra inline elements. Keep every customer and
+   company screen inside the mobile viewport when that happens. */
+*{min-width:0}body{overflow-x:hidden}img,svg,canvas{max-width:100%;height:auto}.button,button{white-space:normal}.pagination{flex-wrap:wrap}@media(max-width:680px){.row{grid-template-columns:1fr}.section-top{gap:12px;align-items:flex-start}.pagination .button{flex:1 1 130px}}
