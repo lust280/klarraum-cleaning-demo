@@ -81,10 +81,11 @@ test('authentication, CSRF, cross-origin rejection, status, deletion, logout and
  const next=await f.login();f.advance(8*3600000+1);assert.equal((await f.request('/api/admin/session',{headers:next})).status,401);
 });
 
-test('login brute force is rate limited',async t=>{
+test('login brute force is rate limited without blocking a correct owner password',async t=>{
  const f=await fixture(t);
- for(let i=0;i<5;i++)assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password:'wrong'}})).status,401);
- assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password}})).status,429);
+ for(let i=0;i<8;i++)assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password:'wrong'}})).status,401);
+ assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password:'wrong'}})).status,429);
+ assert.equal((await f.request('/api/admin/login',{method:'POST',body:{password}})).status,200);
 });
 
 test('owner can save a custom-domain request without activating it prematurely',async t=>{
