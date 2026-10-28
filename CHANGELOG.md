@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Plus is a self-serve plan at $259 with 25 included workers, $8 extra seats, and about 250 GB. Teams above Scale stay on Plus with seat overage. Custom remains a negotiated plan. Pricing says photos and other media are kept on a 12-month rolling basis. A reminder email and an automatic purge are not built yet.
+
+A company owner can choose a public plan and continue with Google. The first sign-in creates the company, starts the trial, and opens the owner cabinet. The same Google client is used with a separate signup callback. Calendar sync is unchanged. The button stays hidden when the client keys are missing. Stripe Checkout stays off.
+
 Platform companies can accept inquiries after the owner saves contact and legal details and the director has platform mail settings. The customer calculator uses SVG service icons and a larger live price. Inquiry mail fails with a configuration error when Resend settings are missing.
 
 Director company cards no longer block save on empty payment dates, keep the selected plan, show the owner invite until activation, and can delete one named test company. Owner home leads with today's attention and the plan card. Employees can decline an assigned job and record a signature, tip, and on-site cash or card mark. Customer confirmation and appointment reminders send when mail is configured. Stripe stays inactive. Google Calendar connects when the client id and secret are set.

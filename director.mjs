@@ -16,6 +16,7 @@ import {digest,randomToken,verifyPassword,hashPassword,hashHostedPassword,validP
 import {planFor,planEstimate,requestedPlanForWorkers,storageState,nextPlan} from './lib/plans.mjs';
 import {backupSchedule,runScheduledBackup} from './lib/backup-schedule.mjs';
 import {googleConfigured,googleRedirectUri,readGoogleState,exchangeGoogleCode,saveGoogleConnection} from './lib/google-calendar.mjs';
+import {signinRedirectUri,signSignupState,readSignupState,googleSigninUrl,exchangeSigninCode,googleProfile,signupPlans} from './lib/google-signin.mjs';
 import {companyInquiryEnv,companyInquiryReadiness,inquiryBlockers} from './lib/company-inquiry.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
@@ -131,7 +132,7 @@ export function createDirector(config) {
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test applications only. Use an email ending in .invalid.');
     const recommended=requestedPlanForWorkers(input.workers),plan=planFor(input.planKey)||recommended;
-    if((recommended.key==='custom'&&plan.key!=='custom')||(recommended.key!=='custom'&&plan.key!==recommended.key))fail(400,'Choose the plan that matches the team size. Use Custom for 21+ workers.');
+    if(plan.key!=='custom'&&plan.key!==recommended.key)fail(400,'Choose the plan that matches the team size. Plus covers larger teams; Custom is only for a negotiated setup.');
     return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,planKey:plan.key,note,consentVersion:'2026-10-27'};
   }
   function checkedTrial(input) {
@@ -247,6 +248,16 @@ export function createDirector(config) {
         req.on('aborted',()=>proxy.destroy());req.pipe(proxy);return;
       }
       if(route.pathname==='/api/platform/status'&&method==='GET')return json(res,200,{demo:Boolean(config.mountedDemo)});
+      if(route.pathname==='/api/google/signup/status'&&method==='GET')return json(res,200,{enabled:googleConfigured(process.env)});
+      if(route.pathname==='/api/google/signup/start'&&method==='GET'){
+        if(!googleConfigured(process.env))fail(404,'Google sign-in is not configured.');
+        const plan=route.searchParams.get('plan')||'';
+        if(!signupPlans.includes(plan))fail(400,'Choose a public plan.');
+        const state=signSignupState(config.passwordHash,{plan,exp:Date.now()+10*60*1000});
+        res.writeHead(302,{Location:googleSigninUrl({clientId:process.env.GOOGLE_CLIENT_ID,redirectUri:signinRedirectUri(process.env,config.origin),state})});
+        return res.end();
+      }
+      if(route.pathname==='/api/google/signup/callback'&&method==='GET')return await completeGoogleSignup(route,res);
       if(route.pathname==='/api/platform/trials'&&method==='POST') {
         if(!limiter.allow('trial:'+req.socket.remoteAddress,3,3600000,Date.now()))fail(429,'Too many trial registrations. Try again later.');
         const input=checkedTrial(await body(req));
@@ -370,6 +381,25 @@ export function createDirector(config) {
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;
+  async function completeGoogleSignup(route,res){
+    if(!googleConfigured(process.env))fail(404,'Google sign-in is not configured.');
+    if(route.searchParams.get('error')){res.writeHead(302,{Location:'/for-companies.html?google=denied#google-signup'});return res.end();}
+    const code=route.searchParams.get('code');if(!code)fail(400,'Google did not return a sign-in code.');
+    const {plan}=readSignupState(config.passwordHash,route.searchParams.get('state'),Date.now());
+    const fetchImpl=config.fetcher||fetch;
+    const access=await exchangeSigninCode({clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET,code,redirectUri:signinRedirectUri(process.env,config.origin),fetchImpl});
+    const profile=await googleProfile(access,fetchImpl);
+    let row=store.companyByGoogleSub(profile.sub);
+    if(!row){
+      try{row=store.createGoogleOwner({name:profile.name,email:profile.email,ownerName:profile.name,googleSub:profile.sub,plan:planFor(plan),passwordHash:await hashPassword(randomToken())});}
+      catch(error){row=store.companyByGoogleSub(profile.sub);if(!row||!/UNIQUE/i.test(error.message||''))throw error;}
+    }
+    if(row.status!=='active')fail(423,'Company access suspended.');
+    await start(row);
+    const token=randomToken(),db=new DatabaseSync(join(companyDir(row.id),'klarraum.sqlite'));
+    try{db.exec('PRAGMA busy_timeout=3000');db.exec('CREATE TABLE IF NOT EXISTS google_owner_login(id INTEGER PRIMARY KEY CHECK(id=1), token_hash TEXT NOT NULL, expires_at INTEGER NOT NULL)');db.prepare('INSERT INTO google_owner_login(id,token_hash,expires_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET token_hash=excluded.token_hash, expires_at=excluded.expires_at').run(digest(token),Date.now()+10*60*1000);}finally{db.close();}
+    res.writeHead(302,{Location:tenantOrigin(row.id)+'/admin.html#google='+encodeURIComponent(token)});res.end();
+  }
   async function platformGoogleCallback(route,res){
     if(!googleConfigured(process.env))fail(404,'Google Calendar is not configured.');
     const companyId=(route.searchParams.get('state')||'').split('.')[0];

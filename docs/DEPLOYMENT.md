@@ -36,7 +36,7 @@ If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still s
 
 ## Google Calendar
 
-`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on calendar connection for company owners. Leave both empty and the control stays hidden. `GOOGLE_CALENDAR_REDIRECT_URI` is the exact callback registered in Google Cloud. On the platform service, set the three values on the director; each company process receives them. See docs/GOOGLE-CALENDAR.md.
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on calendar connection for company owners and Continue with Google after a plan is chosen. Leave both empty and both controls stay hidden. `GOOGLE_CALENDAR_REDIRECT_URI` and `GOOGLE_SIGNIN_REDIRECT_URI` are the exact callbacks registered in Google Cloud. On the platform service, set the client values on the director; each company process receives the calendar keys. Sign-in stays on the director. See docs/GOOGLE-CALENDAR.md and docs/GOOGLE-SIGNIN.md. Stripe Checkout stays off.
 
 ## Platform companies
 
