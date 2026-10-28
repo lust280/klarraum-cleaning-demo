@@ -11,7 +11,7 @@ function el(tag,text,cls){const item=document.createElement(tag);if(text!==undef
 function label(text,name,value,type='text'){const node=el('label',text),input=el('input');Object.assign(input,{name,value,type,required:true});if(type==='number'){input.min='0';input.max='100000';input.step=name==='included'?'1':'0.01';}else input.maxLength=80;node.append(input);return node;}
 function select(text,name,value,choices){const node=el('label',text),input=el('select');input.name=name;for(const [key,title] of choices){const option=el('option',title);option.value=key;option.selected=key===value;input.append(option);}node.append(input);return node;}
 const catalogue={solo:{baseCents:2900,included:1,seatCents:0},starter:{baseCents:4900,included:3,seatCents:700},team:{baseCents:8900,included:6,seatCents:700},growth:{baseCents:14900,included:12,seatCents:600},business:{baseCents:21900,included:20,seatCents:500},custom:{baseCents:0,included:0,seatCents:0}};
-const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Growth — $149'],['business','Business — $219'],['custom','Custom']];
+const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Business — $149'],['business','Scale — $219'],['custom','Custom']];
 const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=catalogue[planKey]||catalogue.custom;return {name:form.elements.name.value,planKey,...plan};};
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
 function planBand(c){return planChoices.findIndex(([key])=>key===c.planKey);}

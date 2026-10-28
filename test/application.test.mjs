@@ -412,4 +412,5 @@ test('month periods use Berlin DST, split cross-month work and apply corrections
 test('CSV exports neutralize spreadsheet formulas and euro parsing avoids float rounding',async()=>{
  const {csvReport,parseEuro}=await import('../public/report-export.js');assert.equal(parseEuro('123,45'),12345);assert.equal(parseEuro('0.01'),1);assert.throws(()=>parseEuro('1.005'));assert.throws(()=>parseEuro('-5'));assert.throws(()=>parseEuro('1e5'));
  const csv=csvReport({jobs:[{title:'=HYPERLINK("bad")',employeeName:' +CMD',scheduled_date:'2026-10-25',scheduled_time:'09:00',region:'Test',state:'closed',report:'line1\nline2'}]},'jobs');assert.ok(csv.includes("'=HYPERLINK"));assert.ok(csv.includes("' +CMD"));assert.ok(csv.includes('line1\nline2'));
+ const payments=csvReport({payments:[{payment_date:'2026-10-25',jobTitle:'Job',customer:'Guest',kind:'payment',amount_cents:12345,method:'cash',reference:'R1',voided_at:null,void_reason:''}]},'payments','USD');assert.ok(payments.includes('USD'));assert.ok(payments.includes('"123,45"'));
 });

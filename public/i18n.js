@@ -270,7 +270,7 @@ Rechnungs-/Belegnummer	Invoice / receipt reference
 Notiz	Note
 Zahlung speichern	Save payment
 BETRIEBLICHER MONATSBERICHT	INTERNAL MONTHLY REPORT
-Interne Übersicht, keine Rechnung, Steuererklärung, Kassenführung oder vollständige gesetzliche Arbeitszeiterfassung. Beträge sind manuell erfasste EUR-Zahlungen ohne Netto-/Umsatzsteueraufteilung; Saldo ist kein Gewinn. Originalbelege und Buchhaltung bleiben erforderlich.	Internal summary, not an invoice, tax return, cash book or complete statutory timesheet. Amounts are manually recorded EUR payments without net/VAT separation; the balance is not profit. Keep original records and accounting separately.
+Interne Übersicht, keine Rechnung, Steuererklärung, Kassenführung oder vollständige gesetzliche Arbeitszeiterfassung. Beträge sind manuell erfasste Zahlungen in der Firmenwährung ohne Netto-/Steueraufteilung; Saldo ist kein Gewinn. Originalbelege und Buchhaltung bleiben erforderlich.	Internal summary, not an invoice, tax return, cash book or complete statutory timesheet. Amounts are manually recorded payments in the company currency without net/tax separation; the balance is not profit. Keep original records and accounting separately.
 Mitarbeiterzeiten	Employee time
 Kalendermonat Europe/Berlin. Zeitabschnitte werden an Monatsgrenzen geteilt; Pausen zählen nicht mit. Korrekturen werden nach dem zugeordneten Arbeitstag berücksichtigt.	Calendar month in Europe/Berlin. Work intervals are split at month boundaries; breaks are excluded. Corrections use their assigned work date.
 Zahlungen im Monat	Payments this month
