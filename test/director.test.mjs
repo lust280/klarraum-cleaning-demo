@@ -179,7 +179,7 @@ test('director can download an encrypted consistent backup while company owners 
  const backupPassword='test-backup-download-password';
  assert.equal((await f.request('/api/director/backups/status',{headers:owner})).status,401);
  assert.equal((await f.request('/api/director/backups/download',{body:{password:backupPassword},headers:{Cookie:f.auth.Cookie}})).status,403);
- assert.equal((await f.get('backups/status')).data.automatic,false);
+ assert.equal((await f.get('backups/status')).data.automatic,false);assert.equal((await f.get('backups/status')).data.externalStorage,'not_configured');assert.equal((await f.get('backups/status')).data.offsiteVerified,false);
  const download=await f.post('backups/download',{password:backupPassword});assert.equal(download.status,200);assert.equal(download.raw.subarray(0,8).toString(),'KLRPLAT1');
  const path=join(f.directory,'download.klrb');await writeFile(path,download.raw);const checked=await inspectPlatformBackup({source:path,password:backupPassword});assert.equal(checked.companies,1);
  const restored=await restorePlatformBackup({source:path,password:backupPassword,target:join(f.directory,'recovery')});assert.equal(restored.sessionsRevoked,true);

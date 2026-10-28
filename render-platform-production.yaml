@@ -45,3 +45,22 @@ services:
       #   sync: false
       # - key: GOOGLE_CLIENT_SECRET
       #   sync: false
+      # Daily encrypted copy on the persistent disk. Leave unset until the disk
+      # is confirmed. This does not enable off-site storage by itself.
+      # - key: PLATFORM_BACKUP_SCHEDULE
+      #   value: daily
+      # - key: PLATFORM_BACKUP_PASSWORD
+      #   sync: false
+      # - key: PLATFORM_BACKUP_DIR
+      #   value: /var/data/backups
+      # Off-site copy runs only when every variable below is set. Do not set a subset.
+      # - key: PLATFORM_BACKUP_S3_ENDPOINT
+      #   sync: false
+      # - key: PLATFORM_BACKUP_S3_BUCKET
+      #   sync: false
+      # - key: PLATFORM_BACKUP_S3_REGION
+      #   sync: false
+      # - key: PLATFORM_BACKUP_S3_ACCESS_KEY_ID
+      #   sync: false
+      # - key: PLATFORM_BACKUP_S3_SECRET_ACCESS_KEY
+      #   sync: false

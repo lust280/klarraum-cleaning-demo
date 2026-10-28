@@ -10,6 +10,8 @@ Pricing compares Solo, Starter, Team, Business and Scale from the plan catalogue
 
 The public company page and `/pricing.html` are the same short plan grid on the demo host and the platform host. Trial and assisted-setup forms stay on the company page.
 
+Platform Privacy, Terms, Cookies, and Impressum use operator placeholders instead of a pre-launch refusal. Extra seats cost $15, $15, $12, $10, and $10 so the next plan is cheaper at its included headcount. A daily encrypted backup can write to the server disk when configured, and it does not claim an off-site copy unless external storage credentials are set and an upload succeeds. Owner Today and the employee home use the light cabinet layout.
+
 ## 2.1.0
 
 Commercial release preparation: isolated installation setup, allowlisted source archive, restore into a new directory, operational status, DE/EN interface controls, customer/property records, finite recurring schedules, calendar and employee notifications. This is a release candidate until the release checks in docs/RELEASE-PLAN-RU.md pass. Real hosting, email delivery and seller accounts remain deployment prerequisites.
