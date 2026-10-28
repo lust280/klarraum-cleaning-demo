@@ -107,7 +107,7 @@ test('owner uploads logo and photos, publishes approved review, then removes all
  await page.locator('#selected-gallery input').fill('Test-only gallery caption');
  await page.locator('[name="review_name_0"]').fill('Approved test author');await page.locator('[name="review_text_0"]').fill('Test fixture for a customer-authorized statement.');
  await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
- await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeVisible();await expect(page.locator('#hero-photo')).toBeVisible();
+ await page.goto(origin);await expect(page.locator('.booking-header .company-logo')).toBeVisible();await expect(page.locator('#hero-photo')).toBeVisible();
  await expect(page.locator('#photo-gallery')).toBeVisible();await expect(page.locator('#gallery-grid figcaption')).toHaveText('Test-only gallery caption');
  await expect(page.locator('#testimonial-grid')).toContainText('Approved test author');
  const images=await page.locator('.header .company-logo, #hero-photo, #gallery-grid img').evaluateAll(nodes=>nodes.every(node=>node.complete&&node.naturalWidth>0));expect(images).toBeTruthy();
@@ -121,5 +121,5 @@ test('owner uploads logo and photos, publishes approved review, then removes all
  await page.locator('#selected-gallery button').filter({hasText:'Remove'}).click();
  await page.locator('[name="review_name_0"]').fill('');await page.locator('[name="review_text_0"]').fill('');
  await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
- await page.goto(origin);await expect(page.locator('.header .company-logo')).toBeHidden();await expect(page.locator('#hero-photo')).toBeHidden();await expect(page.locator('#photo-gallery')).toBeHidden();await expect(page.locator('#testimonials')).toBeHidden();
+ await page.goto(origin);await expect(page.locator('.booking-header .company-logo')).toBeHidden();await expect(page.locator('#hero-photo')).toBeHidden();await expect(page.locator('#photo-gallery')).toBeHidden();await expect(page.locator('#testimonials')).toBeHidden();
 });

@@ -14,6 +14,7 @@ import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,hashHostedPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
 import {planFor,planEstimate,requestedPlanForWorkers,storageState} from './lib/plans.mjs';
+import {companyInquiryEnv,companyInquiryReadiness,inquiryBlockers} from './lib/company-inquiry.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const fail=(status,message)=>{const error=new Error(message);error.status=status;throw error;};
@@ -58,12 +59,42 @@ export function createDirector(config) {
       }catch{workers=null;storage='unavailable';}finally{db?.close();}
     }
     const plan=planFor(row.plan_key)||planFor('custom');
-    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,planKey:plan.key,planName:plan.name,storageLimitBytes:plan.storageBytes,storageBytes,storageState:storageState(plan.storageBytes,storageBytes),version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'USD',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?planEstimate(plan,workers.active)??(row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents):null};
+    const inquiry=companyInquiryReadiness(row,config.trialMail,{passwordHash:row.password_hash||''});
+    const inquiries=(config.mountedDemo||config.pathPreview)?'demo':inquiry.accepting?'accepting':inquiry.preference==='off'?'paused':'setup';
+    return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,planKey:plan.key,planName:plan.name,storageLimitBytes:plan.storageBytes,storageBytes,storageState:storageState(plan.storageBytes,storageBytes),version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'USD',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?planEstimate(plan,workers.active)??(row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents):null,inquiries};
   }
-  async function body(req) {
+  async function body(req,limit=8192) {
     if((req.headers['content-type']||'').split(';')[0]!=='application/json')fail(415,'JSON required.');
-    let size=0,chunks=[];for await(const chunk of req){size+=chunk.length;if(size>8192)fail(413,'Request too large.');chunks.push(chunk);}
+    let size=0,chunks=[];for await(const chunk of req){size+=chunk.length;if(size>limit)fail(413,'Request too large.');chunks.push(chunk);}
     try{return JSON.parse(Buffer.concat(chunks).toString());}catch{fail(400,'Invalid JSON.');}
+  }
+  function checkedLine(value,max,{multiline=false}={}) {
+    if(value==null)value='';
+    if(typeof value!=='string'||value.length>max)fail(400,'Invalid inquiry settings.');
+    const cleaned=value.trim();
+    if(cleaned.length>max||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(cleaned)||(!multiline&&/[\r\n]/.test(cleaned)))fail(400,'Invalid inquiry settings.');
+    return cleaned;
+  }
+  function checkedInquiryProfile(input) {
+    if(!input||typeof input!=='object'||Array.isArray(input))fail(400,'Invalid inquiry settings.');
+    if(!['auto','on','off'].includes(input.inquiries))fail(400,'Choose automatic, on, or off for inquiries.');
+    if(typeof input.legalReviewed!=='boolean')fail(400,'Confirm whether the legal text has been reviewed.');
+    const contactEmail=checkedLine(input.contactEmail,254).toLowerCase();
+    if(contactEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))fail(400,'Enter a valid contact email.');
+    const phone=checkedLine(input.phone,40);
+    if(phone&&(!/^[+\d\s()/.\-]+$/.test(phone)||phone.replace(/\D/g,'').length<7))fail(400,'Enter a valid phone number or leave it blank.');
+    const postcodes=checkedLine(input.postcodes,200);
+    if(postcodes){
+      const parts=postcodes.split(',').map(item=>item.trim()).filter(Boolean);
+      if(!parts.length||parts.length>40||parts.some(item=>!/^[A-Za-z0-9]{2,10}$/.test(item)))fail(400,'Enter postcode prefixes separated by commas, for example 90,91.');
+    }
+    return {contactEmail,phone,owner:checkedLine(input.owner,120),address:checkedLine(input.address,300,{multiline:true}),priceNote:checkedLine(input.priceNote,500,{multiline:true}),privacyDetails:checkedLine(input.privacyDetails,8000,{multiline:true}),additionalLegal:checkedLine(input.additionalLegal,2000,{multiline:true}),postcodes:postcodes?postcodes.split(',').map(item=>item.trim()).filter(Boolean).join(','):'',legalReviewed:input.legalReviewed,inquiries:input.inquiries};
+  }
+  function inquiryView(row) {
+    const demo=Boolean(config.mountedDemo||config.pathPreview);
+    const ready=companyInquiryReadiness(row,config.trialMail,{passwordHash:row.password_hash||''});
+    const accepting=!demo&&ready.accepting;
+    return {contactEmail:row.contact_email||'',phone:row.contact_phone||'',owner:row.legal_owner||'',address:row.legal_address||'',priceNote:row.price_note||'',privacyDetails:row.privacy_details||'',additionalLegal:row.legal_extra||'',postcodes:row.service_postcodes||'',legalReviewed:Number(row.legal_reviewed)===1,inquiries:ready.preference,accepting,mailConfigured:ready.mailReady,missing:ready.missing,mailMissing:ready.mailMissing,blockers:accepting?'':inquiryBlockers(ready,{demo}),demo};
   }
   function session(req,write=false) {
     const token=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookieName+'='))?.slice(cookieName.length+1);
@@ -125,7 +156,9 @@ export function createDirector(config) {
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
     const pathPreview=config.mountedDemo||config.pathPreview;
-    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',ENABLE_INQUIRIES:'false',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false'});
+    const {env:inquiryEnv}=companyInquiryEnv(row,config.trialMail,{demo:pathPreview,passwordHash:row.password_hash||''});
+    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false',...inquiryEnv});
+    if(config.mailTransport)companyConfig.mail={...companyConfig.mail,transport:config.mailTransport};
     companyConfig.directorDisabled=true;
     if(pathPreview)companyConfig.basePath='/companies/'+row.id;
     const child=fork(join(root,'scripts/company-runner.mjs'),[],{execArgv:[],stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,NODE_ENV:'production'}});
@@ -183,6 +216,17 @@ export function createDirector(config) {
         if(route.pathname==='/api/platform-plan'&&method==='GET') {
           ownerSession(req,id);const company=publicCompany(row);
           return json(res,200,{companyName:company.name,planKey:company.planKey,planName:company.planName,monthlyCents:company.estimatedCents,activeWorkers:company.workers?.active??null,includedWorkers:company.included,storageBytes:company.storageBytes,storageLimitBytes:company.storageLimitBytes,storageState:company.storageState,currency:company.currency});
+        }
+        if(route.pathname==='/api/platform-inquiries'&&(method==='GET'||method==='PUT')) {
+          ownerSession(req,id,method==='PUT');
+          if(method==='GET')return json(res,200,inquiryView(store.company(id)));
+          const input=checkedInquiryProfile(await body(req,32768));
+          const current=store.company(id);
+          const preview={...current,contact_email:input.contactEmail,contact_phone:input.phone,legal_owner:input.owner,legal_address:input.address,price_note:input.priceNote,privacy_details:input.privacyDetails,legal_extra:input.additionalLegal,service_postcodes:input.postcodes,legal_reviewed:input.legalReviewed?1:0,inquiries_enabled:input.inquiries==='on'?1:input.inquiries==='off'?0:null};
+          const ready=companyInquiryReadiness(preview,config.trialMail,{passwordHash:current.password_hash||''});
+          const demo=Boolean(config.mountedDemo||config.pathPreview);
+          if(input.inquiries==='on'&&(demo||!ready.ready))fail(400,inquiryBlockers({...ready,preference:'on'},{demo}));
+          store.setInquiryProfile(id,input);await stop(id);return json(res,200,inquiryView(store.company(id)));
         }
         if(route.pathname==='/api/platform-support') {
           ownerSession(req,id,method!=='GET'&&method!=='HEAD');
@@ -303,7 +347,7 @@ export function createDirector(config) {
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
       const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(files[route.pathname])return staticFile(...files[route.pathname]);
-      const customerPreviewFiles={'/customer-preview.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/pricing.js':['pricing.js','text/javascript; charset=utf-8'],'/site.js':['site.js','text/javascript; charset=utf-8'],'/i18n.js':['i18n.js','text/javascript; charset=utf-8'],'/favicon.svg':['favicon.svg','image/svg+xml'],'/impressum.html':['impressum.html','text/html; charset=utf-8'],'/datenschutz.html':['datenschutz.html','text/html; charset=utf-8'],'/customer-terms.html':['customer-terms.html','text/html; charset=utf-8'],'/customer-cookies.html':['customer-cookies.html','text/html; charset=utf-8']};
+      const customerPreviewFiles={'/customer-preview.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/booking.css':['booking.css','text/css; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/pricing.js':['pricing.js','text/javascript; charset=utf-8'],'/site.js':['site.js','text/javascript; charset=utf-8'],'/i18n.js':['i18n.js','text/javascript; charset=utf-8'],'/favicon.svg':['favicon.svg','image/svg+xml'],'/impressum.html':['impressum.html','text/html; charset=utf-8'],'/datenschutz.html':['datenschutz.html','text/html; charset=utf-8'],'/customer-terms.html':['customer-terms.html','text/html; charset=utf-8'],'/customer-cookies.html':['customer-cookies.html','text/html; charset=utf-8']};
       if(customerPreviewFiles[route.pathname])return staticFile(...customerPreviewFiles[route.pathname],'public');fail(404,'Not found.');
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });

@@ -32,8 +32,14 @@ async function api(path, options={}) {
   if(!response.ok) throw new Error(data.error || 'Your inquiry could not be sent.');
   return data;
 }
+function syncAreaRange(){
+  const range=$('#area-range');
+  if(!range)return;
+  range.min=area.min;range.max=area.max;range.value=area.value;
+}
 function update(){
   result.hidden=true; error.hidden=true;
+  syncAreaRange();
   try { const cleaningPrice=estimate(service.value,areaInSquareMetres(),frequency.value,windows.checked,pricing);const tipAmount=Math.round(cleaningPrice*tipPercent)/100;$('#price').value=currency.format(cleaningPrice+tipAmount);$('#summary-base').textContent=currency.format(cleaningPrice);const tipSummary=$('#tip-summary');tipSummary.hidden=tipPercent===0;$('#summary-tip').textContent=currency.format(tipAmount); }
   catch { $('#price').value='Check area';$('#summary-base').textContent='—';$('#tip-summary').hidden=true; }
   const selectedService=service.selectedOptions[0]?.textContent||'';
@@ -88,12 +94,13 @@ form.addEventListener('submit',async event=>{
     $('#success-message').textContent=data.demo?`Fictional test saved. Reference: ${data.id.slice(0,8)}. It is visible in administration as “Demo customer”. No contact details were sent.`:`Thank you. Your inquiry was saved. Reference: ${data.id}. Estimate: ${currency.format(data.price)}. This is not a confirmed appointment or job.`;
     $('#demo-text').hidden=true;form.reset();tipPercent=0;document.querySelectorAll('[data-tip]').forEach(option=>option.classList.toggle('active',Number(option.dataset.tip)===0));requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
   }catch(err){error.textContent=translateUI(err.message);error.hidden=false;}
-  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Send fictional test to owner ↗︎':'Send inquiry ↗︎';}
+  finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Send fictional test to owner ↗︎':'Send request →';}
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-frequency]').forEach(button=>button.addEventListener('click',()=>{frequency.value=button.dataset.frequency;requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-tip]').forEach(button=>button.addEventListener('click',()=>{tipPercent=Number(button.dataset.tip);document.querySelectorAll('[data-tip]').forEach(option=>option.classList.toggle('active',Number(option.dataset.tip)===tipPercent));requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-unit]').forEach(button=>button.addEventListener('click',()=>{setAreaUnit(button.dataset.unit);requestKey=crypto.randomUUID();}));
+$('#area-range')?.addEventListener('input',()=>{area.value=$('#area-range').value;requestKey=crypto.randomUUID();update();});
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
 const setToday=()=>{$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());};setToday();
 async function init(){
@@ -116,12 +123,12 @@ async function init(){
     if(!bookingConfig.enabled){ $('#connection-note').textContent='Online requests are currently paused. Please contact the company directly.'; return; }
     live=true;$('#customer-fields').disabled=false;
     $('#mode-banner').textContent=translateUI(`${config.site?.company.name || config.business.name} · ${config.site?.company.area || 'Your local service area'}`);
-    $('#connection-note').textContent='Non-binding inquiry. Provide at least one way to contact you; * fields are required.';
+    $('#connection-note').textContent='Non-binding estimate. Add a way to reach you.';
     $('#submit-note').textContent='Your inquiry is saved. A job begins only after a personal agreement.';
-    $('#price-note').textContent='The calculator provides a non-binding estimate. The exact scope and final price are agreed before work begins.';
+    $('#price-note').textContent='Confirmed before work starts.';
     $('.total small').textContent=config.business.priceNote;
     $('#footer-mode').textContent='Cleaning service';
-    submit.textContent='Send inquiry ↗︎';
+    submit.textContent='Send request →';
     $('#legal').querySelector('p').textContent='An inquiry is non-binding and does not confirm a booking. Find the provider and privacy information through the footer links.';
     const data=await api('api/form-token');token=data.token;tokenAt=Date.now();
   }catch{
