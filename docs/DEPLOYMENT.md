@@ -28,7 +28,11 @@ Required hosting values: `RESEND_API_KEY`, `MAIL_FROM` (verified sender), `MAIL_
 
 A provider failure leaves the inquiry in the database. The worker retries once per minute, up to five attempts. The owner can retry again from the dashboard. Notification delivery uses an idempotency key, within the email provider's supported idempotency window; delivery is not claimed to be exactly-once forever. Mailbox delivery/spam classification must be tested through the real provider.
 
-If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still stored and the dashboard shows a configuration failure instead of calling the mail provider. `MAIL_CUSTOMER_RECEIPT=true` also sends the customer a short reference email. It stays off unless that value is set. The receipt does not include the service address.
+If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still stored and the dashboard shows a configuration failure instead of calling the mail provider. When those values are set, the customer also receives a short confirmation that does not include the street address. Set `MAIL_CUSTOMER_RECEIPT=false` to disable customer mail. A job whose contact field contains an email gets the same kind of reminder about 24 hours before the visit, and only when mail is configured.
+
+## Stripe and Google (not live)
+
+`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_CALENDAR_REDIRECT_URI` are reserved. Leaving them empty keeps every Stripe and Google control hidden. Filling them in does not start Checkout or OAuth in this version. On-site cash and card marks in the employee report are records only.
 
 ## Platform companies
 

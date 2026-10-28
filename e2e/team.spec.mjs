@@ -12,7 +12,7 @@ test.afterAll(async()=>{await app.drain();await new Promise(resolve=>server.clos
 test('owner invites worker, assigns job, worker tracks time and private proof, owner reviews',async({page,browser},testInfo)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(ownerPassword);await page.locator('#login-form button').click();
- await page.getByRole('link',{name:'Team & jobs'}).click();await page.locator('#employee-create > summary').click();
+ await page.locator('a[href="./operations.html"]').click();await page.locator('#employee-create > summary').click();
  await page.locator('#employee-form [name="name"]').fill('Demo Mitarbeiter');await page.locator('#employee-form [name="email"]').fill('worker@example.invalid');await page.locator('#employee-form [name="region"]').fill('Nürnberg');await page.locator('#employee-form button').click();
  await expect(page.locator('#invite-link')).not.toHaveValue('');const invite=await page.locator('#invite-link').inputValue();
  const workerContext=await browser.newContext({viewport:testInfo.project.use.viewport,isMobile:testInfo.project.use.isMobile,hasTouch:testInfo.project.use.hasTouch});const worker=await workerContext.newPage();worker.on('pageerror',e=>errors.push(e.message));

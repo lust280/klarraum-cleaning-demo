@@ -18,6 +18,9 @@ export function displayJob(job){
  if(job.report)card.append(el('p',translateUI('Bericht: '+job.report)));
  if(['submitted','closed'].includes(job.state)){const list=el('ul');for(const item of job.checklist)list.append(el('li',(item.done?'✓ ':'○ ')+item.text));card.append(list);}
  if(job.photos?.length){const photos=el('div',undefined,'job-photos');for(const item of job.photos){const link=el('a');link.href=item.url;link.target='_blank';link.rel='noopener';const img=el('img');img.src=item.url;img.alt=translateUI('Privates Arbeitsfoto zum Auftrag');img.loading='lazy';link.append(img);photos.append(link);}card.append(photos);}
+ if(job.tip_cents)card.append(el('p',`${translateUI('Trinkgeld')}: ${(job.tip_cents/100).toFixed(2)}`));
+ if(job.onsite_method==='cash'||job.onsite_method==='card')card.append(el('p',job.onsite_method==='cash'?translateUI('Bar vor Ort notiert. Keine Online-Zahlung.'):translateUI('Karte vor Ort notiert. Keine Online-Zahlung.')));
+ if(typeof job.signature==='string'&&job.signature.startsWith('data:image/png;base64,')){const img=el('img');img.className='signature-preview';img.alt=translateUI('Kundenunterschrift');img.src=job.signature;card.append(img);}
  return card;
 }
 setInterval(()=>{for(const node of document.querySelectorAll('[data-timer-base]'))node.textContent=duration(Number(node.dataset.timerBase)+performance.now()-Number(node.dataset.timerStarted));},1000);
