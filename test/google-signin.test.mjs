@@ -113,6 +113,44 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  assert.equal(returning.status,302);
  assert.equal(director.store.list().length,1);
  assert.equal(director.store.company(login[0].id).plan_key,'plus');
+ const previewDir=await mkdtemp(join(tmpdir(),'klarraum-google-preview-'));
+ const preview=createDirector({...directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:previewDir,PLATFORM_PATH_PREVIEW:'true'}),fetcher:async url=>{
+  const target=String(url);
+  if(target.includes('oauth2.googleapis.com/token'))return {ok:true,json:async()=>({access_token:'access-token'})};
+  if(target.includes('userinfo'))return {ok:true,json:async()=>({sub:'google-sub-preview',email:'preview@example.test',email_verified:true,name:'Preview Owner'})};
+  return {ok:false,status:500,json:async()=>({})};
+ }});
+ await new Promise(resolve=>preview.server.listen(0,'127.0.0.1',resolve));
+ const previewPort=preview.server.address().port;
+ t.after(async()=>{await preview.close();await rm(previewDir,{recursive:true,force:true});});
+ function previewRequest(path,{method='GET',body,cookie,csrf}={}){
+  return new Promise((resolve,reject)=>{
+   const req=httpRequest({hostname:'127.0.0.1',port:previewPort,path,method,headers:{Host:'director.localhost:3100',Origin:'http://director.localhost:3100','Content-Type':'application/json',...(cookie?{Cookie:cookie}:{}),...(csrf?{'X-CSRF-Token':csrf}:{})}},res=>{
+    const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>{
+     const text=Buffer.concat(chunks).toString();
+     resolve({status:res.statusCode,location:res.headers.location||'',cookie:res.headers['set-cookie']?.[0]||'',data:res.headers['content-type']?.includes('json')?JSON.parse(text):text});
+    });
+   });
+   req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));
+  });
+ }
+ const previewStart=await previewRequest('/api/google/signup/start?plan=plus');
+ const previewState=new URL(previewStart.location).searchParams.get('state');
+ const previewBack=await previewRequest('/api/google/signup/callback?code=auth-code&state='+encodeURIComponent(previewState));
+ assert.equal(previewBack.status,302);
+ assert.match(previewBack.location,/\/companies\/[a-f0-9-]+\/admin\.html#google=/);
+ const previewUrl=new URL(previewBack.location),previewToken=new URLSearchParams(previewUrl.hash.slice(1)).get('google'),companyId=previewUrl.pathname.split('/')[2];
+ const signed=await previewRequest(`/companies/${companyId}/api/admin/google-session`,{method:'POST',body:{token:previewToken}});
+ assert.equal(signed.status,200);
+ assert.match(signed.cookie,new RegExp('klarraum_company_'+companyId+'_session='));
+ const ownerCookie=signed.cookie.split(';')[0];
+ const cabinet=await previewRequest(`/companies/${companyId}/api/admin/session`,{cookie:ownerCookie});
+ assert.equal(cabinet.status,200);
+ const support=await previewRequest(`/companies/${companyId}/api/platform-support`,{cookie:ownerCookie});
+ assert.equal(support.status,200);
+ const planCard=await previewRequest(`/companies/${companyId}/api/platform-plan`,{cookie:ownerCookie});
+ assert.equal(planCard.status,200);
+ assert.equal(planCard.data.planKey,'plus');
  const page=await readFile(new URL('../director-public/platform.html',import.meta.url),'utf8');
  const script=await readFile(new URL('../director-public/showcase.js',import.meta.url),'utf8');
  assert.match(page,/data-choose-plan="plus"/);
