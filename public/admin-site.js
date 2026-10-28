@@ -16,7 +16,7 @@ function render(content){
  document.title=content.company.name+' · Verwaltung';
  const company=document.querySelector('#company-fields');company.replaceChildren(...companySpecs.map(([key,label,max])=>field('company_'+key,label,content.company[key],max)));
  const themeLabel=document.createElement('label');themeLabel.textContent=translateUI('Farbwelt');const theme=document.createElement('select');theme.name='company_theme';
- const themes=[['light','Light'],['dark','Dark'],['navy','Navy'],['forest','Forest'],['clay','Clay']];
+ const themes=[['light','Light']];
  for(const [value,label] of themes){const option=document.createElement('option');option.value=value;option.textContent=label;theme.append(option);}theme.value=themes.some(([value])=>value===content.company.theme)?content.company.theme:'light';themeLabel.append(theme);company.append(themeLabel);
  document.querySelector('#hero-fields').replaceChildren(field('hero_title',translateUI('Hauptüberschrift'),content.hero.title,100),field('hero_subtitle',translateUI('Zweite Überschrift'),content.hero.subtitle,100),field('hero_description',translateUI('Einleitung'),content.hero.description,600,true));
  const services=document.querySelector('#service-fields');services.replaceChildren();

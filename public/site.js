@@ -16,7 +16,10 @@ export function applySite(site) {
   const set = (selector,value) => document.querySelectorAll(selector).forEach(node=>{node.textContent=value;});
   set('[data-company]',site.company.name);
   document.querySelectorAll('.logo').forEach(node=>node.setAttribute('aria-label',site.company.name+' homepage'));
-  document.documentElement.dataset.theme=site.company.theme;
+  // The public booking flow has one deliberate visual language.  Older company
+  // records may still contain the former dark palettes, but they must not turn
+  // this screen into a second, incompatible product.
+  document.documentElement.dataset.theme='light';
   document.title=`${site.company.name} — ${site.company.area}`;
   const meta=document.querySelector('meta[name="description"]');if(meta)meta.content=`${site.company.name}: ${site.hero.description}`;
   set('#hero-title',site.hero.title);set('#hero-subtitle',site.hero.subtitle);set('#hero-description',site.hero.description);
