@@ -36,14 +36,19 @@ services:
         sync: false
       - key: PLATFORM_MAIL_FROM
         sync: false
-      # Reserved. Do not enable Checkout or Google OAuth from these values yet.
+      # Stripe Checkout stays off. Do not set these.
       # - key: STRIPE_SECRET_KEY
       #   sync: false
       # - key: STRIPE_PUBLISHABLE_KEY
       #   sync: false
+      # Google Calendar for company workspaces. Both ID and secret are required
+      # or the owner control stays hidden. The redirect must match Google Cloud.
+      # These are read by the director and copied into each company process.
       # - key: GOOGLE_CLIENT_ID
       #   sync: false
       # - key: GOOGLE_CLIENT_SECRET
+      #   sync: false
+      # - key: GOOGLE_CALENDAR_REDIRECT_URI
       #   sync: false
       # Daily encrypted copy on the persistent disk. Leave unset until the disk
       # is confirmed. This does not enable off-site storage by itself.

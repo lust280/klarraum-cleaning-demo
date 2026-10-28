@@ -12,7 +12,8 @@ test('stripe and google stay inactive until both required keys exist, and never 
  assert.equal(config.integrations.stripe,false);
  assert.equal(config.integrations.googleCalendar,false);
  assert.throws(()=>stripeCheckout(),/Stripe Checkout is not enabled/);
- assert.throws(()=>googleCalendarSync(),/Google Calendar sync is not enabled/);
+ assert.throws(()=>googleCalendarSync(),/Google Calendar is not configured/);
+ assert.deepEqual(googleCalendarSync({GOOGLE_CLIENT_ID:'id',GOOGLE_CLIENT_SECRET:'secret'}),{ready:true});
 });
 
 test('public and partner pages do not offer Stripe checkout or Google sign-in',async()=>{

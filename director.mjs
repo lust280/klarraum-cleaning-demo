@@ -15,6 +15,7 @@ import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,hashHostedPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
 import {planFor,planEstimate,requestedPlanForWorkers,storageState,nextPlan} from './lib/plans.mjs';
 import {backupSchedule,runScheduledBackup} from './lib/backup-schedule.mjs';
+import {googleConfigured,googleRedirectUri,readGoogleState,exchangeGoogleCode,saveGoogleConnection} from './lib/google-calendar.mjs';
 import {companyInquiryEnv,companyInquiryReadiness,inquiryBlockers} from './lib/company-inquiry.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
@@ -158,7 +159,8 @@ export function createDirector(config) {
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
     const pathPreview=config.mountedDemo||config.pathPreview;
     const {env:inquiryEnv}=companyInquiryEnv(row,config.trialMail,{demo:pathPreview,passwordHash:row.password_hash||''});
-    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false',...inquiryEnv,STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY||'',STRIPE_PUBLISHABLE_KEY:process.env.STRIPE_PUBLISHABLE_KEY||'',STRIPE_WEBHOOK_SECRET:process.env.STRIPE_WEBHOOK_SECRET||'',GOOGLE_CLIENT_ID:process.env.GOOGLE_CLIENT_ID||'',GOOGLE_CLIENT_SECRET:process.env.GOOGLE_CLIENT_SECRET||'',GOOGLE_CALENDAR_REDIRECT_URI:process.env.GOOGLE_CALENDAR_REDIRECT_URI||''});
+    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false',...inquiryEnv,STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY||'',STRIPE_PUBLISHABLE_KEY:process.env.STRIPE_PUBLISHABLE_KEY||'',STRIPE_WEBHOOK_SECRET:process.env.STRIPE_WEBHOOK_SECRET||'',GOOGLE_CLIENT_ID:process.env.GOOGLE_CLIENT_ID||'',GOOGLE_CLIENT_SECRET:process.env.GOOGLE_CLIENT_SECRET||'',GOOGLE_CALENDAR_REDIRECT_URI:process.env.GOOGLE_CALENDAR_REDIRECT_URI||((process.env.GOOGLE_CLIENT_ID&&process.env.GOOGLE_CLIENT_SECRET)?`${config.origin}/api/google/calendar/callback`:'')});
+    companyConfig.companyId=row.id;
     if(config.mailTransport)companyConfig.mail={...companyConfig.mail,transport:config.mailTransport};
     companyConfig.directorDisabled=true;
     if(pathPreview)companyConfig.basePath='/companies/'+row.id;
@@ -180,6 +182,7 @@ export function createDirector(config) {
       requests.add(res);res.once('finish',()=>requests.delete(res));res.once('close',()=>requests.delete(res));
       const host=req.headers.host?.toLowerCase(),route=new URL(req.url,config.origin),method=req.method;
       if(!host||req.url.startsWith('http'))fail(400,'Invalid request.');
+      if(host===url.host&&route.pathname==='/api/google/calendar/callback'&&method==='GET')return await platformGoogleCallback(route,res);
       if(config.mountedDemo&&host!==url.host)fail(404,'Unknown host.');
       if(method!=='GET'&&method!=='HEAD') {
         const expected=host===url.host?config.origin:`${url.protocol}//${host}`;
@@ -357,6 +360,23 @@ export function createDirector(config) {
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;
+  async function platformGoogleCallback(route,res){
+    if(!googleConfigured(process.env))fail(404,'Google Calendar is not configured.');
+    const companyId=(route.searchParams.get('state')||'').split('.')[0];
+    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(companyId))fail(400,'Google Calendar returned an invalid state.');
+    const row=store.company(companyId);if(!row)fail(404,'Unknown company.');
+    const parsed=readGoogleState(row.secret,route.searchParams.get('state'),Date.now());
+    const returnTo=(config.mountedDemo||config.pathPreview?`${config.origin}/companies/${row.id}`:tenantOrigin(row.id))+'/admin.html';
+    if(parsed.returnTo!==returnTo)fail(400,'Google Calendar returned an invalid state.');
+    if(route.searchParams.get('error')){res.writeHead(302,{Location:returnTo+'?google=denied'});return res.end();}
+    const code=route.searchParams.get('code');if(!code)fail(400,'Google Calendar did not return a code.');
+    const tokens=await exchangeGoogleCode({clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET,code,redirectUri:googleRedirectUri(process.env,config.origin),fetchImpl:fetch});
+    const path=join(companyDir(row.id),'klarraum.sqlite');if(!existsSync(path))fail(409,'Company storage is not ready.');
+    const db=new DatabaseSync(path);
+    try{db.exec('PRAGMA busy_timeout=3000');saveGoogleConnection(db,{refreshToken:tokens.refresh_token,now:Date.now()});}
+    finally{db.close();}
+    res.writeHead(302,{Location:returnTo+'?google=connected'});res.end();
+  }
   async function writeScheduledCopy(){
     const schedule=backupSchedule(process.env);
     if(!schedule.scheduled||maintenance)return;
