@@ -102,7 +102,7 @@ async function init(){
   if(staticHost)return;
   try{
     const config=await api('api/config');pricing=config.pricing;currencyCode=config.currency||currencyCode;businessTimeZone=config.timeZone||businessTimeZone;currency=new Intl.NumberFormat(navigator.language||'en-US',{style:'currency',currency:currencyCode});setToday();if(currencyCode==='USD')setAreaUnit('imperial');updatePricingLabels();
-    if(config.site){siteConfig=config.site;bookingConfig={...bookingConfig,...(config.site.booking||{})};applySite(config.site);updatePricingLabels();}
+    if(config.site){siteConfig=config.site;if(config.site.tipEnabled===false)tipPercent=0;bookingConfig={...bookingConfig,...(config.site.booking||{})};applySite(config.site);updatePricingLabels();}
     update();
     demoMode=Boolean(config.demoMode);
     if(demoMode){

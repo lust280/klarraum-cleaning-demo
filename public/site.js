@@ -7,7 +7,7 @@ export function defaultSite(business = {}) {
       office:{title:'Office cleaning',description:'Fresh workspaces and welcoming shared areas, leaving more room for good work.',enabled:true},
       deep:{title:'Deep cleaning',description:'When your space needs more attention: a fresh start for every room.',enabled:true},
     },
-    windowsEnabled:true,booking:{enabled:true,dateEnabled:true,timeEnabled:true},media:{logo:null,hero:null,gallery:[]},testimonials:[],
+    windowsEnabled:true,tipEnabled:true,booking:{enabled:true,dateEnabled:true,timeEnabled:true},media:{logo:null,hero:null,gallery:[]},testimonials:[],
   };
 }
 
@@ -32,6 +32,7 @@ export function applySite(site) {
   if(select && !site.services[select.value]?.enabled)select.value=Object.keys(site.services).find(key=>site.services[key].enabled);
   const windows=document.querySelector('#windows');
   if(windows){windows.closest('label').hidden=!site.windowsEnabled;if(!site.windowsEnabled)windows.checked=false;}
+  const tips=document.querySelector('.tip-picker');if(tips)tips.hidden=site.tipEnabled===false;
   const booking={enabled:true,dateEnabled:true,timeEnabled:true,...(site.booking||{})};
   const quote=document.querySelector('#quote');
   if(quote){

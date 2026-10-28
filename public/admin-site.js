@@ -24,7 +24,7 @@ function render(content){
   const label=document.createElement('label');label.className='checkbox';const input=document.createElement('input');input.type='checkbox';input.name=key+'_enabled';input.checked=service.enabled;label.append(input,document.createTextNode(translateUI('Diese Leistung anbieten')));
   section.append(label,field(key+'_title',translateUI('Anzeigename'),service.title,80),field(key+'_description',translateUI('Beschreibung'),service.description,400,true));services.append(section);
  }
- form.elements.windowsEnabled.checked=content.windowsEnabled;
+ form.elements.windowsEnabled.checked=content.windowsEnabled;form.elements.tipEnabled.checked=content.tipEnabled!==false;
  const booking=content.booking||{enabled:true,dateEnabled:true,timeEnabled:true};
  const bookingFields=document.querySelector('#booking-fields');bookingFields.replaceChildren();
  for(const [key,label,description] of [['enabled','Accept online inquiries','Show or pause the public form'],['dateEnabled','Ask for preferred date','Let customers choose a date'],['timeEnabled','Ask for preferred time','Let customers choose a time']]){
@@ -43,7 +43,7 @@ form.addEventListener('input',()=>{dirty=true;status.textContent=translateUI('Un
 form.addEventListener('submit',async event=>{
  event.preventDefault();if(!request)return;if(mediaBusy()){status.textContent=translateUI('Bitte warten, bis der Bild-Upload abgeschlossen ist.');return;}const button=event.submitter;button.disabled=true;
  const f=form.elements;
- const content={company:Object.fromEntries([...companySpecs.map(([key])=>[key,f['company_'+key].value]),['theme',f.company_theme.value]]),hero:{title:f.hero_title.value,subtitle:f.hero_subtitle.value,description:f.hero_description.value},services:{},windowsEnabled:f.windowsEnabled.checked,booking:{enabled:f.booking_enabled.checked,dateEnabled:f.booking_dateEnabled.checked,timeEnabled:f.booking_timeEnabled.checked},media:currentMedia(),testimonials:currentTestimonials()};
+ const content={company:Object.fromEntries([...companySpecs.map(([key])=>[key,f['company_'+key].value]),['theme',f.company_theme.value]]),hero:{title:f.hero_title.value,subtitle:f.hero_subtitle.value,description:f.hero_description.value},services:{},windowsEnabled:f.windowsEnabled.checked,tipEnabled:f.tipEnabled.checked,booking:{enabled:f.booking_enabled.checked,dateEnabled:f.booking_dateEnabled.checked,timeEnabled:f.booking_timeEnabled.checked},media:currentMedia(),testimonials:currentTestimonials()};
  for(const key of ['home','office','deep'])content.services[key]={title:f[key+'_title'].value,description:f[key+'_description'].value,enabled:f[key+'_enabled'].checked};
  try{
   const data=await request('api/admin/site',{method:'PUT',body:JSON.stringify({version,content})});version=data.version;render(data.content);dirty=false;
