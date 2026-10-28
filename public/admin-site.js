@@ -16,7 +16,7 @@ function render(content){
  document.title=content.company.name+' · Verwaltung';
  const company=document.querySelector('#company-fields');company.replaceChildren(...companySpecs.map(([key,label,max])=>field('company_'+key,label,content.company[key],max)));
  const themeLabel=document.createElement('label');themeLabel.textContent=translateUI('Farbwelt');const theme=document.createElement('select');theme.name='company_theme';
- for(const [value,label] of [['forest',translateUI('Waldgrün')],['navy',translateUI('Nachtblau')],['clay',translateUI('Terrakotta')]]){const option=document.createElement('option');option.value=value;option.textContent=label;theme.append(option);}theme.value=content.company.theme;themeLabel.append(theme);company.append(themeLabel);
+ for(const [value,label] of [['dark',translateUI('Dark')],['light',translateUI('Light')]]){const option=document.createElement('option');option.value=value;option.textContent=label;theme.append(option);}theme.value=['dark','light'].includes(content.company.theme)?content.company.theme:'dark';themeLabel.append(theme);company.append(themeLabel);
  document.querySelector('#hero-fields').replaceChildren(field('hero_title',translateUI('Hauptüberschrift'),content.hero.title,100),field('hero_subtitle',translateUI('Zweite Überschrift'),content.hero.subtitle,100),field('hero_description',translateUI('Einleitung'),content.hero.description,600,true));
  const services=document.querySelector('#service-fields');services.replaceChildren();
  for(const [key,service] of Object.entries(content.services)){

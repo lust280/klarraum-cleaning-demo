@@ -10,6 +10,7 @@ let siteConfig=null;
 let bookingConfig={enabled:true,dateEnabled:true,timeEnabled:true};
 let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
+let tipPercent=0;
 let areaUnit='metric';
 const SQUARE_FEET_PER_SQUARE_METRE=10.7639;
 const areaInSquareMetres=()=>areaUnit==='imperial'?Math.round(Number(area.value)/SQUARE_FEET_PER_SQUARE_METRE):Number(area.value);
@@ -33,8 +34,8 @@ async function api(path, options={}) {
 }
 function update(){
   result.hidden=true; error.hidden=true;
-  try { $('#price').value=currency.format(estimate(service.value,areaInSquareMetres(),frequency.value,windows.checked,pricing)); }
-  catch { $('#price').value='Check area'; }
+  try { const cleaningPrice=estimate(service.value,areaInSquareMetres(),frequency.value,windows.checked,pricing);const tipAmount=Math.round(cleaningPrice*tipPercent)/100;$('#price').value=currency.format(cleaningPrice+tipAmount);$('#summary-base').textContent=currency.format(cleaningPrice);const tipSummary=$('#tip-summary');tipSummary.hidden=tipPercent===0;$('#summary-tip').textContent=currency.format(tipAmount); }
+  catch { $('#price').value='Check area';$('#summary-base').textContent='—';$('#tip-summary').hidden=true; }
   const selectedService=service.selectedOptions[0]?.textContent||'';
   const selectedFrequency=frequency.selectedOptions[0]?.textContent||'';
   const summaryService=$('#summary-service'),summaryFrequency=$('#summary-frequency');
@@ -65,13 +66,13 @@ form.addEventListener('submit',async event=>{
     email.setCustomValidity('Please provide an email address or phone number.');email.reportValidity();email.setCustomValidity('');return;
   }
   if(!live && !demoMode){
-    $('#message').value=`DEMO — NOT SENT\n\nName: ${$('#customer-name').value}\nEmail: ${email.value || '—'}\nPhone: ${phone.value || '—'}\nPostal code: ${$('#postcode').value}\nAddress: ${$('#address').value || 'To be agreed'}\nPreferred date: ${$('#date').value || 'Open'}\nService: ${service.selectedOptions[0].text}\nArea: ${areaInSquareMetres()} m²\nFrequency: ${frequency.selectedOptions[0].text}\nWindows: ${windows.checked?'Yes':'No'}\nEstimate: ${$('#price').value}\nMessage: ${$('#comments').value || '—'}`;
+    $('#message').value=`DEMO — NOT SENT\n\nName: ${$('#customer-name').value}\nEmail: ${email.value || '—'}\nPhone: ${phone.value || '—'}\nPostal code: ${$('#postcode').value}\nAddress: ${$('#address').value || 'To be agreed'}\nPreferred date: ${$('#date').value || 'Open'}\nService: ${service.selectedOptions[0].text}\nArea: ${areaInSquareMetres()} m²\nTip: ${tipPercent}%\nFrequency: ${frequency.selectedOptions[0].text}\nWindows: ${windows.checked?'Yes':'No'}\nEstimate: ${$('#price').value}\nMessage: ${$('#comments').value || '—'}`;
     $('#success-message').textContent='Demo: your details were prepared as a preview. Nothing was sent or saved on the server. This preview does not appear in administration.';
     $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
   }
   sending=true;submit.disabled=true;submit.textContent='Saving …';
   const inputs=[...form.querySelectorAll('input,select,textarea')];
-  const payload={service:service.value,area:areaInSquareMetres(),frequency:frequency.value,windows:windows.checked,
+  const payload={service:service.value,area:areaInSquareMetres(),frequency:frequency.value,windows:windows.checked,tipPercent,
     name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
     address:$('#address').value,date:bookingConfig.dateEnabled?$('#date').value:'',preferredTime:bookingConfig.timeEnabled?$('#preferred-time').value:'',message:$('#comments').value,
     privacy:$('#privacy').checked,website:$('#website').value};
@@ -84,13 +85,14 @@ form.addEventListener('submit',async event=>{
     if(wait>0) await new Promise(resolve=>setTimeout(resolve,wait));
     const transmitted=demoMode?{service:payload.service,area:payload.area,frequency:payload.frequency,windows:payload.windows,privacy:payload.privacy,website:payload.website,token}:{...payload,token};
     const data=await api(demoMode?'api/demo/inquiries':'api/inquiries',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify(transmitted)});
-    $('#success-message').textContent=data.demo?`Fictional test saved. Reference: ${data.id}. Open administration and select Refresh. “Demo customer” will appear with the cleaning details. Contact details were not sent. This is not a real booking; test data may be lost after a restart.`:`Thank you. Your inquiry was saved. Reference: ${data.id}. Estimate: ${currency.format(data.price)}. This is not a confirmed appointment or job.`;
-    $('#demo-text').hidden=true;form.reset();requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
+    $('#success-message').textContent=data.demo?`Fictional test saved. Reference: ${data.id.slice(0,8)}. It is visible in administration as “Demo customer”. No contact details were sent.`:`Thank you. Your inquiry was saved. Reference: ${data.id}. Estimate: ${currency.format(data.price)}. This is not a confirmed appointment or job.`;
+    $('#demo-text').hidden=true;form.reset();tipPercent=0;document.querySelectorAll('[data-tip]').forEach(option=>option.classList.toggle('active',Number(option.dataset.tip)===0));requestKey=crypto.randomUUID();update();result.hidden=false;result.focus();
   }catch(err){error.textContent=translateUI(err.message);error.hidden=false;}
   finally{sending=false;inputs.forEach(input=>input.disabled=false);submit.disabled=false;submit.textContent=demoMode?'Send fictional test to owner ↗︎':'Send inquiry ↗︎';}
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-frequency]').forEach(button=>button.addEventListener('click',()=>{frequency.value=button.dataset.frequency;requestKey=crypto.randomUUID();update();}));
+document.querySelectorAll('[data-tip]').forEach(button=>button.addEventListener('click',()=>{tipPercent=Number(button.dataset.tip);document.querySelectorAll('[data-tip]').forEach(option=>option.classList.toggle('active',Number(option.dataset.tip)===tipPercent));requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-unit]').forEach(button=>button.addEventListener('click',()=>{setAreaUnit(button.dataset.unit);requestKey=crypto.randomUUID();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
 const setToday=()=>{$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());};setToday();
