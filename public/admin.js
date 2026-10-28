@@ -87,10 +87,20 @@ function fillInquiryForm(data){const form=$('#inquiry-setup-form');form.elements
 async function loadInquirySetup(){const panel=$('#inquiry-setup');try{const data=await api('api/platform-inquiries');panel.hidden=false;fillInquiryForm(data);}catch{panel.hidden=true;}}
 function showIntegrations(session){
  const ready=session.integrations||{};
- if(!ready.stripe&&!ready.googleCalendar)return;
- const note=el('p','Payment and calendar keys are present. Checkout and Google sign-in stay off in this version.','form-notice');
- note.id='integrations-note';
- $('#dashboard')?.prepend(note);
+ if(ready.stripe){const note=el('p','Stripe keys are present. Checkout stays off in this version.','form-notice');note.id='integrations-note';$('#dashboard')?.prepend(note);}
+ if(!ready.googleCalendar)return;
+ const panel=el('details','','settings');panel.id='google-calendar';panel.open=true;
+ const summary=el('summary','Google Calendar'),status=el('p','Checking Google Calendar…');status.id='google-calendar-status';
+ const actions=el('div','','actions');
+ const connect=el('button','Connect Google Calendar','button');connect.type='button';
+ connect.addEventListener('click',async()=>{connect.disabled=true;try{const data=await api('api/admin/google-calendar/connect',{method:'POST',body:JSON.stringify({})});if(!data.url)throw new Error('Google Calendar is not configured.');location.assign(data.url);}catch(error){showError(error);connect.disabled=false;}});
+ const sync=el('button','Sync jobs','button secondary');sync.type='button';
+ sync.addEventListener('click',async()=>{sync.disabled=true;try{const data=await api('api/admin/google-calendar/sync',{method:'POST',body:JSON.stringify({})});status.textContent=`Copied ${data.copied} job${data.copied===1?'':'s'} to Google Calendar.`;}catch(error){showError(error);}finally{sync.disabled=false;}});
+ const disconnect=el('button','Disconnect','button secondary');disconnect.type='button';
+ disconnect.addEventListener('click',async()=>{disconnect.disabled=true;try{await api('api/admin/google-calendar/disconnect',{method:'POST',body:JSON.stringify({})});status.textContent='Google Calendar disconnected. Existing Google events are left in place.';}catch(error){showError(error);}finally{disconnect.disabled=false;}});
+ actions.append(connect,sync,disconnect);panel.append(summary,el('p','Connect one Google Calendar for this company. Job title, time, worker name and service address are copied. Customer phone and email are not. Stripe is not involved.'),status,actions);
+ $('#dashboard')?.prepend(panel);
+ api('api/admin/google-calendar').then(data=>{const query=new URLSearchParams(location.search).get('google');status.textContent=query==='denied'?'Google Calendar was not connected.':data.connected?'Connected. Use Sync jobs to copy upcoming visits.':'Not connected. Nothing is sent to Google until you connect.'}).catch(()=>{status.textContent='Google Calendar is not available.';});
 }
 async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;showIntegrations(session);$('#notice').textContent=session.live?translateUI('Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.'):session.demoMode?translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.'):translateUI('Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.');await Promise.all([load(),loadSettings(),loadCompanyPreferences(),loadSiteEditor(api),loadPlatformSupport(),loadPlatformPlan(),loadInquirySetup()]);}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const submit=event.submitter;submit.disabled=true;try{const data=await api('api/admin/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});csrf=data.csrf;$('#password').value='';await openDashboard();}catch(error){showError(error);}finally{submit.disabled=false;}});

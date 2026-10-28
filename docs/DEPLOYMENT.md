@@ -30,9 +30,13 @@ A provider failure leaves the inquiry in the database. The worker retries once p
 
 If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still stored and the dashboard shows a configuration failure instead of calling the mail provider. When those values are set, the customer also receives a short confirmation that does not include the street address. Set `MAIL_CUSTOMER_RECEIPT=false` to disable customer mail. A job whose contact field contains an email gets the same kind of reminder about 24 hours before the visit, and only when mail is configured.
 
-## Stripe and Google (not live)
+## Stripe (not live)
 
-`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_CALENDAR_REDIRECT_URI` are reserved. Leaving them empty keeps every Stripe and Google control hidden. Filling them in does not start Checkout or OAuth in this version. On-site cash and card marks in the employee report are records only.
+`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` stay unused. Filling them in does not start Checkout. On-site cash and card marks in the employee report are records only.
+
+## Google Calendar
+
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on calendar connection for company owners. Leave both empty and the control stays hidden. `GOOGLE_CALENDAR_REDIRECT_URI` is the exact callback registered in Google Cloud. On the platform service, set the three values on the director; each company process receives them. See docs/GOOGLE-CALENDAR.md.
 
 ## Platform companies
 
