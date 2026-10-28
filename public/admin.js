@@ -20,16 +20,24 @@ function showLogin(){$('#dashboard').hidden=true;$('#login-panel').hidden=false;
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 function button(text,action,className='secondary'){const node=el('button',text,`button small ${className}`);node.type='button';node.addEventListener('click',async()=>{node.disabled=true;clearError();try{await action();}catch(error){showError(error);}finally{node.disabled=false;}});return node;}
 const localDate=()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:dateFormat.resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const value=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${value.year}-${value.month}-${value.day}`;};
+function renderAttention(summary,jobs){
+ const box=$('#owner-attention');if(!box)return;
+ const items=[['New requests',String(summary.new||0)],['Jobs today',String(jobs.length)]];
+ if((summary.new||0)>0)items.unshift(['Attention','New inquiry']);
+ box.replaceChildren(...items.map(([title,detail])=>{const card=el('article');card.append(el('h3',title),el('strong',detail));return card;}));
+}
 async function loadToday(){
  const day=localDate();
  const data=await api(`api/admin/calendar?from=${day}&to=${day}&employee=`);
  const list=$('#today-jobs');
  const jobs=data.items||[];
  list.replaceChildren(...(jobs.length?jobs.map(job=>{const link=el('a',undefined,'today-job');link.href='./operations.html?job='+encodeURIComponent(job.id);link.append(el('strong',job.time||'—'),el('span',job.title||'Untitled job'),el('small',`${job.employeeName||'Unassigned'} · ${job.minutes||0} min`));return link;}):[el('p','No jobs scheduled today.','empty-state compact-empty')]));
+ return jobs;
 }
 async function load(){
  const filter=$('#status-filter').value;
- const [data,summary]=await Promise.all([api(`api/admin/inquiries?offset=${offset}&status=${encodeURIComponent(filter)}`),api('api/admin/summary'),loadToday()]);
+ const [data,summary,jobs]=await Promise.all([api(`api/admin/inquiries?offset=${offset}&status=${encodeURIComponent(filter)}`),api('api/admin/summary'),loadToday()]);
+ renderAttention(summary,jobs||[]);
  document.querySelectorAll('[data-stat]').forEach(node=>node.textContent=String(summary[node.dataset.stat]));
  total=data.total;$('#count').textContent=translateUI(`${total} Anfrage${total===1?'':'n'} · ${total?offset+1:0}–${Math.min(offset+50,total)}`);
  $('#previous').disabled=offset===0;$('#next').disabled=offset+50>=total;
@@ -73,7 +81,14 @@ async function loadPlatformSupport(){const panel=$('#platform-support');try{cons
 async function loadPlatformPlan(){const panel=$('#platform-plan'),card=$('#plan-usage');try{const data=await api('api/platform-plan');panel.hidden=false;card.hidden=false;const gb=bytes=>`${(bytes/1024**3).toFixed(bytes>=10*1024**3?0:1)} GB`;const monthly=data.monthlyCents===null?'agreed individually':new Intl.NumberFormat('en-US',{style:'currency',currency:data.currency||'USD'}).format(data.monthlyCents/100);const storage=data.storageLimitBytes?`${gb(data.storageBytes)} of ${gb(data.storageLimitBytes)}`:'agreed individually';const warning=data.storageState?.level==='critical'?' Storage is at 95% or more: contact support before uploading more photos.':data.storageState?.level==='warning'?' Storage is at 80% or more: plan an export or extra storage.':'';const used=data.activeWorkers;const included=data.includedWorkers||0;$('#platform-plan-status').textContent=`${data.planName} · current monthly price ${monthly} · active workers ${used ?? '—'} / ${included} included · photo and media storage ${storage}.${warning}`;panel.dataset.companyName=data.companyName||'';$('#plan-usage-name').textContent=data.planName||'Plan';$('#plan-usage-price').textContent=monthly==='agreed individually'?monthly:`${monthly} / mo`;$('#plan-usage-workers').textContent=used==null?'Worker count unavailable':included>0?`${used} of ${included} workers used`:`${used} active workers · seats agreed individually`;$('#plan-usage-bar').style.width=`${included>0?Math.min(100,Math.round((used||0)/included*100)):0}%`;$('#plan-usage-storage').textContent=`Storage ${storage}.${warning}`;}catch{panel.hidden=true;card.hidden=true;}}
 function fillInquiryForm(data){const form=$('#inquiry-setup-form');form.elements.contactEmail.value=data.contactEmail||'';form.elements.phone.value=data.phone||'';form.elements.owner.value=data.owner||'';form.elements.address.value=data.address||'';form.elements.priceNote.value=data.priceNote||'';form.elements.postcodes.value=data.postcodes||'';form.elements.privacyDetails.value=data.privacyDetails||'';form.elements.additionalLegal.value=data.additionalLegal||'';form.elements.legalReviewed.checked=Boolean(data.legalReviewed);form.elements.inquiries.value=data.inquiries||'auto';$('#inquiry-setup-state').textContent=data.accepting?'· accepting':data.demo?'· demo only':'· not accepting';$('#inquiry-setup-status').textContent=data.accepting?'Customers can send inquiries.':(data.blockers||'');}
 async function loadInquirySetup(){const panel=$('#inquiry-setup');try{const data=await api('api/platform-inquiries');panel.hidden=false;fillInquiryForm(data);}catch{panel.hidden=true;}}
-async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;$('#notice').textContent=session.live?translateUI('Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.'):session.demoMode?translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.'):translateUI('Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.');await Promise.all([load(),loadSettings(),loadCompanyPreferences(),loadSiteEditor(api),loadPlatformSupport(),loadPlatformPlan(),loadInquirySetup()]);}
+function showIntegrations(session){
+ const ready=session.integrations||{};
+ if(!ready.stripe&&!ready.googleCalendar)return;
+ const note=el('p','Payment and calendar keys are present. Checkout and Google sign-in stay off in this version.','form-notice');
+ note.id='integrations-note';
+ $('#dashboard')?.prepend(note);
+}
+async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;showIntegrations(session);$('#notice').textContent=session.live?translateUI('Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.'):session.demoMode?translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.'):translateUI('Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.');await Promise.all([load(),loadSettings(),loadCompanyPreferences(),loadSiteEditor(api),loadPlatformSupport(),loadPlatformPlan(),loadInquirySetup()]);}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const submit=event.submitter;submit.disabled=true;try{const data=await api('api/admin/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});csrf=data.csrf;$('#password').value='';await openDashboard();}catch(error){showError(error);}finally{submit.disabled=false;}});
 $('#logout').addEventListener('click',async()=>{if((hasSiteChanges()||noteDrafts.size)&&!confirm(translateUI('Abmelden und ungespeicherte Änderungen verwerfen?')))return;clearError();try{await api('api/admin/logout',{method:'POST'});clearSiteChanges();noteDrafts.clear();showLogin();$('#notice').textContent=translateUI('Sie sind abgemeldet.');}catch(error){showError(error);}});
 $('#refresh').addEventListener('click',()=>{clearError();load().catch(showError);});

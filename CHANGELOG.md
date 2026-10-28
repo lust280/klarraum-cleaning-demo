@@ -4,6 +4,8 @@
 
 Platform companies can accept inquiries after the owner saves contact and legal details and the director has platform mail settings. The customer calculator uses SVG service icons and a larger live price. Inquiry mail fails with a configuration error when Resend settings are missing.
 
+Owner home leads with today's attention and the plan card. Employees can decline an assigned job and record a signature, tip, and on-site cash or card mark. Customer confirmation and appointment reminders send when mail is configured. Stripe and Google stay inactive.
+
 ## 2.1.0
 
 Commercial release preparation: isolated installation setup, allowlisted source archive, restore into a new directory, operational status, DE/EN interface controls, customer/property records, finite recurring schedules, calendar and employee notifications. This is a release candidate until the release checks in docs/RELEASE-PLAN-RU.md pass. Real hosting, email delivery and seller accounts remain deployment prerequisites.

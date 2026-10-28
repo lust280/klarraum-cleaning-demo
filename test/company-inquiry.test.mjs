@@ -28,7 +28,7 @@ test('loadConfig accepts a ready platform company and still refuses demo live mo
  const dir=await mkdtemp(join(tmpdir(),'klarraum-inquiry-config-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const {env}=companyInquiryEnv(readyRow,mail,{passwordHash:hash});
  const live=loadConfig({...env,DATA_DIR:dir,ADMIN_PASSWORD_HASH:hash,APP_ORIGIN:'http://localhost:3999',APP_SECRET:'x'.repeat(32)});
- assert.equal(live.live,true);assert.equal(live.mail.to,'owner@example.invalid');assert.equal(live.mail.customerReceipt,false);assert.equal(live.business.privacyDetails,'Test privacy notice.');
+ assert.equal(live.live,true);assert.equal(live.mail.to,'owner@example.invalid');assert.equal(live.mail.customerReceipt,true);assert.equal(loadConfig({...env,MAIL_CUSTOMER_RECEIPT:'false',DATA_DIR:dir,ADMIN_PASSWORD_HASH:hash,APP_ORIGIN:'http://localhost:3999',APP_SECRET:'x'.repeat(32)}).mail.customerReceipt,false);assert.equal(live.business.privacyDetails,'Test privacy notice.');
  const demoEnv=companyInquiryEnv(readyRow,mail,{passwordHash:hash,demo:true}).env;
  assert.equal(loadConfig({...demoEnv,DATA_DIR:dir,DEMO_ONLY:'true',ADMIN_PASSWORD_HASH:hash}).live,false);
  assert.throws(()=>loadConfig({...env,DATA_DIR:dir,DEMO_ONLY:'true',ENABLE_INQUIRIES:'true',ADMIN_PASSWORD_HASH:hash}),/DEMO_ONLY/);

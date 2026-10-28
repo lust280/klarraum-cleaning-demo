@@ -114,3 +114,27 @@ test('backup/restore and legacy schema migration preserve CRM, series, payments 
  const legacy=join(f.directory,'legacy');await mkdir(legacy);const {DatabaseSync}=await import('node:sqlite');const db=new DatabaseSync(join(legacy,'klarraum.sqlite'));db.exec("CREATE TABLE jobs(id TEXT PRIMARY KEY,inquiry_id TEXT,employee_id TEXT NOT NULL,title TEXT NOT NULL,address TEXT NOT NULL,customer TEXT NOT NULL,contact TEXT NOT NULL,region TEXT NOT NULL,scheduled_date TEXT NOT NULL,scheduled_time TEXT NOT NULL,planned_minutes INTEGER NOT NULL,instructions TEXT NOT NULL,checklist TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'assigned',report TEXT NOT NULL DEFAULT '',review_note TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL); INSERT INTO jobs VALUES('legacy-job',NULL,'legacy-worker','Old task','Old address','','','Nürnberg','2026-10-01','09:00',60,'','[]','closed','','',1,1);");db.close();
  const upgraded=createServerApp({...f.config,dbPath:join(legacy,'klarraum.sqlite')});assert.equal(upgraded.app.store.db.prepare("SELECT address,property_id FROM jobs WHERE id='legacy-job'").get().address,'Old address');upgraded.app.close();
 });
+test('customer appointment reminder waits until it is due and omits the street address',async t=>{
+ const f=await fixture(t,{mail:{key:'test-only',from:'desk@example.invalid',to:'owner@example.invalid'}}),w=await f.worker();
+ const created=await f.post('jobs',{...f.job(w.id),contact:'guest@example.invalid',address:'Hidden Lane 4',date:'2026-11-02',time:'09:00'});
+ assert.equal(created.status,201);
+ await f.app.tick();assert.equal(f.sent.length,0);
+ f.advance(8*86400000);await f.app.tick();assert.equal(f.sent.length,1);
+ const body=JSON.parse(f.sent[0].body);assert.deepEqual(body.to,['guest@example.invalid']);assert.equal(body.text.includes('Hidden Lane 4'),false);assert.match(body.text,/2026-11-02 09:00/);
+});
+test('worker records signature, tip and on-site payment, and can decline an assigned job',async t=>{
+ const f=await fixture(t),w=await f.worker();
+ const created=await f.post('jobs',f.job(w.id));assert.equal(created.status,201);
+ const later=await f.post('jobs',{...f.job(w.id),date:'2026-10-27',time:'11:00',title:'Later visit'});assert.equal(later.status,201);
+ const declined=await f.request('/api/employee/jobs/'+later.data.id+'/actions',{body:{action:'unavailable',version:later.data.version,reason:'Sick today'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});
+ assert.equal(declined.status,200);assert.equal(declined.data.state,'cancelled');assert.equal(declined.data.review_note,'Sick today');
+ const started=await f.request('/api/employee/jobs/'+created.data.id+'/actions',{body:{action:'start',version:created.data.version},headers:{...w.headers,'Idempotency-Key':randomUUID()}});assert.equal(started.status,200);
+ const still=await f.request('/api/employee/jobs/'+created.data.id+'/actions',{body:{action:'unavailable',version:started.data.version,reason:'Too late now'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});assert.equal(still.status,409);
+ const signature='data:image/png;base64,'+'A'.repeat(80);
+ const finished=await f.request('/api/employee/jobs/'+created.data.id+'/actions',{body:{action:'finish',version:started.data.version,done:[true],report:'Done',signature,tipCents:1000,onsiteMethod:'cash'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});
+ assert.equal(finished.status,200);assert.equal(finished.data.state,'submitted');assert.equal(finished.data.tip_cents,1000);assert.equal(finished.data.onsite_method,'cash');assert.equal(finished.data.signature,signature);
+ const extra=await f.post('jobs',{...f.job(w.id),date:'2026-10-28',time:'15:00',title:'Card visit'});
+ const startedExtra=await f.request('/api/employee/jobs/'+extra.data.id+'/actions',{body:{action:'start',version:extra.data.version},headers:{...w.headers,'Idempotency-Key':randomUUID()}});
+ const rejected=await f.request('/api/employee/jobs/'+extra.data.id+'/actions',{body:{action:'finish',version:startedExtra.data.version,done:[true],report:'Done',onsiteMethod:'stripe'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});
+ assert.equal(rejected.status,400);
+});

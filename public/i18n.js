@@ -328,6 +328,22 @@ Verlauf & Zeitabschnitte	History & work intervals
 Noch keine passenden Aufträge.	No matching jobs yet.
 Neuer Auftrag. Bitte Mitarbeiter und Objekt wählen.	New job. Select an employee and property.
 Arbeit beginnen	Start work
+Ich schaffe es nicht	Can't make it
+Kurz begründen	Short reason
+Route öffnen	Navigate
+Unterschrift (optional)	Signature (optional)
+Unterschrift löschen	Clear signature
+Trinkgeld vor Ort (optional)	On-site tip (optional)
+Bar	Cash
+Karte	Card
+Trinkgeld	Tip
+Bar vor Ort notiert. Keine Online-Zahlung.	Cash recorded on site. No online charge.
+Karte vor Ort notiert. Keine Online-Zahlung.	Card recorded on site. No online charge.
+Kundenunterschrift	Client signature
+Einsätze	Jobs
+Timer	Timer
+Ich	Me
+Heute	Today
 Pause beginnen	Start break
 Arbeit fortsetzen	Resume work
 Arbeitsfoto hinzufügen (optional, maximal 4)	Add work photo (optional, up to 4)

@@ -38,13 +38,17 @@ async function fixture(t,options={}) {
 
 test('save, calculate on server, notify without contact data, and deduplicate retries',async t=>{
  const f=await fixture(t);const key=randomUUID();
- const response=await f.submit({price:0,preferredTime:'10:30'},key);assert.equal(response.status,201);assert.equal(response.data.price,126);
- await f.app.drain();assert.equal(f.notifications.length,1);
- const mail=JSON.parse(f.notifications[0].body);assert.ok(!mail.text.includes('customer@example.invalid'));
- const repeat=await f.submit({price:0,preferredTime:'10:30'},key);assert.equal(repeat.status,200);assert.equal(repeat.data.id,response.data.id);
+ const response=await f.submit({price:0,preferredTime:'10:30',address:'Secret Street 9'},key);assert.equal(response.status,201);assert.equal(response.data.price,126);
+ await f.app.drain();assert.equal(f.notifications.length,2);
+ const bodies=f.notifications.map(item=>JSON.parse(item.body));
+ const ownerMail=bodies.find(item=>item.to[0]==='owner@example.invalid');
+ const customerMail=bodies.find(item=>item.to[0]==='customer@example.invalid');
+ assert.ok(ownerMail);assert.ok(!ownerMail.text.includes('customer@example.invalid'));assert.ok(!ownerMail.text.includes('Secret Street 9'));
+ assert.ok(customerMail);assert.match(customerMail.subject,/received your cleaning request/);assert.ok(!customerMail.text.includes('Secret Street 9'));
+ const repeat=await f.submit({price:0,preferredTime:'10:30',address:'Secret Street 9'},key);assert.equal(repeat.status,200);assert.equal(repeat.data.id,response.data.id);
  const changed=await f.submit({name:'Different'},key);assert.equal(changed.status,409);
  const headers=await f.login();const list=await f.request('/api/admin/inquiries',{headers});
- assert.equal(list.data.total,1);assert.equal(list.data.items[0].notification,'sent');assert.equal(list.data.items[0].email,'customer@example.invalid');assert.equal(list.data.items[0].preferredTime,'10:30');
+ assert.equal(list.data.total,1);assert.equal(list.data.items[0].notification,'sent');assert.equal(list.data.items[0].email,'customer@example.invalid');assert.equal(list.data.items[0].preferredTime,'10:30');assert.equal(list.data.items[0].address,'Secret Street 9');
  assert.equal(list.headers.get('cache-control'),'no-store');
 });
 
