@@ -10,6 +10,20 @@ let siteConfig=null;
 let bookingConfig={enabled:true,dateEnabled:true,timeEnabled:true};
 let pricing=DEFAULT_PRICING, live=false, demoMode=false, token='', tokenAt=0, sending=false;
 let requestKey=crypto.randomUUID();
+let areaUnit='metric';
+const SQUARE_FEET_PER_SQUARE_METRE=10.7639;
+const areaInSquareMetres=()=>areaUnit==='imperial'?Math.round(Number(area.value)/SQUARE_FEET_PER_SQUARE_METRE):Number(area.value);
+function setAreaUnit(unit,{convert=true}={}){
+  if(unit===areaUnit)return;
+  const current=Number(area.value)||0;
+  area.value=String(convert?(unit==='imperial'?Math.round(current*SQUARE_FEET_PER_SQUARE_METRE):Math.round(current/SQUARE_FEET_PER_SQUARE_METRE)):current);
+  areaUnit=unit;
+  area.min=unit==='imperial'?'215':'20';area.max=unit==='imperial'?'10764':'1000';
+  $('#area-unit').textContent=unit==='imperial'?'ft²':'m²';
+  $('#area-help').textContent=unit==='imperial'?'Square feet':'Square metres';
+  document.querySelectorAll('[data-unit]').forEach(button=>button.classList.toggle('active',button.dataset.unit===unit));
+  update();
+}
 const staticHost = location.hostname.endsWith('.github.io');
 async function api(path, options={}) {
   const response=await fetch(new URL(path,location.href),{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...options.headers}});
@@ -19,7 +33,7 @@ async function api(path, options={}) {
 }
 function update(){
   result.hidden=true; error.hidden=true;
-  try { $('#price').value=currency.format(estimate(service.value,Number(area.value),frequency.value,windows.checked,pricing)); }
+  try { $('#price').value=currency.format(estimate(service.value,areaInSquareMetres(),frequency.value,windows.checked,pricing)); }
   catch { $('#price').value='Check area'; }
   const selectedService=service.selectedOptions[0]?.textContent||'';
   const selectedFrequency=frequency.selectedOptions[0]?.textContent||'';
@@ -51,13 +65,13 @@ form.addEventListener('submit',async event=>{
     email.setCustomValidity('Please provide an email address or phone number.');email.reportValidity();email.setCustomValidity('');return;
   }
   if(!live && !demoMode){
-    $('#message').value=`DEMO — NOT SENT\n\nName: ${$('#customer-name').value}\nEmail: ${email.value || '—'}\nPhone: ${phone.value || '—'}\nPostal code: ${$('#postcode').value}\nAddress: ${$('#address').value || 'To be agreed'}\nPreferred date: ${$('#date').value || 'Open'}\nService: ${service.selectedOptions[0].text}\nArea: ${area.value} m²\nFrequency: ${frequency.selectedOptions[0].text}\nWindows: ${windows.checked?'Yes':'No'}\nEstimate: ${$('#price').value}\nMessage: ${$('#comments').value || '—'}`;
+    $('#message').value=`DEMO — NOT SENT\n\nName: ${$('#customer-name').value}\nEmail: ${email.value || '—'}\nPhone: ${phone.value || '—'}\nPostal code: ${$('#postcode').value}\nAddress: ${$('#address').value || 'To be agreed'}\nPreferred date: ${$('#date').value || 'Open'}\nService: ${service.selectedOptions[0].text}\nArea: ${areaInSquareMetres()} m²\nFrequency: ${frequency.selectedOptions[0].text}\nWindows: ${windows.checked?'Yes':'No'}\nEstimate: ${$('#price').value}\nMessage: ${$('#comments').value || '—'}`;
     $('#success-message').textContent='Demo: your details were prepared as a preview. Nothing was sent or saved on the server. This preview does not appear in administration.';
     $('#demo-text').hidden=false;result.hidden=false;result.focus();return;
   }
   sending=true;submit.disabled=true;submit.textContent='Saving …';
   const inputs=[...form.querySelectorAll('input,select,textarea')];
-  const payload={service:service.value,area:Number(area.value),frequency:frequency.value,windows:windows.checked,
+  const payload={service:service.value,area:areaInSquareMetres(),frequency:frequency.value,windows:windows.checked,
     name:$('#customer-name').value,email:email.value,phone:phone.value,postcode:$('#postcode').value,
     address:$('#address').value,date:bookingConfig.dateEnabled?$('#date').value:'',preferredTime:bookingConfig.timeEnabled?$('#preferred-time').value:'',message:$('#comments').value,
     privacy:$('#privacy').checked,website:$('#website').value};
@@ -77,6 +91,7 @@ form.addEventListener('submit',async event=>{
 });
 document.querySelectorAll('[data-service]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();service.value=link.dataset.service;requestKey=crypto.randomUUID();update();}));
 document.querySelectorAll('[data-frequency]').forEach(button=>button.addEventListener('click',()=>{frequency.value=button.dataset.frequency;requestKey=crypto.randomUUID();update();}));
+document.querySelectorAll('[data-unit]').forEach(button=>button.addEventListener('click',()=>{setAreaUnit(button.dataset.unit);requestKey=crypto.randomUUID();}));
 $('#legal-open').addEventListener('click',()=>$('#legal').showModal());
 const setToday=()=>{$('#date').min=new Intl.DateTimeFormat('en-CA',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());};setToday();
 async function init(){
@@ -84,7 +99,7 @@ async function init(){
   $('#customer-fields').disabled=false;
   if(staticHost)return;
   try{
-    const config=await api('api/config');pricing=config.pricing;currencyCode=config.currency||currencyCode;businessTimeZone=config.timeZone||businessTimeZone;currency=new Intl.NumberFormat(navigator.language||'en-US',{style:'currency',currency:currencyCode});setToday();updatePricingLabels();
+    const config=await api('api/config');pricing=config.pricing;currencyCode=config.currency||currencyCode;businessTimeZone=config.timeZone||businessTimeZone;currency=new Intl.NumberFormat(navigator.language||'en-US',{style:'currency',currency:currencyCode});setToday();if(currencyCode==='USD')setAreaUnit('imperial');updatePricingLabels();
     if(config.site){siteConfig=config.site;bookingConfig={...bookingConfig,...(config.site.booking||{})};applySite(config.site);updatePricingLabels();}
     update();
     demoMode=Boolean(config.demoMode);
