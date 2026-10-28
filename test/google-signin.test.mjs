@@ -25,6 +25,20 @@ test('google sign-in state is separate from the calendar scope',()=>{
  assert.match(calendar,/calendar\.events/);
  assert.equal(signinRedirectUri({GOOGLE_SIGNIN_REDIRECT_URI:' https://klarraumapp.com/api/google/signup/callback '},'https://platform.klarraumapp.com'),'https://klarraumapp.com/api/google/signup/callback');
  assert.equal(signinRedirectUri({},'https://platform.klarraumapp.com'),'https://platform.klarraumapp.com/api/google/signup/callback');
+ assert.equal(signinRedirectUri({GOOGLE_SIGNIN_REDIRECT_URI:'https://platform.klarraumapp.com/api/google/signup/callback'},'https://example.onrender.com','klarraumapp.com'),'https://klarraumapp.com/api/google/signup/callback');
+ assert.equal(signinRedirectUri({GOOGLE_SIGNIN_REDIRECT_URI:'https://klarraumapp.com/api/google/signup/callback'},'https://example.onrender.com','platform.klarraumapp.com'),'https://platform.klarraumapp.com/api/google/signup/callback');
+ assert.equal(signinRedirectUri({},'https://example.onrender.com','example.onrender.com, klarraumapp.com'),'https://klarraumapp.com/api/google/signup/callback');
+});
+
+test('director console groups the six plans and hides company creation',async()=>{
+ const html=await readFile(new URL('../director-public/index.html',import.meta.url),'utf8');
+ const script=await readFile(new URL('../director-public/director.js',import.meta.url),'utf8');
+ assert.equal(html.includes('Create company'),false);
+ assert.equal(html.includes('id="create-form"'),false);
+ assert.equal(html.includes('Create empty installation'),false);
+ for(const name of ['Solo','Starter','Team','Business','Scale','Plus'])assert.match(script,new RegExp(`'${name}'`));
+ assert.match(script,/plan-count/);
+ assert.match(script,/cataloguePlans/);
 });
 
 test('choosing Plus and continuing with Google opens the owner cabinet',async t=>{

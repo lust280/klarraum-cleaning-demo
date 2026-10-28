@@ -15,8 +15,9 @@ const catalogue=Object.fromEntries(Object.entries(plans).map(([key,plan])=>[key,
 const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Business — $149'],['business','Scale — $219'],['plus','Plus — $259'],['custom','Custom']];
 const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=catalogue[planKey]||catalogue.custom;return {name:form.elements.name.value,planKey,...plan};};
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
-function planBand(c){return planChoices.findIndex(([key])=>key===c.planKey);}
-function matchesDashboard(c){if(dashboardFilter==='all')return true;if(dashboardFilter==='enabled')return c.status==='active';if(dashboardFilter==='workers')return (c.workers?.active||0)>0;return c.planKey===dashboardFilter;}
+const cataloguePlans=[['solo','Solo'],['starter','Starter'],['team','Team'],['growth','Business'],['business','Scale'],['plus','Plus']];
+function catalogueKey(c){return cataloguePlans.some(([key])=>key===c.planKey)?c.planKey:'custom';}
+function matchesDashboard(c){if(dashboardFilter==='all')return true;if(dashboardFilter==='enabled')return c.status==='active';if(dashboardFilter==='workers')return (c.workers?.active||0)>0;return catalogueKey(c)===dashboardFilter;}
 const shownInvites=new Map();
 function invite(url,companyId){if(companyId)shownInvites.set(companyId,url);$('#invite-url').value=url;$('#invitation').hidden=false;$('#invite-url').focus();$('#invite-url').select();}
 async function busy(button,task){button.disabled=true;button.setAttribute('aria-busy','true');error();try{await task();}catch(e){error(e.message);}finally{button.disabled=false;button.removeAttribute('aria-busy');}}
@@ -31,11 +32,7 @@ function renderAttention(){
  }
  box.hidden=!items.length;box.replaceChildren(...items.slice(0,8).map(([title,detail])=>{const card=el('article');card.append(el('h2',title),el('strong',detail));return card;}));
 }
-function render(){
- const target=$('#companies');target.replaceChildren();const query=$('#search').value.toLowerCase();let last=-1,groupTarget=target;
- const visible=companies.filter(c=>matchesDashboard(c)&&(c.name+' '+c.id+' '+c.origin+' '+c.timeZone).toLowerCase().includes(query)).sort((a,b)=>planBand(a)-planBand(b)||a.name.localeCompare(b.name));
- for(const c of visible){
-  const band=planBand(c),title=planChoices[band]?.[1]||'Custom';if(band!==last){last=band;const group=el('details',undefined,'company-group');group.open=true;const summary=el('summary',title);groupTarget=el('div',undefined,'company-group-list');group.append(summary,groupTarget);target.append(group);}
+function companyCard(c){
   const card=el('article',undefined,'company-card payment-'+c.payment);card.append(el('h2',c.name),el('p',`${c.planName} · ${c.timeZone} · joined ${new Date(c.createdAt).toLocaleDateString(document.documentElement.lang)}`,'meta'));
   const gb=bytes=>`${(bytes/1024**3).toFixed(bytes>=10*1024**3?0:1)} GB`;card.append(el('p',`Plan: ${c.planName} · ${c.storageLimitBytes?`${gb(c.storageBytes)} of ${gb(c.storageLimitBytes)} used (${c.storageState.level})`:'storage agreed individually'}`,'meta'));
   const link=el('a',t('openSite'));link.href=c.origin;link.target='_blank';link.rel='noopener';card.append(link);
@@ -49,13 +46,26 @@ function render(){
   if(c.payment==='trial'){const extend=el('button','Add 15 trial days','secondary');extend.onclick=()=>busy(extend,async()=>{await api('companies/'+c.id+'/trial/extend',{method:'POST',body:{}});await refresh();});actions.append(extend);}
   const history=el('button',t('history'),'secondary'),out=el('pre');history.type='button';history.onclick=()=>busy(history,async()=>{const data=await api('companies/'+c.id+'/events');out.textContent=data.items.map(x=>new Date(x.created_at).toLocaleString(document.documentElement.lang)+' · '+x.action+'\n'+x.details).join('\n\n');});actions.append(history);
   const removal=el('details',undefined,'company-delete'),removalSummary=el('summary',t('deleteCompany')),removalHelp=el('p',t('deleteHelp'),'meta'),removalForm=el('form'),removalName=el('input'),removalButton=el('button',t('deleteCompany'),'danger');removalName.maxLength=80;removalName.required=true;removalName.autocomplete='off';removalName.setAttribute('aria-label',t('deleteConfirm'));removalButton.type='submit';removalForm.append(removalName,removalButton);removalForm.addEventListener('submit',e=>{e.preventDefault();if(removalName.value!==c.name){error(t('deleteMismatch'));return;}busy(removalButton,async()=>{await api('companies/'+c.id+'/delete',{method:'POST',body:{name:removalName.value}});shownInvites.delete(c.id);await refresh();});});removal.append(removalSummary,removalHelp,removalForm);
-  card.append(actions,thread,out,removal);groupTarget.append(card);
+  card.append(actions,thread,out,removal);return card;
+}
+function render(){
+ const target=$('#companies');target.replaceChildren();const query=$('#search').value.toLowerCase();
+ const visible=companies.filter(c=>matchesDashboard(c)&&(c.name+' '+c.id+' '+c.origin+' '+c.timeZone).toLowerCase().includes(query));
+ const bands=cataloguePlans.slice();if(companies.some(c=>catalogueKey(c)==='custom'))bands.push(['custom','Custom']);
+ for(const [key,title] of bands){
+  const members=companies.filter(c=>catalogueKey(c)===key),shown=visible.filter(c=>catalogueKey(c)===key).sort((a,b)=>a.name.localeCompare(b.name));
+  const group=el('details',undefined,'company-group'+(key==='custom'?' company-group-custom':''));group.open=key!=='custom'||shown.length>0;
+  const summary=el('summary');summary.append(el('span',title,'plan-name'),el('b',String(members.length),'plan-count'));
+  const list=el('div',undefined,'company-group-list');
+  if(!shown.length)list.append(el('p',members.length?'No companies match this view.':'No companies on this plan.','meta'));
+  for(const c of shown)list.append(companyCard(c));
+  group.append(summary,list);target.append(group);
  }
  const metric=(title,value,filter)=>{const node=el('button',`${title}: ${value}`,'dashboard-metric'+(dashboardFilter===filter?' selected':''));node.type='button';node.onclick=()=>{dashboardFilter=filter;render();document.querySelector('#companies').scrollIntoView({behavior:'smooth',block:'start'});};return node;};
  const totals=$('#totals');totals.replaceChildren(metric(t('total'),companies.length,'all'),metric(t('open'),companies.filter(c=>c.status==='active').length,'enabled'),metric(t('activeWorkers'),companies.reduce((n,c)=>n+(c.workers?.active||0),0),'workers'));
- const overview=$('#plan-overview');let grid=overview.querySelector('.plan-filter-grid');if(!grid){grid=el('div',undefined,'plan-filter-grid');overview.append(grid);}grid.replaceChildren();for(const [key,title] of planChoices){const members=companies.filter(c=>c.planKey===key);if(!members.length&&key==='custom')continue;grid.append(metric(`${title} · companies`,members.length,key));}
+ const overview=$('#plan-overview');let grid=overview.querySelector('.plan-filter-grid');if(!grid){grid=el('div',undefined,'plan-filter-grid');overview.append(grid);}grid.replaceChildren();for(const [key,title] of bands)grid.append(metric(title,companies.filter(c=>catalogueKey(c)===key).length,key));
  renderAttention();
- if(!visible.length)target.append(el('p',companies.length?'No companies match this view.':t('empty')));finance.companyOptions(companies);
+ finance.companyOptions(companies);
 }
 document.addEventListener('invalid',event=>{const form=event.target.closest('form');if(!form)return;event.preventDefault();event.target.setAttribute('aria-invalid','true');if(form.dataset.reported)return;form.dataset.reported='1';const missing=[...form.querySelectorAll(':invalid')].map(field=>(field.closest('label')?.innerText||field.getAttribute('aria-label')||field.name||'').replace(/\s+/g,' ').trim()).filter(Boolean);error(t('completeFields')+(missing.length?' — '+missing.join(', '):''));queueMicrotask(()=>{delete form.dataset.reported;});},true);
 document.addEventListener('input',event=>{if(event.target.closest('form'))event.target.removeAttribute('aria-invalid');});
@@ -66,7 +76,7 @@ async function refresh(){companies=(await api('companies')).items;render();}
 const applications=createApplications({api,busy,el,label,invite,onApproved:refresh});
 async function entered(){const status=await fetch('/api/platform/status').then(r=>r.ok?r.json():null).catch(()=>null);$('#demo-notice').hidden=!status?.demo;await refresh();await applications.refresh();await finance.refresh();await backups.refresh();$('#dashboard').hidden=false;$('#login').hidden=true;$('#logout').hidden=false;}
 $('#login-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{csrf=(await api('login',{method:'POST',body:{password:e.target.elements.password.value}})).csrf;e.target.reset();await entered();});};
-$('#create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{const data=await api('companies',{method:'POST',body:tariff(e.target)});e.target.reset();invite(data.inviteUrl,data.company.id);await refresh();});};
+const createForm=$('#create-form');if(createForm)createForm.onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{const data=await api('companies',{method:'POST',body:tariff(e.target)});e.target.reset();invite(data.inviteUrl,data.company.id);await refresh();});};
 $('#refresh').onclick=e=>busy(e.target,refresh);$('#search').oninput=render;
 $('#dismiss-invite').onclick=()=>{$('#invite-url').value='';$('#invitation').hidden=true;};
 $('#logout').onclick=e=>busy(e.target,async()=>{await api('logout',{method:'POST',body:{}});csrf='';companies=[];$('#companies').replaceChildren();$('#invite-url').value='';$('#invitation').hidden=true;$('#dashboard').hidden=true;$('#logout').hidden=true;$('#login').hidden=false;});

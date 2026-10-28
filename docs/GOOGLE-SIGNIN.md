@@ -10,21 +10,11 @@ While Google keys are missing, the button stays hidden and `/api/google/signup/s
 
 ## Environment
 
-Set these on the service that runs `director.mjs`. The same client id and secret already used for Calendar are enough. `GOOGLE_SIGNIN_REDIRECT_URI` is optional. When it is empty, the director uses its own origin + `/api/google/signup/callback`.
+`klarraumapp.com` and `platform.klarraumapp.com` are separate Render services. Continue with Google shows only on the service whose process has `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. A request to either public host uses that host's own callback, even if `GOOGLE_SIGNIN_REDIRECT_URI` points at the other host. The same OAuth client is used. The full operator note is in docs/GOOGLE-SIGNIN-RU.md.
 
-```text
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_SIGNIN_REDIRECT_URI=https://platform.klarraumapp.com/api/google/signup/callback
-```
+On the **public** service (`klarraumapp.com`, `server.mjs`), copy the platform client id and secret. Leave `GOOGLE_SIGNIN_REDIRECT_URI` empty unless you set it to `https://klarraumapp.com/api/google/signup/callback`. Restart that service. `GET /api/google/signup/status` should then return `{"enabled":true}`.
 
-On the public demo host, if sign-in should work there too, set the same client and:
-
-```text
-GOOGLE_SIGNIN_REDIRECT_URI=https://klarraumapp.com/api/google/signup/callback
-```
-
-Leave `GOOGLE_CALENDAR_REDIRECT_URI` as it is. Do not point the calendar redirect at the signup callback.
+On the **platform** service the callback is `https://platform.klarraumapp.com/api/google/signup/callback`. Leave `GOOGLE_CALENDAR_REDIRECT_URI` unchanged. Stripe Checkout stays off.
 
 ## Redirect URIs
 
