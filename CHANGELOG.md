@@ -8,6 +8,8 @@ Owner home leads with today's attention and the plan card. Employees can decline
 
 Pricing compares Solo, Starter, Team, Business and Scale from the plan catalogue. Custom domain is a one-time $99 note. Monthly CSV and PDF use the company currency. Account cancellation and deletion stay separate from any charge.
 
+The public company page and `/pricing.html` are the same short plan grid on the demo host and the platform host. Trial and assisted-setup forms stay on the company page.
+
 ## 2.1.0
 
 Commercial release preparation: isolated installation setup, allowlisted source archive, restore into a new directory, operational status, DE/EN interface controls, customer/property records, finite recurring schedules, calendar and employee notifications. This is a release candidate until the release checks in docs/RELEASE-PLAN-RU.md pass. Real hosting, email delivery and seller accounts remain deployment prerequisites.
