@@ -10,6 +10,15 @@ const messages={
 };
 Object.assign(messages,{
  attentionNav:['Внимание','Attention','Aufmerksamkeit'],
+ awaitingOwner:['Владелец ещё не задал пароль. Вход в админку компании не откроется, пока он не перейдёт по одноразовой ссылке и не создаст пароль. Нажмите «Новое приглашение владельцу» и передайте ссылку лично.','The owner has not set a password. Company admin sign-in will fail until they open the one-time link and create a password. Use New owner invitation and share that link privately.','Der Inhaber hat noch kein Passwort. Die Firmenanmeldung scheitert, bis er den Einmallink öffnet und ein Passwort anlegt. Neue Inhaber-Einladung ausstellen und privat weitergeben.'],
+ paymentDue:['Следующая оплата (необязательно)','Next payment due (optional)','Nächste Zahlung (optional)'],
+ lastPaid:['Последняя оплата (необязательно)','Last payment received (optional)','Letzte Zahlung (optional)'],
+ copyInvite:['Скопировать ссылку','Copy link','Link kopieren'],
+ copied:['Ссылка скопирована','Link copied','Link kopiert'],
+ deleteCompany:['Удалить компанию','Delete company','Firma löschen'],
+ deleteHelp:['Удаляется только эта компания: запись в реестре, её база и файлы. Другие компании не затрагиваются. Введите название точно.','This deletes only this company: its registry row, database and files. Other companies stay. Type the name exactly.','Nur diese Firma wird gelöscht: Registerzeile, Datenbank und Dateien. Andere Firmen bleiben. Namen genau eingeben.'],
+ deleteConfirm:['Название компании','Company name','Firmenname'],
+ deleteMismatch:['Название не совпадает. Удаление отменено.','The name does not match. Nothing was deleted.','Der Name stimmt nicht. Nichts wurde gelöscht.'],
  publicPages:['Публичные страницы','Public pages','Öffentliche Seiten'],
  reviewLinks:['Ссылки для проверки платформы','Platform review links','Links zur Plattformprüfung'],
  reviewHelp:['Личные быстрые ссылки для проверки всех публичных и рабочих экранов. Защищённые страницы всё равно требуют обычного входа.','Private shortcuts for checking every public and company-facing screen. Each protected page still requires its normal sign-in.','Private Schnellzugriffe zur Prüfung aller öffentlichen und Arbeitsseiten. Geschützte Seiten benötigen weiterhin die normale Anmeldung.'],
@@ -65,6 +74,7 @@ const errors=[
  ['Fees and target margin must total less than 100%.','Комиссия и целевая маржа вместе должны быть меньше 100%.','Gebühren und Zielmarge müssen zusammen unter 100 % liegen.'],
  ['Monthly export limit reached (5000 entries). Contact the operator.','Достигнут предел отчёта: 5000 записей за месяц. Обратитесь к оператору.','Monatslimit von 5000 Buchungen erreicht. Betreiber kontaktieren.'],
  ['Owner already activated. Password recovery requires the operator procedure.','Владелец уже активирован. Для восстановления доступа обратитесь к оператору.','Inhaber bereits aktiviert. Für die Zugangswiederherstellung Betreiber kontaktieren.'],
+ ['Type the company name exactly to delete it.','Чтобы удалить, введите название компании точно.','Zum Löschen den Firmennamen genau eingeben.'],
  ['Service unavailable. Check operator logs and storage.','Сервис недоступен. Оператору нужно проверить журнал и хранилище.','Dienst nicht verfügbar. Betreiber muss Protokolle und Speicher prüfen.']
 ];
 export function errorText(message){const row=errors.find(row=>row[0]===message);if(row)return row[{en:0,ru:1,de:2}[language]];if(message?.startsWith('Invalid forecast field: '))return ({en:'Check the scenario field: ',ru:'Проверьте поле сценария: ',de:'Szenario-Feld prüfen: '}[language])+message.slice(24);return message;}

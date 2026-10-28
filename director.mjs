@@ -4,7 +4,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {pipeline} from 'node:stream/promises';
 import {createPlatformBackup} from './lib/platform-backup.mjs';
-import {resolve,join} from 'node:path';
+import {resolve,join,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {fork} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
@@ -339,10 +339,20 @@ export function createDirector(config) {
             return json(res,200,publicApplication(store.setApplicationStatus(application.id,input)));
           }
         }
-        const match=/^\/api\/director\/companies\/([a-f0-9-]{36})(?:\/(invite|events|support))?$/.exec(route.pathname);
+        const match=/^\/api\/director\/companies\/([a-f0-9-]{36})(?:\/(invite|events|support|delete))?$/.exec(route.pathname);
         if(match) {
           const row=store.company(match[1]);if(!row)fail(404,'Company not found.');
           if(!match[2]&&method==='PUT') {store.update(row.id,checked(await body(req),true));if(store.company(row.id).status==='suspended')await stop(row.id);return json(res,200,publicCompany(store.company(row.id)));}
+          if(match[2]==='delete'&&method==='POST') {
+            const input=await body(req);
+            if(input?.name!==row.name)fail(400,'Type the company name exactly to delete it.');
+            await stop(row.id);
+            const dir=companyDir(row.id),parent=resolve(config.dataDir,'companies'),target=resolve(dir);
+            if(target!==resolve(parent,row.id)||!target.startsWith(parent+sep))fail(400,'Invalid company path.');
+            store.removeCompany(row.id,row.name);
+            await rm(target,{recursive:true,force:true});
+            return json(res,200,{deleted:row.id});
+          }
           if(match[2]==='invite'&&method==='POST'){if(row.password_hash)fail(409,'Owner already activated. Password recovery requires the operator procedure.');const token=store.invite(row.id);return json(res,200,{inviteUrl:tenantOrigin(row.id)+'/owner-setup.html#token='+token});}
           if(match[2]==='events'&&method==='GET')return json(res,200,{items:store.db.prepare('SELECT action,details,created_at FROM director_events WHERE company_id=? ORDER BY id DESC LIMIT 100').all(row.id)});
           if(match[2]==='support'&&method==='GET'){store.markSupportRead(row.id,'company');return json(res,200,{items:store.support(row.id)});}
