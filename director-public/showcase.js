@@ -51,7 +51,7 @@ function applyChosenPlan(){
  const link=document.querySelector('#google-start');
  const email=document.querySelector('#email-trial');
  if(link)link.href='/api/google/signup/start?plan='+encodeURIComponent(chosenPlan);
- if(email)email.dataset.plan=chosenPlan;
+ if(email){email.dataset.plan=chosenPlan;if(email.tagName==='A')email.href='/for-companies.html?plan='+encodeURIComponent(chosenPlan)+'#trial-panel';}
  for(const button of document.querySelectorAll('[data-choose-plan]'))button.setAttribute('aria-pressed',String(button.dataset.choosePlan===chosenPlan));
 }
 applyChosenPlan();

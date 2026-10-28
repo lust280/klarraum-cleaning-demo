@@ -44,8 +44,10 @@ test('pricing and company pages advertise the catalogue without a checkout butto
   assert.equal(page.includes('Sign in with Google'),false);
  }
  assert.match(company,/Continue with Google/);
+ assert.match(pricing,/Continue with Google/);
  assert.match(company,/\/api\/google\/signup\/start/);
- assert.match(pricing,/plan=plus#google-signup/);
+ assert.match(pricing,/\/api\/google\/signup\/start/);
+ assert.match(pricing,/data-choose-plan="plus"/);
  assert.match(company,/Start your 15-day trial/);
  assert.match(company,/id="trial-form"/);
  assert.match(company,/id="application-form"/);

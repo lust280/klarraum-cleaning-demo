@@ -254,10 +254,10 @@ export function createDirector(config) {
         const plan=route.searchParams.get('plan')||'';
         if(!signupPlans.includes(plan))fail(400,'Choose a public plan.');
         const state=signSignupState(config.passwordHash,{plan,exp:Date.now()+10*60*1000});
-        res.writeHead(302,{Location:googleSigninUrl({clientId:process.env.GOOGLE_CLIENT_ID,redirectUri:signinRedirectUri(process.env,config.origin),state})});
+        res.writeHead(302,{Location:googleSigninUrl({clientId:process.env.GOOGLE_CLIENT_ID,redirectUri:signupRedirectFor(req),state})});
         return res.end();
       }
-      if(route.pathname==='/api/google/signup/callback'&&method==='GET')return await completeGoogleSignup(route,res);
+      if(route.pathname==='/api/google/signup/callback'&&method==='GET')return await completeGoogleSignup(route,res,req);
       if(route.pathname==='/api/platform/trials'&&method==='POST') {
         if(!limiter.allow('trial:'+req.socket.remoteAddress,3,3600000,Date.now()))fail(429,'Too many trial registrations. Try again later.');
         const input=checkedTrial(await body(req));
@@ -381,13 +381,14 @@ export function createDirector(config) {
     }catch(error){if(!res.headersSent)json(res,error.status||503,{error:error.status?error.message:'Service unavailable. Check operator logs and storage.'});else res.destroy();}
   });
   server.headersTimeout=15000;server.requestTimeout=20000;
-  async function completeGoogleSignup(route,res){
+  function signupRedirectFor(req){return signinRedirectUri(process.env,config.origin,[req?.headers?.host,req?.headers?.['x-forwarded-host']].filter(Boolean).join(','));}
+  async function completeGoogleSignup(route,res,req){
     if(!googleConfigured(process.env))fail(404,'Google sign-in is not configured.');
     if(route.searchParams.get('error')){res.writeHead(302,{Location:'/for-companies.html?google=denied#google-signup'});return res.end();}
     const code=route.searchParams.get('code');if(!code)fail(400,'Google did not return a sign-in code.');
     const {plan}=readSignupState(config.passwordHash,route.searchParams.get('state'),Date.now());
     const fetchImpl=config.fetcher||fetch;
-    const access=await exchangeSigninCode({clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET,code,redirectUri:signinRedirectUri(process.env,config.origin),fetchImpl});
+    const access=await exchangeSigninCode({clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET,code,redirectUri:signupRedirectFor(req),fetchImpl});
     const profile=await googleProfile(access,fetchImpl);
     let row=store.companyByGoogleSub(profile.sub);
     if(!row){

@@ -22,3 +22,11 @@ services:
         generateValue: true
       - key: TRUST_PROXY
         value: "0"
+      # Same Google client as the platform service. Required before
+      # klarraumapp.com/api/google/signup/status returns enabled:true.
+      # Leave GOOGLE_SIGNIN_REDIRECT_URI empty so this host uses
+      # https://klarraumapp.com/api/google/signup/callback.
+      # - key: GOOGLE_CLIENT_ID
+      #   sync: false
+      # - key: GOOGLE_CLIENT_SECRET
+      #   sync: false
