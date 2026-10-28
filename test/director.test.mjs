@@ -135,6 +135,16 @@ test('seat estimate separates invited and disabled employees and uses integer ce
  assert.equal((await f.post('logout',{})).status,200);
  assert.equal((await f.get('companies')).status,401);
 });
+test('manual create keeps the chosen plan, and delete removes only the named company',async t=>{
+ const f=await fixture(t),keep=await f.create('Keep Me'),drop=await f.post('companies',{name:'Drop Me',planKey:'solo',baseCents:2900,included:1,seatCents:1500});
+ assert.equal(drop.status,201);assert.equal(drop.data.company.planKey,'solo');assert.ok(drop.data.company.trialEndsAt>Date.now()+14*24*3600000);assert.equal(drop.data.company.activated,false);
+ assert.equal((await f.post('companies/'+drop.data.company.id,{name:drop.data.company.name,planKey:'solo',baseCents:2900,included:1,seatCents:1500,status:'active',payment:'trial',paymentDueAt:null,lastPaidAt:null,version:drop.data.company.version},'PUT')).status,200);
+ assert.equal((await f.post('companies/'+drop.data.company.id+'/delete',{name:'Wrong'})).status,400);
+ assert.equal((await f.get('companies')).data.items.length,2);
+ assert.equal((await f.post('companies/'+drop.data.company.id+'/delete',{name:'Drop Me'})).status,200);
+ const left=(await f.get('companies')).data.items;assert.deepEqual(left.map(item=>item.name),['Keep Me']);assert.equal(left[0].id,keep.company.id);
+ assert.equal((await f.post('companies/'+drop.data.company.id+'/invite',{})).status,404);
+});
 test('mounted free demo serves a live director and two path-scoped companies without sharing owner sessions',async t=>{
  const {createServerApp}=await import('../server.mjs');const {loadConfig}=await import('../lib/config.mjs');
  const directory=await mkdtemp(join(tmpdir(),'klarraum-mounted-test-'));
