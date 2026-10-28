@@ -1,6 +1,8 @@
 # Operator fields to paste
 
-The platform pages ship with brackets, not a fictional company. Replace each bracket in the files below with the real value, then redeploy. Leave a bracket only if that item truly does not exist, and write the reason inside it, for example `[NOT REGISTERED]`.
+The four platform pages below are filled for the current pilot. The operator is Culiuc Andrei, a private person. No company is registered. Register is `NOT REGISTERED`, VAT ID is `NOT ISSUED`, the tax number is `NOT PUBLISHED`, and the phone line is `No public phone`. The field list stays here so a later edit can change a value in all four pages together.
+
+Do not invent a company name. If a value changes, edit the pages and this note together.
 
 Pages:
 

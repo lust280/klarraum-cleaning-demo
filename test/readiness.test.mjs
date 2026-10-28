@@ -41,14 +41,21 @@ test('s3 authorization names the key and changes when the body changes',()=>{
  assert.notEqual(a,b);
 });
 
-test('platform legal pages keep operator placeholders and the impressum route',async()=>{
+test('platform legal pages name the pilot operator and keep the impressum route',async()=>{
  const privacy=await readFile(new URL('../director-public/platform-privacy.html',import.meta.url),'utf8');
  const terms=await readFile(new URL('../director-public/platform-terms.html',import.meta.url),'utf8');
  const cookies=await readFile(new URL('../director-public/cookies.html',import.meta.url),'utf8');
  const imprint=await readFile(new URL('../director-public/platform-impressum.html',import.meta.url),'utf8');
  const server=await readFile(new URL('../server.mjs',import.meta.url),'utf8');
- for(const page of [privacy,terms,imprint])assert.match(page,/\[OPERATOR LEGAL NAME\]/);
- assert.match(cookies,/\[OPERATOR EMAIL\]/);
+ for(const page of [privacy,terms,cookies,imprint]){
+  assert.match(page,/early pilot/);
+  assert.equal(page.includes('[OPERATOR'),false);
+  assert.equal(page.includes('[BRACKET'),false);
+ }
+ assert.match(imprint,/Culiuc Andrei/);
+ assert.match(imprint,/NOT REGISTERED/);
+ assert.match(imprint,/NOT ISSUED/);
+ assert.match(imprint,/No public phone/);
  assert.equal(privacy.includes('not the final policy'),false);
  assert.match(server,/\/platform-impressum\.html/);
  assert.match(await readFile(new URL('../director-public/platform.html',import.meta.url),'utf8'),/platform-impressum\.html/);
