@@ -15,11 +15,18 @@ test('public plans match the catalogue: same features, seats and storage differ'
 test('pricing and company pages advertise the catalogue without a checkout button', async()=>{
  const pricing=await readFile(new URL('../director-public/pricing.html',import.meta.url),'utf8');
  const company=await readFile(new URL('../director-public/platform.html',import.meta.url),'utf8');
- const script=await readFile(new URL('../director-public/showcase.js',import.meta.url),'utf8');
- assert.match(pricing,/showcase\.js/);
- assert.match(company,/showcase\.js/);
- assert.match(script,/plans\.mjs/);
- assert.equal(pricing.includes('checkout.stripe.com'),false);
- assert.equal(company.includes('Sign in with Google'),false);
- assert.match(script,/\$99|99 \$/);
+ const server=await readFile(new URL('../server.mjs',import.meta.url),'utf8');
+ for(const page of [pricing,company]){
+  for(const price of ['$29','$49','$89','$149','$219'])assert.match(page,new RegExp(price.replace('$','\\$')));
+  for(const seats of ['>1<','>3<','>6<','>12<','>20<'])assert.match(page,new RegExp(seats));
+  assert.match(page,/one-time/);
+  assert.match(page,/\$99/);
+  assert.match(page,/sales\.css/);
+  assert.equal(page.includes('checkout.stripe.com'),false);
+  assert.equal(page.includes('Sign in with Google'),false);
+ }
+ assert.match(company,/Start your 15-day trial/);
+ assert.match(company,/id="trial-form"/);
+ assert.match(company,/id="application-form"/);
+ for(const path of ['/pricing.html','/sales.css','/showcase.js','/plans.mjs'])assert.match(server,new RegExp(path.replaceAll('.','\\.')));
 });
