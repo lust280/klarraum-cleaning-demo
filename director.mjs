@@ -107,7 +107,7 @@ export function createDirector(config) {
     if(write&&req.headers['x-csrf-token']!==result.csrf)fail(403,'Invalid security token.');return {...result,hash:digest(token)};
   }
   function ownerSession(req,id,write=false) {
-    const name=config.mountedDemo?'klarraum_company_'+id+'_session':secure?'__Host-klarraum_session':'klarraum_session';
+    const name=(config.mountedDemo||config.pathPreview)?'klarraum_company_'+id+'_session':secure?'__Host-klarraum_session':'klarraum_session';
     const token=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1);
     if(!token||!/^[\w-]{43}$/.test(token))fail(401,'Sign in as the company owner.');
     const path=join(companyDir(id),'klarraum.sqlite');if(!existsSync(path))fail(503,'Company storage is not ready.');

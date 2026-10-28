@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Google signup on a path-preview company keeps the owner signed in. The director now reads the same company session cookie the cabinet sets, so the plan and support calls no longer bounce the owner back to the password form.
+
 Continue with Google uses the host that received the request, so `klarraumapp.com` and `platform.klarraumapp.com` each keep their own signup callback. The public demo service still needs the same Google client id and secret before its status turns on. Pricing and the company page both offer the button. The director console no longer shows Create company. Companies are grouped under Solo, Starter, Team, Business, Scale, and Plus, with a count on each group.
 
 Plus is a self-serve plan at $259 with 25 included workers, $8 extra seats, and about 250 GB. Teams above Scale stay on Plus with seat overage. Custom remains a negotiated plan. Pricing says photos and other media are kept on a 12-month rolling basis. A reminder email and an automatic purge are not built yet.
