@@ -63,7 +63,7 @@ export function createDirector(config) {
     }
     const plan=planFor(row.plan_key)||planFor('custom');
     const inquiry=companyInquiryReadiness(row,config.trialMail,{passwordHash:row.password_hash||''});
-    const inquiries=(config.mountedDemo||config.pathPreview)?'demo':inquiry.accepting?'accepting':inquiry.preference==='off'?'paused':'setup';
+    const inquiries=config.mountedDemo?'demo':inquiry.accepting?'accepting':inquiry.preference==='off'?'paused':'setup';
     return {id:row.id,name:row.name,status:row.status,payment:row.payment,baseCents:row.base_cents,included:row.included,seatCents:row.seat_cents,planKey:plan.key,planName:plan.name,storageLimitBytes:plan.storageBytes,storageBytes,storageState:storageState(plan.storageBytes,storageBytes),version:row.version,activated:Boolean(row.password_hash),origin:tenantOrigin(row.id),workers,storage,timeZone:row.time_zone||'Europe/Berlin',currency:row.currency||'USD',createdAt:row.created_at,initializedAt:row.initialized_at||null,trialEndsAt:row.trial_ends_at||null,paymentDueAt:row.payment_due_at||null,lastPaidAt:row.last_paid_at||null,unreadSupport:store.supportCounts().get(row.id)||0,estimatedCents:workers?planEstimate(plan,workers.active)??(row.base_cents+Math.max(0,workers.active-row.included)*row.seat_cents):null,inquiries};
   }
   async function body(req,limit=8192) {
@@ -153,14 +153,23 @@ export function createDirector(config) {
     await new Promise(resolveStop=>{if(item.child.exitCode!==null)return resolveStop();item.child.once('exit',resolveStop);item.child.kill('SIGTERM');const timer=setTimeout(()=>item.child.kill('SIGKILL'),6000);timer.unref();item.child.once('exit',()=>clearTimeout(timer));});
     if(children.get(id)===item)children.delete(id);
   }
+  function savedCompanyLocale(id,timeZone,currency){
+    const path=join(companyDir(id),'klarraum.sqlite');
+    if(!existsSync(path))return {timeZone,currency};
+    let db;
+    try{db=new DatabaseSync(path,{readOnly:true});db.exec('PRAGMA busy_timeout=1000');const row=db.prepare("SELECT value FROM metadata WHERE key='company_preferences'").get();const parsed=row?JSON.parse(row.value):{};return {timeZone:parsed.timeZone||timeZone,currency:parsed.currency||currency};}
+    catch{return {timeZone,currency};}
+    finally{db?.close();}
+  }
   function start(row) {
     let item=children.get(row.id);if(item&&!item.stopping)return item.ready;
     if(item)fail(503,'Company is restarting. Retry shortly.');
     if(children.size>=config.maxRunning)fail(503,'Running company capacity reached. Operator must provision more capacity.');
     mkdirSync(companyDir(row.id),{recursive:true,mode:0o700});
     const pathPreview=config.mountedDemo||config.pathPreview;
-    const {env:inquiryEnv}=companyInquiryEnv(row,config.trialMail,{demo:pathPreview,passwordHash:row.password_hash||''});
-    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:row.time_zone||'Europe/Berlin',BUSINESS_CURRENCY:row.currency||'USD',DEMO_ONLY:pathPreview?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false',...inquiryEnv,STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY||'',STRIPE_PUBLISHABLE_KEY:process.env.STRIPE_PUBLISHABLE_KEY||'',STRIPE_WEBHOOK_SECRET:process.env.STRIPE_WEBHOOK_SECRET||'',GOOGLE_CLIENT_ID:process.env.GOOGLE_CLIENT_ID||'',GOOGLE_CLIENT_SECRET:process.env.GOOGLE_CLIENT_SECRET||'',GOOGLE_CALENDAR_REDIRECT_URI:process.env.GOOGLE_CALENDAR_REDIRECT_URI||((process.env.GOOGLE_CLIENT_ID&&process.env.GOOGLE_CLIENT_SECRET)?`${config.origin}/api/google/calendar/callback`:'')});
+    const {env:inquiryEnv}=companyInquiryEnv(row,config.trialMail,{demo:Boolean(config.mountedDemo),passwordHash:row.password_hash||''});
+    const saved=savedCompanyLocale(row.id,row.time_zone||'Europe/Berlin',row.currency||'USD');
+    const companyConfig=loadConfig({NODE_ENV:config.production?'production':'development',APP_ORIGIN:pathPreview?config.origin:tenantOrigin(row.id),DATA_DIR:companyDir(row.id),ADMIN_PASSWORD_HASH:row.password_hash,APP_SECRET:row.secret,BUSINESS_NAME:row.name,BUSINESS_TIME_ZONE:saved.timeZone,BUSINESS_CURRENCY:saved.currency,DEMO_ONLY:config.mountedDemo?'true':'false',PERSISTENT_STORAGE_CONFIRMED:config.production?'true':'false',...inquiryEnv,STRIPE_SECRET_KEY:process.env.STRIPE_SECRET_KEY||'',STRIPE_PUBLISHABLE_KEY:process.env.STRIPE_PUBLISHABLE_KEY||'',STRIPE_WEBHOOK_SECRET:process.env.STRIPE_WEBHOOK_SECRET||'',GOOGLE_CLIENT_ID:process.env.GOOGLE_CLIENT_ID||'',GOOGLE_CLIENT_SECRET:process.env.GOOGLE_CLIENT_SECRET||'',GOOGLE_CALENDAR_REDIRECT_URI:process.env.GOOGLE_CALENDAR_REDIRECT_URI||((process.env.GOOGLE_CLIENT_ID&&process.env.GOOGLE_CLIENT_SECRET)?`${config.origin}/api/google/calendar/callback`:'')});
     companyConfig.companyId=row.id;
     if(config.mailTransport)companyConfig.mail={...companyConfig.mail,transport:config.mailTransport};
     companyConfig.directorDisabled=true;
@@ -230,7 +239,7 @@ export function createDirector(config) {
           const current=store.company(id);
           const preview={...current,contact_email:input.contactEmail,contact_phone:input.phone,legal_owner:input.owner,legal_address:input.address,price_note:input.priceNote,privacy_details:input.privacyDetails,legal_extra:input.additionalLegal,service_postcodes:input.postcodes,legal_reviewed:input.legalReviewed?1:0,inquiries_enabled:input.inquiries==='on'?1:input.inquiries==='off'?0:null};
           const ready=companyInquiryReadiness(preview,config.trialMail,{passwordHash:current.password_hash||''});
-          const demo=Boolean(config.mountedDemo||config.pathPreview);
+          const demo=Boolean(config.mountedDemo);
           if(input.inquiries==='on'&&(demo||!ready.ready))fail(400,inquiryBlockers({...ready,preference:'on'},{demo}));
           store.setInquiryProfile(id,input);await stop(id);return json(res,200,inquiryView(store.company(id)));
         }
