@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {plans, customDomainCents, nextPlan} from '../lib/plans.mjs';
+import {plans, customDomainCents, nextPlan, overagePrefersUpgrade, planEstimate} from '../lib/plans.mjs';
 
 test('public plans match the catalogue: same features, seats and storage differ', ()=>{
  assert.deepEqual(['solo','starter','team','growth','business'].map(key=>[plans[key].name, plans[key].baseCents, plans[key].included]), [
@@ -10,6 +10,13 @@ test('public plans match the catalogue: same features, seats and storage differ'
  assert.equal(customDomainCents,9900);
  assert.equal(nextPlan('solo').name,'Starter');
  assert.equal(nextPlan('business'),null);
+ assert.deepEqual(['solo','starter','team','growth','business'].map(key=>plans[key].seatCents),[1500,1500,1200,1000,1000]);
+ for(const key of ['solo','starter','team','growth']){
+  const upcoming=nextPlan(key);
+  assert.equal(overagePrefersUpgrade(key),true);
+  assert.ok(planEstimate(plans[key],upcoming.included)>upcoming.baseCents);
+ }
+ assert.equal(overagePrefersUpgrade('business'),null);
 });
 
 test('pricing and company pages advertise the catalogue without a checkout button', async()=>{

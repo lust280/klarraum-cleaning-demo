@@ -21,7 +21,7 @@ function el(tag,text,className){const node=document.createElement(tag);if(text!=
 function button(text,action,className='secondary'){const node=el('button',text,`button small ${className}`);node.type='button';node.addEventListener('click',async()=>{node.disabled=true;clearError();try{await action();}catch(error){showError(error);}finally{node.disabled=false;}});return node;}
 const localDate=()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:dateFormat.resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const value=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${value.year}-${value.month}-${value.day}`;};
 function renderAttention(summary,jobs){
- const box=$('#owner-attention');if(!box)return;
+ const box=$('#owner-attention');if(!box)return;const dateNode=$('#today-date');if(dateNode)dateNode.textContent=new Intl.DateTimeFormat(document.documentElement.lang||'en',{month:'long',day:'numeric',timeZone:dateFormat.resolvedOptions().timeZone}).format(new Date());
  const items=[['New requests',String(summary.new||0)],['Jobs today',String(jobs.length)]];
  if((summary.new||0)>0)items.unshift(['Attention','New inquiry']);
  box.replaceChildren(...items.map(([title,detail])=>{const card=el('article');card.append(el('h3',title),el('strong',detail));return card;}));

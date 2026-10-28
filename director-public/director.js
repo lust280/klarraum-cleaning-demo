@@ -2,6 +2,7 @@ import {t,money,translate,errorText} from './director-i18n.js';
 import {createFinance} from './director-finance.js';
 import {createBackupPanel} from './director-backup.js';
 import {createApplications} from './director-applications.js';
+import {plans} from '/plans.mjs';
 translate();
 let csrf='',companies=[],dashboardFilter='all';
 const $=s=>document.querySelector(s);
@@ -10,7 +11,7 @@ async function api(path,options={}){const response=await fetch('/api/director/'+
 function el(tag,text,cls){const item=document.createElement(tag);if(text!==undefined)item.textContent=text;if(cls)item.className=cls;return item;}
 function label(text,name,value,type='text'){const node=el('label',text),input=el('input');Object.assign(input,{name,value,type,required:true});if(type==='number'){input.min='0';input.max='100000';input.step=name==='included'?'1':'0.01';}else input.maxLength=80;node.append(input);return node;}
 function select(text,name,value,choices){const node=el('label',text),input=el('select');input.name=name;for(const [key,title] of choices){const option=el('option',title);option.value=key;option.selected=key===value;input.append(option);}node.append(input);return node;}
-const catalogue={solo:{baseCents:2900,included:1,seatCents:0},starter:{baseCents:4900,included:3,seatCents:700},team:{baseCents:8900,included:6,seatCents:700},growth:{baseCents:14900,included:12,seatCents:600},business:{baseCents:21900,included:20,seatCents:500},custom:{baseCents:0,included:0,seatCents:0}};
+const catalogue=Object.fromEntries(Object.entries(plans).map(([key,plan])=>[key,{baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents}]));
 const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Business — $149'],['business','Scale — $219'],['custom','Custom']];
 const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=catalogue[planKey]||catalogue.custom;return {name:form.elements.name.value,planKey,...plan};};
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
@@ -47,7 +48,7 @@ function render(){
   const history=el('button',t('history'),'secondary'),out=el('pre');history.onclick=()=>busy(history,async()=>{const data=await api('companies/'+c.id+'/events');out.textContent=data.items.map(x=>new Date(x.created_at).toLocaleString(document.documentElement.lang)+' · '+x.action+'\n'+x.details).join('\n\n');});actions.append(history);card.append(actions,thread,out);groupTarget.append(card);
  }
  const metric=(title,value,filter)=>{const node=el('button',`${title}: ${value}`,'dashboard-metric'+(dashboardFilter===filter?' selected':''));node.type='button';node.onclick=()=>{dashboardFilter=filter;render();document.querySelector('#companies').scrollIntoView({behavior:'smooth',block:'start'});};return node;};
- const totals=$('#totals');totals.replaceChildren(metric(t('total'),companies.length,'all'),metric(t('open'),companies.filter(c=>c.status==='active').length,'enabled'),metric(t('activeWorkers'),companies.reduce((n,c)=>n+(c.workers?.active||0),'workers')));
+ const totals=$('#totals');totals.replaceChildren(metric(t('total'),companies.length,'all'),metric(t('open'),companies.filter(c=>c.status==='active').length,'enabled'),metric(t('activeWorkers'),companies.reduce((n,c)=>n+(c.workers?.active||0),0),'workers'));
  const overview=$('#plan-overview');let grid=overview.querySelector('.plan-filter-grid');if(!grid){grid=el('div',undefined,'plan-filter-grid');overview.append(grid);}grid.replaceChildren();for(const [key,title] of planChoices){const members=companies.filter(c=>c.planKey===key);if(!members.length&&key==='custom')continue;grid.append(metric(`${title} · companies`,members.length,key));}
  renderAttention();
  if(!visible.length)target.append(el('p',companies.length?'No companies match this view.':t('empty')));finance.companyOptions(companies);
