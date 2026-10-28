@@ -1,7 +1,7 @@
 export function defaultSite(business = {}) {
   return {
-    company:{name:business.name || 'Klarraum',phone:business.phone || '',email:business.email || '',address:business.address || '',hours:'By appointment',area:'Your local service area',theme:'dark'},
-    hero:{title:'A cleaner home.',subtitle:'More room to breathe.',description:'Spend less time cleaning and more time living. Explore a service that fits your routine, with clear options and an estimate you can understand.'},
+    company:{name:business.name || 'Klarraum',phone:business.phone || '',email:business.email || '',address:business.address || '',hours:'By appointment',area:'Your local service area',theme:'light'},
+    hero:{title:'Get a clean home in minutes',subtitle:'Booked in seconds.',description:'Choose a service and see the estimate update before you send a request.'},
     services:{
       home:{title:'Home cleaning',description:'Kitchens, bathrooms, floors and surfaces. Come home to a space that feels cared for.',enabled:true},
       office:{title:'Office cleaning',description:'Fresh workspaces and welcoming shared areas, leaving more room for good work.',enabled:true},

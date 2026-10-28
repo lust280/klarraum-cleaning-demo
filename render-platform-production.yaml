@@ -30,6 +30,8 @@ services:
         sync: false
       - key: MAX_COMPANY_PROCESSES
         value: "5"
+      # Verified Resend sender for trial links and company inquiry notices.
+      # Company recipients are stored per company, not in this file.
       - key: PLATFORM_RESEND_API_KEY
         sync: false
       - key: PLATFORM_MAIL_FROM

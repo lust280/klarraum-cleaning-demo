@@ -28,6 +28,23 @@ Required hosting values: `RESEND_API_KEY`, `MAIL_FROM` (verified sender), `MAIL_
 
 A provider failure leaves the inquiry in the database. The worker retries once per minute, up to five attempts. The owner can retry again from the dashboard. Notification delivery uses an idempotency key, within the email provider's supported idempotency window; delivery is not claimed to be exactly-once forever. Mailbox delivery/spam classification must be tested through the real provider.
 
+If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still stored and the dashboard shows a configuration failure instead of calling the mail provider. `MAIL_CUSTOMER_RECEIPT=true` also sends the customer a short reference email. It stays off unless that value is set. The receipt does not include the service address.
+
+## Platform companies
+
+`director.mjs` starts each company with that company's saved contact email, legal owner, address, price note, privacy text and postcodes. `ENABLE_INQUIRIES` is no longer fixed to false.
+
+Inquiries turn on when all of these are true:
+
+- the company is not on temporary demo storage (`PLATFORM_DEMO_MODE` / path preview stays fictional);
+- the owner saved a contact email, legal owner, address, price note, privacy text and the legal-review acknowledgement;
+- the director process has `PLATFORM_RESEND_API_KEY` (or `RESEND_API_KEY`) and `PLATFORM_MAIL_FROM` (or `MAIL_FROM`);
+- the owner left inquiries on automatic, or explicitly on. Automatic is the default once the items above exist. Off pauses public requests.
+
+The platform uses one verified sender. The recipient is the company contact email, stored in the director registry, not a per-company API key. Missing platform mail does not stop the company: public submission stays closed and the owner screen names `PLATFORM_RESEND_API_KEY` and `PLATFORM_MAIL_FROM`.
+
+Before calling this production for real customers: attach the persistent disk from `render-platform-production.yaml`, confirm `DIRECTOR_DATA_DIR` survives a restart, and copy encrypted platform backups off the server on a schedule. The director download is manual. It is not an off-site cron.
+
 ## Business/legal configuration
 
 See `.env.example`. Required before enabling inquiry collection:

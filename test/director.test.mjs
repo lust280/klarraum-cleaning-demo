@@ -8,9 +8,9 @@ import {randomUUID} from 'node:crypto';
 import {createDirector,directorConfig} from '../director.mjs';
 import {hashPassword} from '../lib/security.mjs';
 const password='director-test-password-only',passwordHash=await hashPassword(password);
-async function fixture(t){
+async function fixture(t, options={}){
  const directory=await mkdtemp(join(tmpdir(),'klarraum-director-'));
- const deliveries=[],config={...directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:directory}),trialEmailSender:async message=>deliveries.push(message)};
+ const deliveries=[],config={...directorConfig({DIRECTOR_PASSWORD_HASH:passwordHash,DIRECTOR_DATA_DIR:directory,...options.env}),trialEmailSender:async message=>deliveries.push(message),...options.config};
  const d=createDirector(config);await new Promise(r=>d.server.listen(0,'127.0.0.1',r));
  const port=d.server.address().port;
  async function request(path,{host='director.localhost:3100',body,method=body?'POST':'GET',headers={}}={}){
@@ -194,4 +194,63 @@ test('graceful hosted shutdown releases the platform marker and allows restart o
   const exited=once(child,'exit');child.kill('SIGTERM');await exited;
   await assert.rejects(access(join(dir,'director','.platform-running')));
  }
+});
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function inquiryProfile(email,extra={}){
+ return {contactEmail:email,phone:'+1 555 0100',owner:'Owner',address:'1 Test Street',priceNote:'Estimate confirmed before work. Tax included where required.',privacyDetails:'Privacy notice for this company only.',additionalLegal:'',postcodes:'90,91',legalReviewed:true,inquiries:'auto',...extra};
+}
+test('platform companies accept live inquiries independently and do not share records',async t=>{
+ const f=await fixture(t,{env:{PLATFORM_RESEND_API_KEY:'test-resend-key',PLATFORM_MAIL_FROM:'KlarraumApp <inquiries@example.invalid>'},config:{mailTransport:'disabled'}});
+ const alpha=await f.create('Alpha Cleaning'),beta=await f.create('Beta Cleaning');
+ const hostA=await f.activate(alpha),hostB=await f.activate(beta);
+ const ownerA=await f.owner(hostA),ownerB=await f.owner(hostB);
+ assert.equal((await f.request('/api/platform-inquiries',{host:hostA})).status,401);
+ assert.equal((await f.request('/api/platform-inquiries',{host:hostA,headers:{Cookie:ownerA.Cookie},method:'PUT',body:inquiryProfile('alpha@example.invalid')})).status,403);
+ const blocked=await f.request('/api/platform-inquiries',{host:hostA,headers:ownerA,method:'PUT',body:{...inquiryProfile(''),inquiries:'on',legalReviewed:false,owner:'',address:'',priceNote:'',privacyDetails:''}});
+ assert.equal(blocked.status,400);assert.match(blocked.data.error,/contact email/);
+ const savedA=await f.request('/api/platform-inquiries',{host:hostA,headers:ownerA,method:'PUT',body:inquiryProfile('alpha-owner@example.invalid',{privacyDetails:'Alpha privacy only'})});
+ assert.equal(savedA.status,200);assert.equal(savedA.data.accepting,true);assert.equal(savedA.data.mailConfigured,true);
+ const savedB=await f.request('/api/platform-inquiries',{host:hostB,headers:ownerB,method:'PUT',body:inquiryProfile('beta-owner@example.invalid',{privacyDetails:'Beta privacy only',inquiries:'off'})});
+ assert.equal(savedB.status,200);assert.equal(savedB.data.accepting,false);assert.match(savedB.data.blockers,/paused/);
+ const listed=(await f.get('companies')).data.items;
+ assert.equal(listed.find(item=>item.id===alpha.company.id).inquiries,'accepting');
+ assert.equal(listed.find(item=>item.id===beta.company.id).inquiries,'paused');
+ const configA=await f.request('/api/config',{host:hostA}),configB=await f.request('/api/config',{host:hostB});
+ assert.equal(configA.data.live,true);assert.equal(configB.data.live,false);
+ assert.equal(configA.data.business.email,'alpha-owner@example.invalid');assert.equal(configB.data.business.privacyDetails,'Beta privacy only');
+ assert.equal(JSON.stringify(configA.data).includes('test-resend-key'),false);assert.equal(JSON.stringify(configB.data).includes('Alpha privacy'),false);
+ async function submit(host,name,tokenHost=host){
+  const issued=await f.request('/api/form-token',{host:tokenHost});if(issued.status!==200)return issued;await wait(2100);
+  const day=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
+  return f.request('/api/inquiries',{host,method:'POST',headers:{'Idempotency-Key':randomUUID()},body:{name,email:name.toLowerCase().replaceAll(' ','-')+'@example.invalid',phone:'',postcode:'90402',address:'1 Test Street',date:day,message:'Please clean',service:'home',area:70,frequency:'once',windows:false,privacy:true,website:'',token:issued.data.token}});
+ }
+ const created=await submit(hostA,'Alpha Customer');assert.equal(created.status,201);assert.equal(typeof created.data.price,'number');
+ assert.equal((await submit(hostB,'Beta Customer')).status,503);
+ assert.equal((await f.request('/api/admin/inquiries',{host:hostB,headers:ownerA})).status,401);
+ const alphaItem=await (async()=>{for(let i=0;i<30;i++){const list=await f.request('/api/admin/inquiries',{host:hostA,headers:ownerA});const item=list.data.items.find(row=>row.name==='Alpha Customer');if(item&&item.notification!=='pending')return {list,item};await wait(50);}throw new Error('mail status did not settle');})();
+ assert.equal(alphaItem.list.data.total,1);assert.equal(alphaItem.item.notification,'failed');assert.equal(alphaItem.item.notificationError,'mail_not_configured');
+ assert.equal((await f.request('/api/admin/inquiries',{host:hostB,headers:ownerB})).data.total,0);
+ assert.equal((await f.request('/api/admin/inquiries/'+created.data.id,{host:hostB,headers:ownerB})).status,404);
+ const opened=await f.request('/api/platform-inquiries',{host:hostB,headers:ownerB,method:'PUT',body:inquiryProfile('beta-owner@example.invalid',{privacyDetails:'Beta privacy only',inquiries:'auto'})});
+ assert.equal(opened.data.accepting,true);
+ const betaCreated=await submit(hostB,'Beta Customer');assert.equal(betaCreated.status,201);
+ const betaList=await f.request('/api/admin/inquiries',{host:hostB,headers:ownerB});
+ const alphaList=await f.request('/api/admin/inquiries',{host:hostA,headers:ownerA});
+ assert.deepEqual(betaList.data.items.map(item=>item.name),['Beta Customer']);
+ assert.deepEqual(alphaList.data.items.map(item=>item.name),['Alpha Customer']);
+ assert.equal((await submit(hostB,'Sneaky',hostA)).status,400);
+ const paused=await f.request('/api/platform-inquiries',{host:hostA,headers:ownerA,method:'PUT',body:inquiryProfile('alpha-owner@example.invalid',{privacyDetails:'Alpha privacy only',inquiries:'off'})});
+ assert.equal(paused.data.accepting,false);
+ assert.equal((await f.request('/api/config',{host:hostA})).data.live,false);
+ assert.equal((await submit(hostA,'After pause')).status,503);
+ assert.equal((await f.request('/api/admin/inquiries',{host:hostA,headers:ownerA})).data.total,1);
+});
+test('a company without platform mail stays online and explains why inquiries are off',async t=>{
+ const f=await fixture(t);
+ const company=await f.create('No Mail'),host=await f.activate(company),owner=await f.owner(host);
+ const saved=await f.request('/api/platform-inquiries',{host,headers:owner,method:'PUT',body:inquiryProfile('owner@example.invalid')});
+ assert.equal(saved.status,200);assert.equal(saved.data.accepting,false);assert.ok(saved.data.mailMissing.includes('PLATFORM_RESEND_API_KEY'));assert.match(saved.data.blockers,/PLATFORM_RESEND_API_KEY/);
+ assert.equal((await f.request('/healthz',{host})).status,200);
+ assert.equal((await f.request('/api/config',{host})).data.live,false);
+ assert.equal((await f.request('/api/inquiries',{host,method:'POST',body:{}})).status,503);
 });

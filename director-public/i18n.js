@@ -9,6 +9,7 @@ const messages={
  hosting:['Хостинг','Hosting','Hosting'],storage:['Хранение','Storage','Speicher'],backup:['Резервные копии','Backups','Backups'],email:['Почта','Email','E-Mail'],domain:['Домен','Domain','Domain'],support:['Поддержка','Support','Support'],payment_fees:['Платёжные комиссии','Payment fees','Zahlungsgebühren'],marketing:['Маркетинг','Marketing','Marketing'],other:['Прочее','Other','Sonstiges'],subscription:['Подписка','Subscription','Abonnement']
 };
 Object.assign(messages,{
+ publicPages:['Публичные страницы','Public pages','Öffentliche Seiten'],
  reviewLinks:['Ссылки для проверки платформы','Platform review links','Links zur Plattformprüfung'],
  reviewHelp:['Личные быстрые ссылки для проверки всех публичных и рабочих экранов. Защищённые страницы всё равно требуют обычного входа.','Private shortcuts for checking every public and company-facing screen. Each protected page still requires its normal sign-in.','Private Schnellzugriffe zur Prüfung aller öffentlichen und Arbeitsseiten. Geschützte Seiten benötigen weiterhin die normale Anmeldung.'],
  reviewCustomer:['Сайт для клиентов','Customer website','Kundenwebsite'],
