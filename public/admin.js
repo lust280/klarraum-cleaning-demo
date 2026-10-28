@@ -89,7 +89,7 @@ function showIntegrations(session){
  const ready=session.integrations||{};
  if(ready.stripe){const note=el('p','Stripe keys are present. Checkout stays off in this version.','form-notice');note.id='integrations-note';$('#dashboard')?.prepend(note);}
  if(!ready.googleCalendar)return;
- const panel=el('details','','settings');panel.id='google-calendar';panel.open=true;
+ const panel=el('details','','settings');panel.id='google-calendar';panel.open=false;
  const summary=el('summary','Google Calendar'),status=el('p','Checking Google Calendar…');status.id='google-calendar-status';
  const actions=el('div','','actions');
  const connect=el('button','Connect Google Calendar','button');connect.type='button';
@@ -99,10 +99,11 @@ function showIntegrations(session){
  const disconnect=el('button','Disconnect','button secondary');disconnect.type='button';
  disconnect.addEventListener('click',async()=>{disconnect.disabled=true;try{await api('api/admin/google-calendar/disconnect',{method:'POST',body:JSON.stringify({})});status.textContent='Google Calendar disconnected. Existing Google events are left in place.';}catch(error){showError(error);}finally{disconnect.disabled=false;}});
  actions.append(connect,sync,disconnect);panel.append(summary,el('p','Connect one Google Calendar for this company. Job title, time, worker name and service address are copied. Customer phone and email are not. Stripe is not involved.'),status,actions);
- $('#dashboard')?.prepend(panel);
+ $('#dashboard')?.append(panel);
  api('api/admin/google-calendar').then(data=>{const query=new URLSearchParams(location.search).get('google');status.textContent=query==='denied'?'Google Calendar was not connected.':data.connected?'Connected. Use Sync jobs to copy upcoming visits.':'Not connected. Nothing is sent to Google until you connect.'}).catch(()=>{status.textContent='Google Calendar is not available.';});
 }
-async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;showIntegrations(session);$('#notice').textContent=session.live?translateUI('Anfragen werden angenommen. Neue Anfragen zuerst. Preise sind unverbindliche Orientierungen.'):session.demoMode?translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.'):translateUI('Testbetrieb: Der öffentliche Anfragenversand ist ausgeschaltet.');await Promise.all([load(),loadSettings(),loadCompanyPreferences(),loadSiteEditor(api),loadPlatformSupport(),loadPlatformPlan(),loadInquirySetup()]);}
+async function openDashboard(){const session=await api('api/admin/session');csrf=session.csrf;$('#login-panel').hidden=true;$('#dashboard').hidden=false;$('#logout').hidden=false;showIntegrations(session);const notice=$('#notice');if(session.demoMode){notice.hidden=false;notice.textContent=translateUI('Testbetrieb: Hier erscheinen Testanfragen mit fiktiven Kontaktdaten. Echte Anfragen sind ausgeschaltet. Daten können bei einem Neustart verloren gehen.');}else{notice.hidden=true;notice.textContent='';}document.querySelectorAll('[data-demo-copy]').forEach(node=>{node.hidden=true;});await Promise.all([load(),loadSettings(),loadCompanyPreferences(),loadSiteEditor(api),loadPlatformSupport(),loadPlatformPlan(),loadInquirySetup()]);if(!session.demoMode)await showCompanySetup();}
+async function showCompanySetup(){const panel=$('#company-setup');if(!panel)return;const prefs=await api('api/admin/company-preferences');panel.hidden=prefs.setupComplete===true;if(prefs.setupComplete)return;const form=panel.querySelector('form');form.elements.timeZone.value=prefs.timeZone||'America/New_York';form.elements.currency.value=prefs.currency||'USD';const site=await api('api/admin/site').catch(()=>null);const company=site?.content?.company;if(company){if(company.area&&company.area!=='Your local service area')form.elements.city.value=company.area;form.elements.phone.value=company.phone||'';form.elements.email.value=company.email||'';}}
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();clearError();const submit=event.submitter;submit.disabled=true;try{const data=await api('api/admin/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});csrf=data.csrf;$('#password').value='';await openDashboard();}catch(error){showError(error);}finally{submit.disabled=false;}});
 $('#logout').addEventListener('click',async()=>{if((hasSiteChanges()||noteDrafts.size)&&!confirm(translateUI('Abmelden und ungespeicherte Änderungen verwerfen?')))return;clearError();try{await api('api/admin/logout',{method:'POST'});clearSiteChanges();noteDrafts.clear();showLogin();$('#notice').textContent=translateUI('Sie sind abgemeldet.');}catch(error){showError(error);}});
 $('#refresh').addEventListener('click',()=>{clearError();load().catch(showError);});
@@ -135,6 +136,8 @@ async function init(){
  }
  try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Sign in with your administrator password. Sign-in is unavailable until a server is configured.';if(!error.message.includes('sign in'))showError(error);}
 }
+$('#company-setup-form')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=event.submitter;button.disabled=true;clearError();try{await api('api/admin/company-setup',{method:'POST',body:JSON.stringify({city:form.elements.city.value,phone:form.elements.phone.value,email:form.elements.email.value,timeZone:form.elements.timeZone.value,currency:form.elements.currency.value})});$('#company-setup').hidden=true;await loadCompanyPreferences();await loadSiteEditor(api);}catch(error){showError(error);}finally{button.disabled=false;}});
+$('#company-setup-skip')?.addEventListener('click',async()=>{clearError();try{await api('api/admin/company-setup',{method:'POST',body:JSON.stringify({skip:true})});$('#company-setup').hidden=true;}catch(error){showError(error);}});
 init();
 window.addEventListener('beforeunload',event=>{if(noteDrafts.size){event.preventDefault();event.returnValue='';}});
 

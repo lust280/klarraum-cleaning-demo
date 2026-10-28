@@ -39,8 +39,29 @@ body.app-shell.employee-home .button{background:#3c8f5c;color:#fff}
 body.app-shell.employee-home .button.secondary{background:#fff;color:#172033;border:1px solid #d5d9e2}
 body.app-shell.employee-home .worker-tabs{position:static;display:flex;justify-content:space-around;gap:8px;margin:18px 0 0;padding:12px;background:#fff;border:1px solid #e6e8ee;border-radius:14px;z-index:auto}
 body.employee-home .worker-tabs a{color:#3c8f5c;font-weight:750;text-decoration:none}
+body.owner-today .owner-nav{display:flex;gap:8px;overflow-x:auto;flex-wrap:nowrap;margin:0 0 16px;padding-bottom:2px}
+body.owner-today .owner-nav a{flex:0 0 auto;white-space:nowrap;text-decoration:none}
+body.owner-today .header{display:flex;align-items:center;gap:12px}
+body.owner-today .header .logo{min-width:0}
+body.owner-today .button{border-radius:10px}
+body.owner-today .company-setup{margin:0 0 18px;padding:18px;border-radius:16px}
+body.owner-today .company-setup h2{margin:0 0 6px;font-size:24px}
+body.owner-today .company-setup p{margin:0 0 12px}
+body.owner-today .company-setup form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+body.owner-today .company-setup .actions{grid-column:1 / -1}
+body.owner-today input[type=month],body.owner-today input[type=date],body.owner-today input[type=time]{width:100%;max-width:100%;min-width:0;min-height:44px;font-size:16px;color-scheme:light}
+body.owner-today .report-toolbar{display:grid;grid-template-columns:1fr;gap:10px;align-items:stretch}
+body.owner-today .report-toolbar label{min-width:0;width:100%}
+body.owner-today .report-heading h1{font-size:clamp(28px,5vw,40px);overflow-wrap:anywhere}
+body.owner-today .calendar-day,body.owner-today .calendar-day h3,body.owner-today .calendar-day p{background:#fff;color:#172033}
+body.owner-today .calendar-job{background:#eef3f8;color:#172033}
+body.owner-today .calendar-job small{color:#3f4b60}
+body.owner-today .calendar-day.today{outline:2px solid #3c8f5c}
+@media(min-width:800px){body.owner-today .report-toolbar{grid-template-columns:minmax(0,240px) auto auto auto;align-items:end}}
 @media(max-width:720px){
  body.owner-today .admin-stats{grid-template-columns:1fr 1fr}
+ body.owner-today .header>span{display:none}
+ body.owner-today .company-setup form{grid-template-columns:1fr}
  body.employee-home .worker-job{grid-template-columns:1fr}
  body.employee-home .worker-job .actions{grid-column:1;grid-row:auto;flex-direction:row;justify-content:flex-end}
  body.employee-home,body.owner-today{overflow-x:hidden}

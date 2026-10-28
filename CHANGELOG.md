@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+The owner cabinet, calendar, and monthly reports share the light layout. Calendar days stay readable, the report month fits the screen, and date and time fields open from a click or a tap. Real platform companies no longer show the fictional-demo banner. A short city and time-zone step appears once after Google signup.
+
 Google signup on a path-preview company keeps the owner signed in. The director now reads the same company session cookie the cabinet sets, so the plan and support calls no longer bounce the owner back to the password form.
 
 Continue with Google uses the host that received the request, so `klarraumapp.com` and `platform.klarraumapp.com` each keep their own signup callback. The public demo service still needs the same Google client id and secret before its status turns on. Pricing and the company page both offer the button. The director console no longer shows Create company. Companies are grouped under Solo, Starter, Team, Business, Scale, and Plus, with a count on each group.

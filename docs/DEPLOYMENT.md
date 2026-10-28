@@ -44,7 +44,7 @@ If `RESEND_API_KEY`, `MAIL_FROM` or `MAIL_TO` is missing, the inquiry is still s
 
 Inquiries turn on when all of these are true:
 
-- the company is not on temporary demo storage (`PLATFORM_DEMO_MODE` / path preview stays fictional);
+- the company is not on the public demo host (`PLATFORM_DEMO_MODE`). A platform company served at `/companies/<id>/` is a real workspace;
 - the owner saved a contact email, legal owner, address, price note, privacy text and the legal-review acknowledgement;
 - the director process has `PLATFORM_RESEND_API_KEY` (or `RESEND_API_KEY`) and `PLATFORM_MAIL_FROM` (or `MAIL_FROM`);
 - the owner left inquiries on automatic, or explicitly on. Automatic is the default once the items above exist. Off pauses public requests.

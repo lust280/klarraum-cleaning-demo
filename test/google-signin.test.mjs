@@ -30,6 +30,16 @@ test('google sign-in state is separate from the calendar scope',()=>{
  assert.equal(signinRedirectUri({},'https://example.onrender.com','example.onrender.com, klarraumapp.com'),'https://klarraumapp.com/api/google/signup/callback');
 });
 
+test('booking pickers stay visible and the real cabinet hides the demo banner',async()=>{
+ const booking=await readFile(new URL('../public/booking.css',import.meta.url),'utf8');
+ const app=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
+ const admin=await readFile(new URL('../public/admin.js',import.meta.url),'utf8');
+ assert.equal(/\.booking-picker input\{[^}]*opacity:\s*0/.test(booking),false);
+ assert.match(app,/bindNativePickers/);
+ assert.match(admin,/notice\.hidden=true/);
+ assert.match(admin,/company-setup/);
+});
+
 test('director console groups the six plans and hides company creation',async()=>{
  const html=await readFile(new URL('../director-public/index.html',import.meta.url),'utf8');
  const script=await readFile(new URL('../director-public/director.js',import.meta.url),'utf8');
@@ -151,6 +161,14 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  const planCard=await previewRequest(`/companies/${companyId}/api/platform-plan`,{cookie:ownerCookie});
  assert.equal(planCard.status,200);
  assert.equal(planCard.data.planKey,'plus');
+ const publicConfig=await previewRequest(`/companies/${companyId}/api/config`);
+ assert.equal(publicConfig.data.demoMode,false);
+ const setup=await previewRequest(`/companies/${companyId}/api/admin/company-setup`,{method:'POST',cookie:ownerCookie,csrf:cabinet.data.csrf,body:{city:'Nuremberg',phone:'',email:'preview@example.test',timeZone:'Europe/Berlin',currency:'EUR'}});
+ assert.equal(setup.status,200);
+ assert.equal(setup.data.setupComplete,true);
+ const prefs=await previewRequest(`/companies/${companyId}/api/admin/company-preferences`,{cookie:ownerCookie});
+ assert.equal(prefs.data.setupComplete,true);
+ assert.equal(prefs.data.timeZone,'Europe/Berlin');
  const page=await readFile(new URL('../director-public/platform.html',import.meta.url),'utf8');
  const script=await readFile(new URL('../director-public/showcase.js',import.meta.url),'utf8');
  assert.match(page,/data-choose-plan="plus"/);

@@ -1,5 +1,6 @@
 import {t as translateUI} from './i18n.js';
 import {applySite} from './site.js';
+import {bindNativePickers} from './native-picker.js';
 import {estimate, DEFAULT_PRICING} from './pricing.js';
 const $ = selector => document.querySelector(selector);
 const form = $('#quote');
@@ -112,6 +113,11 @@ async function init(){
     if(config.site){siteConfig=config.site;if(config.site.tipEnabled===false)tipPercent=0;bookingConfig={...bookingConfig,...(config.site.booking||{})};applySite(config.site);updatePricingLabels();}
     update();
     demoMode=Boolean(config.demoMode);
+    if(!demoMode&&!config.live){
+      $('#connection-note').textContent='Online requests turn on after company details are ready. The estimate still updates as you choose.';
+      $('#submit-note').textContent='This estimate is not sent until requests are turned on.';
+      submit.textContent='Send request →';
+    }
     if(demoMode){
       $('#connection-note').textContent='Server demo: only cleaning details are saved in administration. Name, email, phone and address are NOT sent; fixed fictional examples appear there. Test data may be lost after a restart.';
       $('#submit-note').textContent='Fictional test for administration. No real booking or email is sent.';
@@ -138,4 +144,5 @@ async function init(){
     $('#submit-note').textContent='Sending is unavailable. Please try again later.';
   }
 }
+bindNativePickers();
 init();
