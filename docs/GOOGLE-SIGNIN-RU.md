@@ -1,0 +1,53 @@
+# Вход через Google для владельца новой компании
+
+Это отдельно от Google Календаря. Календарь по-прежнему использует область `calendar.events` и адрес `/api/google/calendar/callback`. Вход использует OpenID (`openid email profile`) и другой адрес возврата. Один и тот же OAuth-клиент Google Cloud подходит для обоих потоков: у каждого свой redirect URI и свой набор областей. Stripe Checkout остаётся выключенным.
+
+Владелец выбирает Solo, Starter, Team, Business, Scale или Plus на публичной странице цен и нажимает «Continue with Google». Первый успешный вход создаёт компанию на этом плане, начинает 15-дневный пробный период и открывает кабинет владельца. Повторный вход с тем же аккаунтом Google возвращает в ту же компанию и план не меняет.
+
+Пароль владельца — случайный хеш, его никому не показывают. Такой владелец снова входит через Google. Ручное создание в директоре и пробный период по почте остаются для случаев с помощью оператора. Список компаний директора не удаляется.
+
+Пока ключей Google нет, кнопка скрыта, а `/api/google/signup/start` отвечает 404, не 500.
+
+## Окружение
+
+Эти переменные задают на службе, которая запускает `director.mjs`. Достаточно того же client id и secret, что уже стоят для Календаря. `GOOGLE_SIGNIN_REDIRECT_URI` можно не задавать: тогда директор берёт свой origin + `/api/google/signup/callback`.
+
+```text
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_SIGNIN_REDIRECT_URI=https://platform.klarraumapp.com/api/google/signup/callback
+```
+
+На публичном демо-хосте, если вход нужен и там, тот же клиент и:
+
+```text
+GOOGLE_SIGNIN_REDIRECT_URI=https://klarraumapp.com/api/google/signup/callback
+```
+
+`GOOGLE_CALENDAR_REDIRECT_URI` не перенаправляйте на адрес входа.
+
+## Адреса возврата
+
+Добавьте оба адреса входа в тот же Web client, рядом с адресами календаря. Google сравнивает адрес целиком.
+
+Вход:
+
+- `https://platform.klarraumapp.com/api/google/signup/callback`
+- `https://klarraumapp.com/api/google/signup/callback`
+
+Календарь (без изменений):
+
+- `https://platform.klarraumapp.com/api/google/calendar/callback`
+- `https://klarraumapp.com/api/google/calendar/callback`
+
+На экране согласия добавьте области `openid`, `email` и `profile` рядом с `https://www.googleapis.com/auth/calendar.events`. JavaScript origins не нужны. Пока приложение Google в режиме Testing, добавьте аккаунт владельца как Test user. Не придумывайте client id в репозитории.
+
+## Как проверить путь с кнопки
+
+1. Сохраните переменные и перезапустите службу директора.
+2. Откройте `https://klarraumapp.com/pricing.html` или `https://platform.klarraumapp.com/for-companies.html`.
+3. Выберите план. Страница переходит к Continue with Google для этого плана.
+4. Google возвращает браузер на `/api/google/signup/callback`, и директор открывает `/admin.html` этой компании.
+5. Кабинет открывается без ручного создания компании директором.
+
+Если кнопки нет, `GET /api/google/signup/status` возвращает `{"enabled":false}`: ключи не видны этому процессу.

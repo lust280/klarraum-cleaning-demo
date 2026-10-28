@@ -12,7 +12,7 @@ function el(tag,text,cls){const item=document.createElement(tag);if(text!==undef
 function label(text,name,value,type='text',required=type!=='date'){const node=el('label',text),input=el('input');Object.assign(input,{name,value:value??'',type,required});if(type==='number'){input.min='0';input.max='100000';input.step=name==='included'?'1':'0.01';}else if(type!=='date')input.maxLength=80;node.append(input);return node;}
 function select(text,name,value,choices){const node=el('label',text),input=el('select');input.name=name;for(const [key,title] of choices){const option=el('option',title);option.value=key;option.selected=key===value;input.append(option);}node.append(input);return node;}
 const catalogue=Object.fromEntries(Object.entries(plans).map(([key,plan])=>[key,{baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents}]));
-const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Business — $149'],['business','Scale — $219'],['custom','Custom']];
+const planChoices=[['solo','Solo — $29'],['starter','Starter — $49'],['team','Team — $89'],['growth','Business — $149'],['business','Scale — $219'],['plus','Plus — $259'],['custom','Custom']];
 const tariff=form=>{const planKey=form.elements.planKey?.value||'custom',plan=catalogue[planKey]||catalogue.custom;return {name:form.elements.name.value,planKey,...plan};};
 const day=value=>value?new Date(value).toISOString().slice(0,10):'';
 function planBand(c){return planChoices.findIndex(([key])=>key===c.planKey);}

@@ -1,6 +1,6 @@
 # Google Calendar
 
-Company owners can connect one Google Calendar and copy upcoming jobs into it. This is not Google sign-in. Workers do not connect their own Google account. A synced event contains the job title, start and end, the worker's name, and the service address. It does not contain the customer's phone or email.
+Company owners can connect one Google Calendar and copy upcoming jobs into it. This is not Google sign-in. Owner sign-in after choosing a plan is documented in docs/GOOGLE-SIGNIN.md and uses `/api/google/signup/callback`. Workers do not connect their own Google account. A synced event contains the job title, start and end, the worker's name, and the service address. It does not contain the customer's phone or email.
 
 The control is hidden until both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. A missing key does not show "Connect Google Calendar" and the connect route answers 404. Stripe Checkout stays off.
 

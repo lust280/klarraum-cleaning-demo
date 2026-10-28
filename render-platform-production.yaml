@@ -50,6 +50,10 @@ services:
       #   sync: false
       # - key: GOOGLE_CALENDAR_REDIRECT_URI
       #   sync: false
+      # Owner sign-in after a plan choice. Same client. Different callback.
+      # Defaults to this service origin + /api/google/signup/callback.
+      # - key: GOOGLE_SIGNIN_REDIRECT_URI
+      #   sync: false
       # Daily encrypted copy on the persistent disk. Leave unset until the disk
       # is confirmed. This does not enable off-site storage by itself.
       # - key: PLATFORM_BACKUP_SCHEDULE

@@ -82,7 +82,7 @@ async function loadPlatformPlan(){const panel=$('#platform-plan'),card=$('#plan-
  const full=included>0&&used!=null&&used>=included;
  const extra=data.seatCents?new Intl.NumberFormat('en-US',{style:'currency',currency:data.currency||'USD'}).format(data.seatCents/100):'';
  const hintText=full?(data.nextPlan?`All included seats are in use. ${extra?`Another worker is an extra ${extra}/month, or move to ${data.nextPlan.name} (${data.nextPlan.included} workers). `:''}Ask support to change the plan. No charge is taken here.`:'All included seats are in use. Ask support before adding more workers.'):'';
- for(const id of ['plan-usage-hint','plan-card-hint']){const hint=$( '#'+id);if(!hint)continue;hint.hidden=!hintText;hint.textContent=hintText;}$('#plan-usage-bar').style.width=`${included>0?Math.min(100,Math.round((used||0)/included*100)):0}%`;$('#plan-usage-storage').textContent=`Storage ${storage}.${warning}`;}catch{panel.hidden=true;card.hidden=true;}}
+ for(const id of ['plan-usage-hint','plan-card-hint']){const hint=$( '#'+id);if(!hint)continue;hint.hidden=!hintText;hint.textContent=hintText;}$('#plan-usage-bar').style.width=`${included>0?Math.min(100,Math.round((used||0)/included*100)):0}%`;$('#plan-usage-storage').textContent=`Storage ${storage}.${warning} Photos and other media are kept on a 12-month rolling basis. Older media may be removed so storage stays within the plan.`;}catch{panel.hidden=true;card.hidden=true;}}
 function fillInquiryForm(data){const form=$('#inquiry-setup-form');form.elements.contactEmail.value=data.contactEmail||'';form.elements.phone.value=data.phone||'';form.elements.owner.value=data.owner||'';form.elements.address.value=data.address||'';form.elements.priceNote.value=data.priceNote||'';form.elements.postcodes.value=data.postcodes||'';form.elements.privacyDetails.value=data.privacyDetails||'';form.elements.additionalLegal.value=data.additionalLegal||'';form.elements.legalReviewed.checked=Boolean(data.legalReviewed);form.elements.inquiries.value=data.inquiries||'auto';$('#inquiry-setup-state').textContent=data.accepting?'· accepting':data.demo?'· demo only':'· not accepting';$('#inquiry-setup-status').textContent=data.accepting?'Customers can send inquiries.':(data.blockers||'');}
 async function loadInquirySetup(){const panel=$('#inquiry-setup');try{const data=await api('api/platform-inquiries');panel.hidden=false;fillInquiryForm(data);}catch{panel.hidden=true;}}
 function showIntegrations(session){
@@ -123,6 +123,16 @@ $('#inquiry-setup-form').addEventListener('submit',async event=>{event.preventDe
 $('#platform-support-form').addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=event.submitter;button.disabled=true;try{await api('api/platform-support',{method:'POST',body:JSON.stringify({message:form.elements.message.value})});form.reset();$('#platform-support-status').textContent='Message sent to KlarraumApp support.';await loadPlatformSupport();}catch(error){showError(error);}finally{button.disabled=false;}});
 async function init(){
  if(location.hostname.endsWith('.github.io')){$('#notice').textContent='The public preview has no administrator access. Administration requires the configured server.';return;}
+ const googleToken=new URLSearchParams(location.hash.slice(1)).get('google');
+ if(googleToken){
+  history.replaceState(null,'',location.pathname+location.search);
+  try{
+   const response=await fetch(new URL('api/admin/google-session',location.href),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:googleToken})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||'Google sign-in could not be finished.');
+   csrf=data.csrf;await openDashboard();return;
+  }catch(error){showLogin();showError(error);return;}
+ }
  try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Sign in with your administrator password. Sign-in is unavailable until a server is configured.';if(!error.message.includes('sign in'))showError(error);}
 }
 init();
