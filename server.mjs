@@ -19,6 +19,19 @@ export function createServerApp(config = loadConfig(), options = {}) {
   const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
   async function quiesce(exclude){const until=Date.now()+15000;while([...activeRequests].some(item=>item!==exclude)){if(Date.now()>until)throw new Error('Active requests did not finish.');await new Promise(r=>setTimeout(r,25));}await app.drain();}
   const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-console.mjs','/director-ai.html','/director-ai.js','/director-ai.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/pricing.html','/platform-privacy.html','/platform-terms.html','/cookies.html','/platform-impressum.html','/trial-activate.html','/platform.css','/sales.css','/platform.js','/showcase.js','/plans.mjs','/trial-activate.js','/api/google/calendar/callback','/api/google/signup/status','/api/google/signup/start','/api/google/signup/callback']);
+  // klarraumapp.com is SaaS marketing only. The calculator and cabinets stay on
+  // a company host ({uuid}.COMPANY_BASE_DOMAIN) or /companies/{uuid}/.
+  const saasApexHosts=new Set(['klarraumapp.com','www.klarraumapp.com']);
+  const platformDirectorOrigin='https://platform.klarraumapp.com/';
+  const apexClientPaths=new Set(['/','/index.html','/contacts','/pay','/sent','/confirmed','/paid','/pay-failed','/paused','/pay-blocked','/plans','/check-email','/cancel','/cancelled','/link-expired']);
+  const apexCabinetPaths=new Set(['/partner.html','/employee.html','/ops.html','/admin.html','/planning.html','/operations.html','/reports.html','/system.html']);
+  function requestHostname(req){return String(req.headers.host||'').split(',')[0].trim().toLowerCase().replace(/:\d+$/,'');}
+  function onSaasApex(req){
+    if(!config.demoMode||config.basePath)return false;
+    let originHost='';
+    try{originHost=new URL(config.origin).hostname.toLowerCase();}catch{/* loadConfig already rejects a bad origin */}
+    return saasApexHosts.has(originHost)||saasApexHosts.has(requestHostname(req));
+  }
   // German pilot screens. Bookmarks land on the wave cabinets instead.
   const legacyRedirects={
     '/admin.html':'/partner.html',
@@ -43,11 +56,15 @@ export function createServerApp(config = loadConfig(), options = {}) {
       const url = new URL(req.url, config.origin);
       if(director?.maintenance&&url.pathname!=='/healthz'){res.writeHead(503,{'Content-Type':'application/json'});return res.end(JSON.stringify({error:'Backup maintenance in progress. Retry shortly.'}));}
       activeRequests.add(res);res.once('finish',()=>activeRequests.delete(res));res.once('close',()=>activeRequests.delete(res));
-      // The custom production domain represents the platform. Keep the
-      // fictional cleaning-company page available inside tenant workspaces,
-      // but never use it as the public landing page or search result.
-      if(config.demoMode&&!config.basePath&&url.origin==='https://klarraumapp.com'&&url.pathname==='/'&&['GET','HEAD'].includes(req.method)){
-        res.writeHead(308,{Location:'/for-companies.html','Cache-Control':'no-store'});return res.end();
+      // Apex marketing stays on this host. The calculator, partner cabinets,
+      // and the operator shell are not the klarraumapp.com product.
+      if(onSaasApex(req)&&['GET','HEAD'].includes(req.method)){
+        if(url.pathname==='/director.html'){
+          res.writeHead(308,{Location:platformDirectorOrigin,'Cache-Control':'no-store'});return res.end();
+        }
+        if(apexClientPaths.has(url.pathname)||apexCabinetPaths.has(url.pathname)){
+          res.writeHead(308,{Location:'/for-companies.html','Cache-Control':'no-store'});return res.end();
+        }
       }
       const legacyTarget=legacyRedirects[url.pathname];
       if(legacyTarget&&['GET','HEAD'].includes(req.method)){
