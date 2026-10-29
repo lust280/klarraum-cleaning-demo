@@ -244,10 +244,11 @@ test('export, inbox and language are real partner actions', async t => {
   assert.equal(/class="brand" href="#menu"/.test(source), false);
   assert.match(source, /href="#menu"/);
   assert.match(source, /head === 'menu' && wide/);
-  assert.match(source, /head === 'jobs'\) \{ location\.assign\(`\.\/ops\.html#\/\$\{parts\.join\('\/'\)\}`\)/);
-  assert.match(source, /\.\/ops\.html#\/jobs\/\$\{data\.job\.id\}/);
-  assert.match(source, /\['jobs', '\.\/ops\.html', tr\('Jobs'\), ''\]/);
-  assert.match(source, /\['\.\/ops\.html', 'jobs', tr\('Jobs'\), ''\]/);
+  assert.match(source, /else if \(head === 'jobs' && second\) html = viewJob\(second\)/);
+  assert.match(source, /else if \(head === 'jobs'\) html = viewJobs\(\)/);
+  assert.match(source, /const next = `jobs\/\$\{data\.job\.id\}`/);
+  assert.match(source, /\['jobs', '#jobs', tr\('Jobs'\), ''\]/);
+  assert.match(source, /\['#jobs', 'jobs', tr\('Jobs'\), ''\]/);
   const f = await fixture(t);
   assert.equal((await f.request('/api/partner/export?format=csv', {auth:false})).status, 401);
   assert.equal((await f.request('/api/partner/inbox', {auth:false})).status, 401);

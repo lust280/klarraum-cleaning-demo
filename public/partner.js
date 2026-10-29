@@ -187,7 +187,7 @@ function topbar(title, {back = '', plain = false} = {}) {
 function sidebar(active) {
   const items = [
     ['today', '#today', tr('Today'), ''],
-    ['jobs', './ops.html', tr('Jobs'), ''],
+    ['jobs', '#jobs', tr('Jobs'), ''],
     ['team', '#team', tr('Team'), ''],
     ['reports', '#reports', tr('Reports'), ''],
     ['settings', '#settings', tr('Settings'), ''],
@@ -237,7 +237,7 @@ function requestCard(job, {label, open = false} = {}) {
   const amount = Number.isInteger(job.priceCents) ? job.priceCents / 100 : Number(job.quote || 0);
   const currency = model.company?.currency || job.currency || 'EUR';
   const control = open
-    ? `<a class="btn" href="./ops.html#/jobs/${esc(job.id)}">${esc(tr('Assign'))}</a>`
+    ? `<a class="btn" href="#jobs/${esc(job.id)}">${esc(tr('Assign'))}</a>`
     : `<button class="btn" type="button" data-action="confirm-job"${job.id ? ` data-id="${esc(job.id)}"` : ''}>${esc(tr('Confirm'))}</button>`;
   return `<article class="card job-card"><p class="tiny">${esc(tr(label))}</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(amount, currency)}</p>${control}</article>`;
 }
@@ -313,7 +313,7 @@ function viewOnboarding(step) {
 function viewMenu() {
   const items = [
     ['#today', 'today', tr('Today'), ''],
-    ['./ops.html', 'jobs', tr('Jobs'), ''],
+    ['#jobs', 'jobs', tr('Jobs'), ''],
     ['#team', 'team', tr('Team'), ''],
     ['#reports', 'reports', tr('Reports'), ''],
     ['#settings', 'settings', tr('Settings'), ''],
@@ -464,6 +464,19 @@ function viewSeatLimit() {
   const copy = reason === 'downgrade' ? `${used} cleaners and helpers are active. Deactivate someone before moving to ${target.name}.` : `Your ${current.name} plan includes ${included} seats. ${used} of ${included} are taken.`;
   return frame({screen:'seat-limit', title:'Invite worker', back:'#team', active:'team', body:`<p><a href="#team">← Back to Team</a></p><section class="card center"><div class="hero-icon">${icon('team')}</div><h2>${esc(title)}</h2><p class="lead">${esc(copy)}</p><div class="bar"><i data-pct="${Math.round(width)}"></i></div><p class="seat-foot"><span>${used} / ${included} seats</span></p></section><div class="stack">${upgrade}<a class="btn secondary" href="#team">Manage team</a></div><p class="tiny center">Or deactivate a worker to free a seat. Admins do not use a seat.</p>`});
 }
+function viewJobs() {
+  if (!todayBoard) {
+    refreshToday();
+    return frame({screen:'jobs', title:'Jobs', active:'jobs', body:`<p class="lead">${esc(tr('Loading…'))}</p>`});
+  }
+  const jobs = [
+    ...(todayBoard.attention || []).map(job => ({job, label:'New request'})),
+    ...(todayBoard.assign || []).map(job => ({job, label:'Accepted', open:true})),
+    ...(todayBoard.today || []).map(job => ({job, label:job.status || 'Scheduled', open:true})),
+  ].filter(({job}, index, rows) => job?.id && rows.findIndex(row => row.job.id === job.id) === index);
+  const empty = `<section class="card center"><h2>${esc(tr('No jobs yet'))}</h2><p class="lead">${esc(tr('New requests and scheduled work appear here.'))}</p></section>`;
+  return frame({screen:'jobs', title:'Jobs', active:'jobs', body:`<div class="stack">${jobs.length ? jobs.map(({job, label, open}) => requestCard(job, {label, open})).join('') : empty}</div>`});
+}
 function viewReports() {
   const job = model.report;
   return frame({screen:'reports', title:'Reports', active:'reports', body:`<section class="card"><p class="tiny">${esc(tr('This month · demo job'))}</p><h2>${esc(job.address)}</h2><p class="lead">${job.areaM2} m² · ${money(job.ratePerM2)}/m²</p><p><strong>${money(job.quote)}</strong> · ${esc(tr(job.payment))} · ${esc(tr(job.status))}</p><button class="btn" type="button" data-action="export-open">${esc(tr('Export'))}</button></section><p class="tiny">${esc(tr('The same demo job is used across KlarraumApp. This is an internal report, not an invoice. Export stays available after a trial ends.'))}</p>`});
@@ -476,7 +489,7 @@ function viewInbox() {
     const when = item.createdAt ? new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'}).format(new Date(item.createdAt)) : '';
     const title = item.kind === 'job_completed' ? tr('Report submitted') : item.kind === 'worker_unavailable' ? tr('Worker unavailable') : item.kind === 'invite_declined' ? tr('Invite declined') : tr('Notification');
     const body = `<article class="card"><p class="tiny">${esc(when)}</p><h2>${esc(title)}</h2><p>${esc(item.note || '')}</p></article>`;
-    return item.jobId ? `<a href="./ops.html#/jobs/${esc(item.jobId)}">${body}</a>` : body;
+    return item.jobId ? `<a href="#jobs/${esc(item.jobId)}">${body}</a>` : body;
   }).join('');
   const empty = `<section class="card center" data-empty="inbox"><h2>${esc(tr('No notifications yet'))}</h2><p class="lead">${esc(tr('Job reports and worker updates show up here.'))}</p></section>`;
   const out = inboxView.workersOut ? `<p class="tiny">${esc(tr('Workers out'))}: ${esc(inboxView.workersOut)}</p>` : '';
@@ -531,7 +544,8 @@ function render() {
   else if (head === 'invite' && second) html = viewInviteOpen(second);
   else if (head === 'onboarding') html = viewOnboarding(second === 'site' ? 'site' : 'country');
   else if (head === 'today') html = viewToday();
-  else if (head === 'jobs') { location.assign(`./ops.html#/${parts.join('/')}`); return; }
+  else if (head === 'jobs' && second) html = viewJob(second);
+  else if (head === 'jobs') html = viewJobs();
   else if (head === 'menu' && wide) { showHomeInstead(); return; }
   else if (head === 'menu') html = viewMenu();
   else if (head === 'team' && second === 'invite') html = viewInvite();
@@ -707,7 +721,9 @@ app.addEventListener('click', async event => {
         const data = await api('api/partner/jobs/confirm', {method:'POST', body});
         jobView = data.job;
         todayBoard = null;
-        location.assign(`./ops.html#/jobs/${data.job.id}`);
+        const next = `jobs/${data.job.id}`;
+        if (location.hash === `#${next}`) render();
+        else location.hash = next;
       } catch (error) {
         node.disabled = false;
         throw error;
