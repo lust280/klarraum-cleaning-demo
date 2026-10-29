@@ -1,5 +1,5 @@
 import {t as translateUI} from './i18n.js';
-export const labels={assigned:translateUI('Geplant'),working:translateUI('In Arbeit'),paused:translateUI('Pausiert'),submitted:translateUI('Zur Prüfung'),closed:translateUI('Abgenommen'),cancelled:translateUI('Storniert')};
+export const labels={assigned:translateUI('Geplant'),accepted:translateUI('Bereit zur Zuweisung'),working:translateUI('In Arbeit'),paused:translateUI('Pausiert'),submitted:translateUI('Zur Prüfung'),closed:translateUI('Abgenommen'),cancelled:translateUI('Storniert')};
 export function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 export function button(label,fn,className='secondary'){const node=el('button',label,'button small '+className);node.type='button';node.addEventListener('click',async()=>{node.disabled=true;try{await fn();}finally{node.disabled=false;}});return node;}
 export function hours(milliseconds){return (milliseconds/3600000).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' hrs';}
@@ -9,7 +9,7 @@ export function displayJob(job){
  const head=el('div',undefined,'inquiry-head');head.append(el('h2',job.title),el('span',labels[job.state],'badge'));card.append(head);
  card.append(el('p',`${job.scheduled_date} · ${job.scheduled_time} · ${job.region}`,'meta'));
  const grid=el('div',undefined,'inquiry-grid');
- for(const text of [`Objekt: ${job.address}`,`Kontakt: ${job.customer||'—'} · ${job.contact||'—'}`,`Mitarbeiter: ${job.employeeName}`,`Geplant: ${job.planned_minutes} Minuten`])grid.append(el('p',translateUI(text)));card.append(grid);
+ for(const text of [`Objekt: ${job.address}`,`Kontakt: ${job.customer||'—'} · ${job.contact||'—'}`,`Mitarbeiter: ${job.state==='accepted'?'—':job.employeeName}`,`Geplant: ${job.planned_minutes} Minuten`])grid.append(el('p',translateUI(text)));card.append(grid);
  const time=el('strong',duration(job.workedMilliseconds),'work-time');card.append(time);
  if(job.state==='working'){time.dataset.timerBase=String(job.workedMilliseconds);time.dataset.timerStarted=String(performance.now());}
  card.append(el('p',translateUI('Auftragszeit (Stunden:Minuten:Sekunden), keine vollständige Arbeitszeit- oder Lohnabrechnung.'),'fine left'));

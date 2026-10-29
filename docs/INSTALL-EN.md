@@ -45,7 +45,7 @@ Use the English/Deutsch header button to switch controls; the preference stays i
 
 1. Owner: edit brand, photos, contacts and prices in the website editor.
 2. Planning: create a customer and one or more properties. Do not put passwords, alarm codes or key codes in notes.
-3. Team: create employees, privately share the single-use invitation link (48 hours), and assign a property and task. Employees choose their own passwords.
+3. Team: create employees, privately share the single-use invitation link (24 hours), and assign a property and task. Employees choose their own passwords.
 4. Choose a single visit or a finite weekly, fortnightly or monthly series with an explicit last date (up to one year / 120 visits). Monthly dates clamp to the month's last day and retain the original anchor for later months.
 5. Review schedule-overlap warnings. Travel time is not added. Daylight-saving gaps/ambiguous times are rejected instead of silently moved. All scheduled wall times refer to Germany.
 6. Edit/reassign an individual occurrence only before work starts. Cancel a single visit with a reason; future-series cancellation affects only untouched assigned visits. For a different future rhythm cancel those visits and create a replacement series. Work already recorded is retained.

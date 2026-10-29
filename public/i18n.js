@@ -90,7 +90,9 @@ Anmelde-E-Mail	Sign-in email
 Region / Filiale	Region / branch
 Mitarbeiter anlegen	Create employee
 Einmalige Einladung	Single-use invitation
-48 Stunden gültig. Diesen Link privat an die richtige Person weitergeben. Keine E-Mail wird automatisch verschickt. Eine neue Einladung setzt den bisherigen Zugang zurück.	Valid for 48 hours. Share this link privately with the right person. No invitation email is sent automatically. A new invitation resets previous access.
+24 Stunden gültig. Diesen Link privat an die richtige Person weitergeben. Keine E-Mail wird automatisch verschickt. Eine neue Einladung setzt den bisherigen Zugang zurück.	Valid for 24 hours. Share this link privately with the right person. No invitation email is sent automatically. A new invitation resets previous access.
+48 Stunden gültig. Diesen Link privat an die richtige Person weitergeben. Keine E-Mail wird automatisch verschickt. Eine neue Einladung setzt den bisherigen Zugang zurück.	Valid for 24 hours. Share this link privately with the right person. No invitation email is sent automatically. A new invitation resets previous access.
+Bereit zur Zuweisung	Ready to assign
 Einladungslink	Invitation link
 Link kopieren	Copy link
 Team durchsuchen	Search team

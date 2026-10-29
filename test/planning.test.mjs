@@ -127,7 +127,7 @@ test('worker records signature, tip and on-site payment, and can decline an assi
  const created=await f.post('jobs',f.job(w.id));assert.equal(created.status,201);
  const later=await f.post('jobs',{...f.job(w.id),date:'2026-10-27',time:'11:00',title:'Later visit'});assert.equal(later.status,201);
  const declined=await f.request('/api/employee/jobs/'+later.data.id+'/actions',{body:{action:'unavailable',version:later.data.version,reason:'Sick today'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});
- assert.equal(declined.status,200);assert.equal(declined.data.state,'cancelled');assert.equal(declined.data.review_note,'Sick today');
+ assert.equal(declined.status,200);assert.equal(declined.data.state,'accepted');assert.equal(declined.data.review_note,'Sick today');assert.equal((await f.request('/api/employee/jobs/'+later.data.id,{headers:w.headers})).status,404);
  const started=await f.request('/api/employee/jobs/'+created.data.id+'/actions',{body:{action:'start',version:created.data.version},headers:{...w.headers,'Idempotency-Key':randomUUID()}});assert.equal(started.status,200);
  const still=await f.request('/api/employee/jobs/'+created.data.id+'/actions',{body:{action:'unavailable',version:started.data.version,reason:'Too late now'},headers:{...w.headers,'Idempotency-Key':randomUUID()}});assert.equal(still.status,409);
  const signature='data:image/png;base64,'+'A'.repeat(80);
