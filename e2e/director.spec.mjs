@@ -39,7 +39,7 @@ test('email link opens the manual shell and the main panels',async({page},testIn
   await mkdir('/tmp/director-ui',{recursive:true});
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(origin+'/');
+  await page.goto(origin+'/director.html');
   await expect(page.getByRole('heading',{name:'Operator sign in'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Continue with Google'})).toBeVisible();
   await expect(page.getByText('Manual | AI assist')).toHaveCount(0);
@@ -132,7 +132,7 @@ test('email link opens the manual shell and the main panels',async({page},testIn
   await page.screenshot({path:`/tmp/director-ui/${testInfo.project.name}-support.png`,fullPage:true});
   expect(await page.evaluate(()=>window.__xss)).toBeUndefined();
 
-  await page.goto(origin+'/#/attention/clear');
+  await page.goto(origin+'/director.html#/attention/clear');
   await expect(page.getByRole('heading',{name:'All clear'})).toBeVisible();
   await expect(page.getByText('Nothing needs your attention right now.')).toBeVisible();
   await expect(page.getByText('Last checked 10:42')).toBeVisible();
@@ -147,7 +147,7 @@ test('email link opens the manual shell and the main panels',async({page},testIn
 });
 
 test('Continue with Google signs the demo operator into Attention',async({page})=>{
-  await page.goto(origin+'/');
+  await page.goto(origin+'/director.html');
   await page.getByRole('button',{name:'Continue with Google'}).click();
   await expect(page.getByRole('heading',{name:'Attention'})).toBeVisible();
   await expect(page.getByText('Trials ending')).toBeVisible();

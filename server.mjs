@@ -22,7 +22,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
   // klarraumapp.com is SaaS marketing only. The calculator and cabinets stay on
   // a company host ({uuid}.COMPANY_BASE_DOMAIN) or /companies/{uuid}/.
   const saasApexHosts=new Set(['klarraumapp.com','www.klarraumapp.com']);
-  const platformDirectorOrigin='https://platform.klarraumapp.com/';
+  const platformDirectorOrigin='https://platform.klarraumapp.com/director.html';
   const apexClientPaths=new Set(['/','/index.html','/contacts','/pay','/sent','/confirmed','/paid','/pay-failed','/paused','/pay-blocked','/plans','/check-email','/cancel','/cancelled','/link-expired']);
   const apexCabinetPaths=new Set(['/partner.html','/employee.html','/ops.html','/admin.html','/planning.html','/operations.html','/reports.html','/system.html']);
   function requestHostname(req){return String(req.headers.host||'').split(',')[0].trim().toLowerCase().replace(/:\d+$/,'');}

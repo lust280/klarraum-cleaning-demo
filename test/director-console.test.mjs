@@ -111,7 +111,7 @@ test('operator sign-in link is single use and demo Google is not a production lo
   const issued=await request('/api/director/sign-in-link',{method:'POST',body:{email:'Operator@KlarraumApp.de'}});
   assert.equal(issued.status,200);assert.match(issued.data.devLink,/\/api\/director\/sign-in\?token=/);
   const consumed=await request(issued.data.devLink);
-  assert.equal(consumed.status,302);assert.equal(consumed.location,'/#/attention');assert.match(consumed.cookie,/klarraum_director=/);
+  assert.equal(consumed.status,302);assert.equal(consumed.location,'/director.html#/attention');assert.match(consumed.cookie,/klarraum_director=/);
   assert.equal((await request(issued.data.devLink)).status,400);
   const session=await request('/api/director/session',{headers:{Cookie:consumed.cookie}});
   assert.equal(session.status,200);assert.ok(session.data.csrf);

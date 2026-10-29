@@ -38,11 +38,11 @@ test('klarraumapp.com serves SaaS pages and does not host the calculator or cabi
   }
   const director=await get('/director.html');
   assert.equal(director.status,308);
-  assert.equal(director.location,'https://platform.klarraumapp.com/');
+  assert.equal(director.location,'https://platform.klarraumapp.com/director.html');
   const home=await get('/for-companies.html');
   assert.equal(home.status,200);
   assert.match(home.body,/Start your 5-day trial/);
-  assert.match(home.body,/href="https:\/\/platform\.klarraumapp\.com\/"/);
+  assert.match(home.body,/href="https:\/\/platform\.klarraumapp\.com\/director\.html"/);
   assert.equal(home.body.includes('href="/director.html"'),false);
   assert.equal((await get('/pricing.html')).status,200);
   assert.match((await get('/pricing.html')).body,/€89/);
@@ -129,8 +129,9 @@ test('company UUID host and path preview serve the calculator and cabinets',asyn
   assert.equal((await site('/customer-terms.html')).status,200);
   assert.equal((await raw(port,'/partner.html',{host:company.directorHost})).status,404);
   const shell=await raw(port,'/',{host:company.directorHost});
-  assert.match(shell.body,/Director/);
+  assert.match(shell.body,/Your cleaning business website and ops in one place/);
   assert.equal(shell.body.includes('Get your quote'),false);
+  assert.match((await raw(port,'/director.html',{host:company.directorHost})).body,/Director/);
   assert.match((await raw(port,'/pricing.html',{host:company.directorHost})).body,/href="\/director\.html"/);
   const bare=await raw(port,'/',{host:'companies.localhost:3100'});
   assert.equal(bare.status,404);
