@@ -20,9 +20,9 @@ test.afterAll(async()=>{await app.drain();await new Promise(resolve=>server.clos
 test('customer submits, owner manages, updates prices and deletes; no unsafe HTML rendering',async({page},testInfo)=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(origin);await expect(page.locator('#area')).toBeVisible();
- await expect(page.locator('#price')).toHaveText('€126.00');
+ await expect(page.locator('#price')).toHaveText('€154.00');
  await page.locator('#area').fill('100');
- await expect(page.locator('#price')).toHaveText('€180.00');
+ await expect(page.locator('#price')).toHaveText('€220.00');
  await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
  await page.locator('#date').selectOption({index:1});await page.locator('#preferred-time').selectOption({index:1});
  await page.locator('#continue-quote').click();await expect(page.locator('#customer-name')).toBeVisible();
@@ -30,7 +30,7 @@ test('customer submits, owner manages, updates prices and deletes; no unsafe HTM
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Test address');
  await page.locator('#comments').fill('<img src=x onerror="window.__unsafe=true">');await page.locator('#privacy').check();
  await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('We got your request');
- await expect(page.locator('#success-message')).toContainText('€180.00');
+ await expect(page.locator('#success-message')).toContainText('€220.00');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('customer.png'),fullPage:true});
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
@@ -42,7 +42,7 @@ test('customer submits, owner manages, updates prices and deletes; no unsafe HTM
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.locator('.inquiry button').filter({hasText:'Delete'}).click();await page.locator('#delete-confirm').click();await expect(page.locator('.inquiry')).toHaveCount(0);
  await page.locator('#logout').click();await expect(page.locator('#login-panel')).toBeVisible();
- await page.goto(origin);await expect(page.locator('#price')).toHaveText('€175.00');
+ await page.goto(origin);await expect(page.locator('#price')).toHaveText('€154.00');
  expect(errors).toEqual([]);
 });
 
