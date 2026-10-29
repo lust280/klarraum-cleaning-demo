@@ -49,7 +49,14 @@ test('customer submits, owner manages, updates prices and deletes; no unsafe HTM
 test('preview allows typing but never transmits or saves contact data',async({page})=>{
  config.live=false;
  const submissions=[];page.on('request',req=>{if(req.method()==='POST' && req.url().includes('/api/inquiries'))submissions.push(req.url());});
- await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
+ await page.goto(origin);
+ await expect(page.locator('#screen-contacts')).toBeHidden();
+ await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
+ await page.locator('#date').selectOption({index:1});
+ await page.locator('#preferred-time').selectOption({index:1});
+ await page.locator('#continue-quote').click();
+ await expect(page.locator('#screen-quote')).toBeHidden();
+ await expect(page.locator('#customer-name')).toBeEnabled();
  await page.locator('#customer-name').fill('Demo customer');await page.locator('#customer-email').fill('demo@example.invalid');
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Fictional example street 1');await page.locator('#privacy').check();
  await page.locator('#submit-inquiry').click();await expect(page.locator('#preview-status')).toContainText('Demo: your details were prepared as a preview.');
@@ -64,9 +71,15 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
  let sent;
  page.on('request',req=>{if(req.url().endsWith('/api/demo/inquiries') && req.method()==='POST')sent=req.postDataJSON();});
  await page.goto(origin);
+ await Promise.all([page.waitForResponse(response=>response.url().includes('/api/client/slots')),page.locator('#area').fill('85')]);
+ await page.locator('#date').selectOption({index:1});
+ await expect.poll(()=>page.locator('#preferred-time option').count()).toBeGreaterThan(1);
+ await page.locator('#preferred-time').selectOption({index:1});
+ await page.locator('#continue-quote').click();
+ await expect(page.locator('#screen-quote')).toBeHidden();
  await expect(page.locator('#submit-inquiry')).toContainText('Send fictional test to owner');
  await page.locator('#customer-name').fill('Do not transmit this name');await page.locator('#customer-email').fill('private@example.invalid');
- await page.locator('#address').fill('Do not transmit this address');await page.locator('#area').fill('85');await page.locator('#privacy').check();
+ await page.locator('#address').fill('Do not transmit this address');await page.locator('#privacy').check();
  await page.locator('#submit-inquiry').click();await expect(page.locator('#preview-status')).toContainText('Fictional test saved.');
  expect(sent.area).toBe(85);expect(sent.name).toBeUndefined();expect(sent.email).toBeUndefined();expect(sent.address).toBeUndefined();
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();

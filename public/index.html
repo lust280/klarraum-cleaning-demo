@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" class="brand-pending">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -13,9 +13,8 @@
 </head>
 <body class="client-funnel booking-page">
 <header class="header booking-header">
-  <a class="logo" href="/" aria-label="Homepage"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4c2 6-2 8-2 14 4-2 8-2 10 2-8 2-12 6-14 12 0-8-2-12-8-14 6 0 8-4 6-10 2 4 6 4 8-4z" fill="#2f6b45"/></svg></span><span data-company>Klarraum</span></a>
+  <a class="logo" href="index.html" aria-label="Homepage"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4c2 6-2 8-2 14 4-2 8-2 10 2-8 2-12 6-14 12 0-8-2-12-8-14 6 0 8-4 6-10 2 4 6 4 8-4z" fill="#2f6b45"/></svg></span><span data-company></span></a>
   <span class="header-copy">Online booking</span>
-  <button class="icon-button" id="menu-open" type="button" aria-label="Menu">☰</button>
 </header>
 <main class="client-main">
   <section id="screen-quote">
@@ -43,25 +42,28 @@
           <div class="area-scale"><span>50 m²</span><span>100 m²</span><span>200+ m²</span></div>
           <p id="area-error" class="area-error" hidden></p>
         </div>
-        <div class="price-box"><span>Estimated price</span><output id="price" aria-live="polite">€0.00</output></div>
+        <div class="price-box"><span>Estimated price</span><output id="price" aria-live="polite">—</output></div>
         <p id="pricing-explanation" class="visually-hidden"></p>
         <div class="when">
-          <label>Preferred date
+          <div class="when-field">
+            <label for="date">Preferred date</label>
             <span class="field-row"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><select id="date" name="date"><option value="">Select a date</option></select></span>
-          </label>
-          <label>Preferred time
-            <span class="field-row"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg><select id="preferred-time" name="preferredTime"><option value="">Select a time</option></select></span>
-          </label>
+          </div>
+          <div class="when-field">
+            <label for="preferred-time">Preferred time</label>
+            <span class="field-row"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg><select id="preferred-time" name="preferredTime"><option value="">Choose a date first</option></select></span>
+            <div id="time-slots" class="time-slots" role="group" aria-label="Open times"></div>
+          </div>
         </div>
         <button class="go" id="continue-quote" type="button">Send request →</button>
-        <p class="total-line desktop-total">Total: <strong id="price-total">€0.00</strong></p>
+        <p class="total-line desktop-total">Total: <strong id="price-total">—</strong></p>
         <p id="quote-error" class="form-error" hidden></p>
       </form>
     </div>
   </section>
 
   <section id="screen-contacts" hidden>
-    <a class="back-link" href="/">‹ Quote</a>
+    <a class="back-link" href="index.html">‹ Quote</a>
     <div class="page-title"><h1>Your details</h1><div class="title-rule"></div></div>
     <p class="steps">Quote — <b>Contacts</b> — Payment</p>
     <div class="funnel-grid">
@@ -122,7 +124,7 @@
       <p id="success-message">We got your request. The cleaning company will confirm the time.</p>
       <div id="sent-card" class="summary-card"></div>
       <p class="fine">This is not a confirmed booking yet.</p>
-      <a class="go" href="/">Done</a>
+      <a class="go" href="index.html">Done</a>
       <a id="cancel-link" href="/cancel">Cancel this request</a>
     </div>
   </section>
@@ -133,7 +135,7 @@
       <h1>Booking confirmed</h1>
       <p>You pay after the cleaning — cash or card on site.</p>
       <div id="confirmed-card" class="summary-card"></div>
-      <a class="go" href="/">Done</a>
+      <a class="go" href="index.html">Done</a>
       <button class="go secondary" id="add-calendar" type="button">Add to calendar</button>
       <p class="fine">We emailed you a copy · Free cancellation up to 24 h before</p>
       <a id="confirmed-cancel" href="/cancel">Cancel this booking</a>
@@ -146,13 +148,13 @@
       <h1>Payment received</h1>
       <p>Your cleaning is booked. We emailed a confirmation.</p>
       <div id="paid-card" class="summary-card"></div>
-      <a class="go" href="/">Done</a>
+      <a class="go" href="index.html">Done</a>
       <button class="go secondary" id="add-calendar-paid" type="button">Add to calendar</button>
     </div>
   </section>
 
   <section id="screen-failed" hidden>
-    <a class="back-link" href="/">‹ Back to quote</a>
+    <a class="back-link" href="index.html">‹ Back to quote</a>
     <div class="done">
       <h1>Payment failed</h1>
       <div class="mark-circle warn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7v7"/><circle cx="12" cy="17.5" r="1" fill="currentColor" stroke="none"/></svg></div>
@@ -176,14 +178,14 @@
   </section>
 
   <section id="screen-blocked" hidden>
-    <a class="back-link" href="/">‹ Back to quote</a>
+    <a class="back-link" href="index.html">‹ Back to quote</a>
     <div id="blocked-summary" class="summary-card"></div>
     <div class="done">
       <h1>Online card pay unavailable</h1>
       <div class="mark-circle soft" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
       <p>Pay on site or contact the company.</p>
       <button class="go" id="blocked-onsite" type="button">Pay on site</button>
-      <a class="go secondary" id="blocked-contact" href="/">Contact the company</a>
+      <a class="go secondary" id="blocked-contact" href="index.html">Contact the company</a>
       <p id="blocked-phone" class="fine"></p>
       <p class="fine">Powered by Stripe later</p>
     </div>
@@ -197,8 +199,7 @@
       <article class="plan featured"><h2>Pro</h2><p class="amount">€89</p><p>5 seats · 5-day trial</p><ul><li>Everything in Starter</li><li>Priority support</li><li>Reports and export</li></ul></article>
       <article class="plan"><h2>Plus</h2><p class="amount">€149</p><p>10 seats</p><ul><li>Everything in Pro</li><li>Priority support and a personal contact</li></ul></article>
     </div>
-    <a class="go" href="/check-email?intent=trial" style="max-width:280px;margin:18px auto">Start free trial</a>
-    <p class="fine">A custom domain is a paid add-on. Shared sign-in is connected by the platform auth flow.</p>
+    <p class="fine">A custom domain is a paid add-on.</p>
   </section>
 
   <section id="screen-check-email" hidden>
@@ -230,7 +231,7 @@
       <h1>Booking cancelled</h1>
       <p id="cancelled-copy">The time is free again.</p>
       <div id="cancelled-card" class="summary-card"></div>
-      <a class="go" href="/">Done</a>
+      <a class="go" href="index.html">Done</a>
     </div>
   </section>
 
@@ -238,7 +239,7 @@
     <div class="done card">
       <h1>This link has expired</h1>
       <p>Sign-in links last 15 minutes. Ask for a new one.</p>
-      <a class="go" href="/check-email">Request a new link</a>
+      <a class="go" href="index.html">Back to booking</a>
     </div>
   </section>
 
@@ -255,14 +256,5 @@
   <a href="./customer-terms.html">Terms</a>
   <a href="./impressum.html">Impressum</a>
 </footer>
-<dialog id="client-menu">
-  <a href="/">Home</a>
-  <a href="/plans">Plans</a>
-  <a href="./datenschutz.html">Privacy</a>
-  <a href="./customer-terms.html">Terms</a>
-  <a href="./impressum.html">Impressum</a>
-  <a href="/check-email">Check your email</a>
-  <form method="dialog"><button>Close</button></form>
-</dialog>
 </body>
 </html>

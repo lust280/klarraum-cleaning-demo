@@ -41,8 +41,9 @@ export function applySite(site) {
   if(quote){
     quote.hidden=!booking.enabled;
     const date=document.querySelector('#date'), time=document.querySelector('#preferred-time');
-    if(date){date.closest('label').hidden=!booking.dateEnabled;if(!booking.dateEnabled)date.value='';}
-    if(time){time.closest('label').hidden=!booking.timeEnabled;if(!booking.timeEnabled)time.value='';}
+    const hideControl=(input,shown)=>{if(!input)return;const field=input.closest('.when-field')||input.closest('label');if(field)field.hidden=!shown;if(!shown)input.value='';};
+    hideControl(date,booking.dateEnabled);
+    hideControl(time,booking.timeEnabled);
   }
   const requestIntro=document.querySelector('#booking-unavailable');
   if(requestIntro)requestIntro.hidden=booking.enabled;

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
@@ -27,6 +27,20 @@ test('public booking contract drives the funnel and falls back to request',()=>{
   assert.equal(missing.booking.bookingMode, 'request');
   assert.equal(allowsCard(missing.booking), false);
   assert.equal(missing.booking.prices.home, 1.8);
+});
+
+test('public booking page keeps clients off platform pricing and navigation',async()=>{
+  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  assert.equal(html.includes('menu-open'),false);
+  assert.equal(html.includes('client-menu'),false);
+  assert.equal(/href="\/"/.test(html),false);
+  assert.equal(html.includes('for-companies'),false);
+  assert.equal(/href="[^"]*\/plans"/.test(html),false);
+  assert.equal(/href="[^"]*check-email/.test(html),false);
+  assert.match(html,/class="brand-pending"/);
+  assert.match(html,/id="time-slots"/);
+  assert.equal(html.includes('€0.00'),false);
+  assert.match(html,/href="index\.html"/);
 });
 
 test('quote, duration and footer follow the client locks',()=>{
