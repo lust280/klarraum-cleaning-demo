@@ -68,6 +68,28 @@ test('self-service trial creates no company before email confirmation and activa
  const host=new URL(activated.data.loginUrl).host,login=await f.request('/api/admin/login',{host,body:{password:'a safe trial owner password'}});assert.equal(login.status,200);const owner={Cookie:login.headers['set-cookie'][0].split(';')[0],'X-CSRF-Token':login.data.csrf};assert.equal((await f.request('/api/admin/session',{host,headers:owner})).status,200);const plan=await f.request('/api/platform-plan',{host,headers:owner});assert.equal(plan.status,200);assert.equal(plan.data.planKey,'pro');assert.equal(plan.data.storageLimitBytes,50*1024**3);
  const company=(await f.get('companies')).data.items[0];assert.equal((await f.post('companies/'+company.id+'/trial/extend',{})).status,200);
 });
+test('a sales trial stores the chosen currency and a 5-day Pro plan',async t=>{
+ const f=await fixture(t);
+ const requested=await f.request('/api/platform/trials',{body:{companyName:'Pound Trial',ownerName:'Trial Owner',email:'pound@example.test',language:'en',planKey:'pro',currency:'GBP',consent:true}});
+ assert.equal(requested.status,202);
+ const token=new URL(f.deliveries[0].url).hash.slice(7);
+ const activated=await f.request('/api/platform/trials/activate',{body:{token,password:'a safe trial owner password'}});
+ assert.equal(activated.status,201);
+ assert.equal(activated.data.company.planKey,'pro');
+ assert.equal(activated.data.company.planName,'Pro');
+ assert.equal(activated.data.company.currency,'GBP');
+ assert.equal(activated.data.company.timeZone,'Europe/London');
+ assert.equal(activated.data.company.baseCents,8900);
+ assert.equal(activated.data.company.included,5);
+ assert.equal(activated.data.company.seatCents,0);
+ assert.ok(activated.data.company.trialEndsAt>Date.now()+4*24*3600000);
+ assert.ok(activated.data.company.trialEndsAt<Date.now()+6*24*3600000);
+ const host=new URL(activated.data.loginUrl).host;
+ const partner=await f.request('/api/partner/auth/google',{host,body:{}});
+ assert.equal(partner.status,200);
+ assert.equal(partner.data.workspace.company.currency,'GBP');
+ assert.equal((await f.request('/api/platform/trials',{body:{companyName:'Bad Currency',ownerName:'Trial Owner',email:'bad-currency@example.test',language:'en',planKey:'pro',currency:'CAD',consent:true}})).status,400);
+});
 test('two independent companies isolate owners, workers, activation links and director access',async t=>{
  const f=await fixture(t),a=await f.create('Alpha'),b=await f.create('Beta');
  assert.ok(!JSON.stringify(a.company).includes('secret'));assert.equal(a.company.estimatedCents,7900);
@@ -152,7 +174,7 @@ test('mounted free demo serves a live director and two path-scoped companies wit
  await new Promise(r=>hosted.server.listen(0,'127.0.0.1',r));config.origin='http://127.0.0.1:'+hosted.server.address().port;
  t.after(async()=>{if(hosted.director)await hosted.director.close();await new Promise(r=>hosted.server.close(r));await rm(directory,{recursive:true,force:true});});
  async function request(path,{body,headers={},method=body?'POST':'GET'}={}){const r=await fetch(config.origin+path,{method,headers:{Origin:config.origin,'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});const text=await r.text();return {status:r.status,data:r.headers.get('content-type')?.includes('application/json')?JSON.parse(text):text,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};}
- assert.equal((await request('/director.html')).status,200);assert.match((await request('/for-companies.html')).data,/Start your 5-day trial/);assert.equal((await request('/pricing.html')).status,200);assert.match((await request('/pricing.html')).data,/€89/);assert.equal((await request('/pricing.html')).data.includes('$29'),false);assert.equal((await request('/for-companies.html')).data.includes('15-day'),false);assert.equal((await request('/sales.css')).status,200);assert.equal((await request('/showcase.js')).status,200);assert.equal((await request('/platform.js')).status,200);assert.equal((await request('/trial-activate.html')).status,200);assert.equal((await request('/platform-privacy.html')).status,200);assert.equal((await request('/api/platform/applications',{body:{companyName:'Fictional Demo',ownerName:'Test Owner',email:'owner@example.invalid',phone:'',country:'',language:'en',workers:2,note:'',consent:true}})).status,201);assert.equal((await request('/api/platform/trials',{body:{companyName:'Fictional Trial',ownerName:'Test Owner',email:'owner@example.invalid',language:'en',consent:true}})).status,202);assert.equal((await request('/api/platform/trials',{body:{companyName:'Real address blocked',ownerName:'Test Owner',email:'owner@example.com',language:'en',consent:true}})).status,400);assert.equal((await request('/api/director/companies')).status,401);
+ assert.equal((await request('/director.html')).status,200);assert.match((await request('/for-companies.html')).data,/Start your 5-day trial/);assert.equal((await request('/pricing.html')).status,200);assert.match((await request('/pricing.html')).data,/€89/);assert.equal((await request('/pricing.html')).data.includes('$29'),false);assert.equal((await request('/for-companies.html')).data.includes('15-day'),false);assert.match((await request('/pricing.html',{headers:{'Accept-Language':'en-US,en;q=0.8'}})).data,/\$89/);assert.match((await request('/pricing.html',{headers:{'Accept-Language':'en-GB'}})).data,/£89/);assert.match((await request('/for-companies.html',{headers:{'Accept-Language':'de-DE'}})).data,/data-currency="EUR"/);assert.equal((await request('/sales.css')).status,200);assert.equal((await request('/showcase.js')).status,200);assert.equal((await request('/platform.js')).status,200);assert.equal((await request('/trial-activate.html')).status,200);assert.equal((await request('/platform-privacy.html')).status,200);assert.equal((await request('/api/platform/applications',{body:{companyName:'Fictional Demo',ownerName:'Test Owner',email:'owner@example.invalid',phone:'',country:'',language:'en',workers:2,note:'',consent:true}})).status,201);assert.equal((await request('/api/platform/trials',{body:{companyName:'Fictional Trial',ownerName:'Test Owner',email:'owner@example.invalid',language:'en',consent:true}})).status,202);assert.equal((await request('/api/platform/trials',{body:{companyName:'Real address blocked',ownerName:'Test Owner',email:'owner@example.com',language:'en',consent:true}})).status,400);assert.equal((await request('/api/director/companies')).status,401);
  const login=await request('/api/director/login',{body:{password}});assert.equal(login.status,200);const director={Cookie:login.cookie,'X-CSRF-Token':login.data.csrf};const companies=[];
  for(const name of ['Mounted A','Mounted B']){
   const created=await request('/api/director/companies',{body:{name,baseCents:7900,included:3,seatCents:500},headers:director});assert.equal(created.status,201);

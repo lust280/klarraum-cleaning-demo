@@ -13,7 +13,7 @@ import {sendTrialVerification} from './lib/trial-mail.mjs';
 import {DirectorStore} from './lib/director-store.mjs';
 import {loadConfig} from './lib/config.mjs';
 import {digest,randomToken,verifyPassword,hashPassword,hashHostedPassword,validPasswordHash,RateLimiter} from './lib/security.mjs';
-import {planFor,planEstimate,requestedPlanForWorkers,storageState,nextPlan} from './lib/plans.mjs';
+import {planFor,planEstimate,requestedPlanForWorkers,storageState,nextPlan,salesPlans,normalizeSalesCurrency,resolveSignupPlan,applySalesRequest} from './lib/plans.mjs';
 import {backupSchedule,runScheduledBackup} from './lib/backup-schedule.mjs';
 import {googleConfigured,googleRedirectUri,readGoogleState,exchangeGoogleCode,saveGoogleConnection} from './lib/google-calendar.mjs';
 import {signinRedirectUri,signSignupState,readSignupState,googleSigninUrl,exchangeSigninCode,googleProfile,signupPlans} from './lib/google-signin.mjs';
@@ -133,9 +133,13 @@ export function createDirector(config) {
     if(!Number.isSafeInteger(input.workers)||input.workers<0||input.workers>100000)fail(400,'Invalid worker count.');
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test applications only. Use an email ending in .invalid.');
+    if(salesPlans[input.planKey]){
+      if(input.currency!=null&&input.currency!==''&&!normalizeSalesCurrency(input.currency))fail(400,'Choose EUR, USD or GBP.');
+      return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,planKey:input.planKey,note,currency:normalizeSalesCurrency(input.currency)||'EUR',consentVersion:'2026-10-27'};
+    }
     const recommended=requestedPlanForWorkers(input.workers),plan=planFor(input.planKey)||recommended;
     if(plan.key!=='custom'&&plan.key!==recommended.key)fail(400,'Choose the plan that matches the team size. Plus covers larger teams; Custom is only for a negotiated setup.');
-    return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,planKey:plan.key,note,consentVersion:'2026-10-27'};
+    return {companyName,ownerName,email,phone,country,language:input.language,workers:input.workers,planKey:plan.key,note,currency:'',consentVersion:'2026-10-27'};
   }
   function checkedTrial(input) {
     if(!input||typeof input!=='object')fail(400,'Invalid trial registration.');
@@ -145,8 +149,9 @@ export function createDirector(config) {
     if(!['en','de','ru'].includes(input.language))fail(400,'Invalid language.');
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test registrations only. Use an email ending in .invalid.');
+    if(input.currency!=null&&input.currency!==''&&!normalizeSalesCurrency(input.currency))fail(400,'Choose EUR, USD or GBP.');
     const plan=planFor(input.planKey||'pro');if(!plan||plan.key==='custom')fail(400,'Choose a standard plan or request assisted setup.');
-    return {companyName,ownerName,email,language:input.language,planKey:plan.key,consentVersion:'2026-10-27'};
+    return {companyName,ownerName,email,language:input.language,planKey:plan.key,currency:normalizeSalesCurrency(input.currency)||'EUR',consentVersion:'2026-10-27'};
   }
   function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,planKey:row.plan_key||'custom',note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
   async function stop(id) {
@@ -236,6 +241,7 @@ export function createDirector(config) {
           value=value
             .replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow"><meta name="description" content="KlarraumApp is operations software for cleaning businesses: customer bookings, team scheduling, jobs and reports."><link rel="canonical" href="https://klarraumapp.com/">');
         }
+        if(file==='platform.html'||file==='pricing.html')value=applySalesRequest(value,req.headers['accept-language']);
         res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);
       };
       const mounted=(config.mountedDemo||config.pathPreview)&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
@@ -292,8 +298,10 @@ export function createDirector(config) {
       if(route.pathname==='/api/google/signup/start'&&method==='GET'){
         if(!googleConfigured(process.env))fail(404,'Google sign-in is not configured.');
         const plan=route.searchParams.get('plan')||'';
+        const currency=route.searchParams.get('currency')||'';
         if(!signupPlans.includes(plan))fail(400,'Choose a public plan.');
-        const state=signSignupState(config.passwordHash,{plan,exp:Date.now()+10*60*1000});
+        if(currency&&!normalizeSalesCurrency(currency))fail(400,'Choose EUR, USD or GBP.');
+        const state=signSignupState(config.passwordHash,{plan,exp:Date.now()+10*60*1000,...(currency?{currency:normalizeSalesCurrency(currency)}:{})});
         res.writeHead(302,{Location:googleSigninUrl({clientId:process.env.GOOGLE_CLIENT_ID,redirectUri:signupRedirectFor(req),state})});
         return res.end();
       }
@@ -413,7 +421,7 @@ export function createDirector(config) {
         if(applicationMatch) {
           const application=store.application(applicationMatch[1]);if(!application)fail(404,'Application not found.');
           if(applicationMatch[2]==='approve'&&method==='POST') {
-            const input=await body(req),plan=planFor(application.plan_key)||requestedPlanForWorkers(application.workers);if(plan.key==='custom')fail(400,'Custom plan must be agreed before approval.');if(!Number.isSafeInteger(input.version))fail(400,'Invalid application version.');
+            const input=await body(req),code=normalizeSalesCurrency(application.currency),sales=code&&salesPlans[application.plan_key],plan=sales?{key:application.plan_key,baseCents:sales.amounts[code],included:sales.seats,seatCents:0}:planFor(application.plan_key)||requestedPlanForWorkers(application.workers);if(plan.key==='custom')fail(400,'Custom plan must be agreed before approval.');if(!Number.isSafeInteger(input.version))fail(400,'Invalid application version.');
             const created=store.approveApplication(application.id,{...checked({name:input.name||application.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents}),planKey:plan.key,version:input.version});
             return json(res,201,{application:publicApplication(created.application),company:publicCompany(created.row),inviteUrl:tenantOrigin(created.row.id)+'/owner-setup.html#token='+created.token});
           }
@@ -459,13 +467,15 @@ export function createDirector(config) {
     if(!googleConfigured(process.env))fail(404,'Google sign-in is not configured.');
     if(route.searchParams.get('error')){res.writeHead(302,{Location:'/for-companies.html?google=denied#google-signup'});return res.end();}
     const code=route.searchParams.get('code');if(!code)fail(400,'Google did not return a sign-in code.');
-    const {plan}=readSignupState(config.passwordHash,route.searchParams.get('state'),Date.now());
+    const {plan,currency}=readSignupState(config.passwordHash,route.searchParams.get('state'),Date.now());
+    const tariff=resolveSignupPlan(plan,currency);
+    if(!tariff)fail(400,'Choose a public plan.');
     const fetchImpl=config.fetcher||fetch;
     const access=await exchangeSigninCode({clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET,code,redirectUri:signupRedirectFor(req),fetchImpl});
     const profile=await googleProfile(access,fetchImpl);
     let row=store.companyByGoogleSub(profile.sub);
     if(!row){
-      try{row=store.createGoogleOwner({name:profile.name,email:profile.email,ownerName:profile.name,googleSub:profile.sub,plan:planFor(plan),passwordHash:await hashPassword(randomToken())});}
+      try{row=store.createGoogleOwner({name:profile.name,email:profile.email,ownerName:profile.name,googleSub:profile.sub,plan:tariff,passwordHash:await hashPassword(randomToken()),currency:tariff.currency,trialDays:tariff.trialDays});}
       catch(error){row=store.companyByGoogleSub(profile.sub);if(!row||!/UNIQUE/i.test(error.message||''))throw error;}
     }
     if(row.status!=='active')fail(423,'Company access suspended.');

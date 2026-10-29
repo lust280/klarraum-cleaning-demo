@@ -31,7 +31,7 @@ let drafts = {};
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const money = (amount, currency = 'EUR') => `${currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€'}${Number(amount).toFixed(2)}`;
-const planPrice = cents => `€${Number(cents) / 100}/mo`;
+const planPrice = (cents, currency = model?.company?.currency || 'EUR') => `${currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€'}${Number(cents) / 100}/mo`;
 const unitLabel = unit => unit === 'sqft' ? 'sq ft' : 'm²';
 const durationLabel = minutes => {
   const hours = Math.floor(minutes / 60);
@@ -225,7 +225,7 @@ function viewExpired() {
   return frame({plain:true, screen:'link-expired', title:'Link expired', body:'<section class="center"><div class="warn">!</div><h1>This link has expired</h1><p class="lead">Sign-in links last 15 minutes. Worker invites last 24 hours.</p><a class="btn" href="#login">Back to sign in</a></section>'});
 }
 function viewPlans() {
-  return frame({plain:true, screen:'plans', title:'Plans', body:`<section><h1>Plans</h1><p class="lead">Starter €49 / 2 seats · Pro €89 / 5 · Plus €149 / 10. The trial is 5 days on Pro. No card at the start.</p>${planCards(CATALOGUE, {action:'plan-signup'})}<p><a href="#login">Back to sign in</a></p></section>`});
+  return frame({plain:true, screen:'plans', title:'Plans', body:`<section><h1>Plans</h1><p class="lead">Starter ${planPrice(4900)} / 2 seats · Pro ${planPrice(8900)} / 5 · Plus ${planPrice(14900)} / 10. The trial is 5 days on Pro. No card at the start.</p>${planCards(CATALOGUE, {action:'plan-signup'})}<p><a href="#login">Back to sign in</a></p></section>`});
 }
 function viewOnboarding(step) {
   const countries = model?.countries || [{key:'DE', label:'Germany', currency:'EUR', areaUnit:'m2', timeZone:'Europe/Berlin'}];

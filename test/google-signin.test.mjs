@@ -13,6 +13,9 @@ test('google sign-in state is separate from the calendar scope',()=>{
  const now=Date.now();
  const state=signSignupState('director-secret',{plan:'plus',exp:now+1000});
  assert.deepEqual(readSignupState('director-secret',state,now),{plan:'plus'});
+ const priced=signSignupState('director-secret',{plan:'pro',currency:'GBP',exp:now+1000});
+ assert.deepEqual(readSignupState('director-secret',priced,now),{plan:'pro',currency:'GBP'});
+ assert.throws(()=>signSignupState('director-secret',{plan:'pro',currency:'CAD',exp:now+1000}),/EUR, USD or GBP/);
  assert.throws(()=>readSignupState('other-secret',state,now),/invalid state/);
  assert.throws(()=>readSignupState('director-secret',state,now+5000),/expired/);
  assert.throws(()=>signSignupState('director-secret',{plan:'custom',exp:now+1000}),/public plan/);
