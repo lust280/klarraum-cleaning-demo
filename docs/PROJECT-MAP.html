@@ -11,6 +11,14 @@
 <header><h1>Карта Klarraum</h1><p class="lead">Версия по коду проекта на 29 октября 2026. Читается слева направо: платформа Klarraum → партнёр-клининговая компания → сотрудник → клиент компании. Нажмите «Печать / PDF», чтобы открыть карту на большом экране или сохранить себе.</p><div class="legend"><span><i></i> работает через приложение</span><span class="manual"><i></i> ручной процесс или настройка</span><span class="info"><i></i> информация / юридическая страница</span></div></header>
 <nav class="tools"><button onclick="window.print()">Печать / PDF</button><a href="#buttons">Все кнопки</a><a href="#audit">Что ещё не автоматизировано</a></nav>
 <main>
+<section class="section" id="domains"><h2>Домены и службы Render</h2><p>Проверено запросами к живым адресам 29 октября 2026. Это распределение нужно сохранить: один домен — одна понятная роль.</p>
+<div class="matrix"><div class="what">Домен / адрес</div><div class="what">Роль и что находится за ним</div>
+<div><strong>klarraumapp.com</strong><br><span class="chip manual">Render demo</span></div><div>Публичная витрина, pricing и тестовый путь регистрации. Отвечает <code>demo:true</code>. Здесь Google Sign-In включён. Это не место для реальных данных: demo-хранилище временное.</div>
+<div><strong>platform.klarraumapp.com</strong><br><span class="chip go">Центральная платформа</span></div><div>Рабочая мультикомпанейная служба Render: каталог тарифов, создание/вход партнёра, Director console, реестр компаний и путь к кабинетам. Отвечает <code>demo:false</code>. Здесь Google Sign-In включён.</div>
+<div><strong>&lt;company-id&gt;.companies.klarraumapp.com</strong><br><span class="chip go">Wildcard компаний</span></div><div>Изолированный публичный адрес конкретной компании и её кабинет. Базовый <code>companies.klarraumapp.com</code> не является сайтом и отдаёт 404 — это нормально. Несуществующий UUID отдаёт <code>Unknown company</code>, что подтверждает работу wildcard-маршрута.</div>
+<div><strong>platform.klarraumapp.com/companies/&lt;id&gt;/</strong><br><span class="chip manual">Preview по пути</span></div><div>Путь предпросмотра/совместимости для компании. Не использовать как постоянный маркетинговый адрес: основной адрес компании должен быть wildcard-поддоменом или позже её собственным доменом.</div>
+<div><strong>klarraum-demo.onrender.com</strong><br><span class="chip info">Технический адрес Render</span></div><div>Тестовый Render-адрес из шаблона. Не продвигать клиентам и не использовать как основной домен бренда.</div></div>
+</section>
 <div class="scroll"><section class="flow" aria-label="Основной путь пользователя">
 <div class="lane"><h2>1. Klarraum — ты</h2><p>Центральная панель оператора платформы.</p>
 <article class="node active"><h3>Director console</h3><p>Защищённый вход оператора Klarraum.</p><div class="buttons"><span class="chip go">Войти</span></div></article>
