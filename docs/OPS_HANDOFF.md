@@ -76,7 +76,7 @@ After Assign, `jobId` is the id on the existing worker API. `GET /api/employee/j
 
 ## Director seam
 
-Director does not own these transitions. Ops does. A later Director screen may show company-level Attention or Support on its own. This contract does not define Director APIs. Connect and SaaS payment panels are Partner Admin and Director read-only views, not Ops. Ops does not start Stripe Checkout and does not take a card payment.
+Director does not own these transitions. Ops does. A later Director screen may show company-level Attention or Support on its own. This contract does not define Director APIs. The manual AI OFF shell review list is [DIRECTOR_SHELL_CHECKLIST.md](DIRECTOR_SHELL_CHECKLIST.md) (review aid only; Pass/Fail stays empty until the Director shell team fills it). Connect and SaaS payment panels are Partner Admin and Director read-only views, not Ops. Ops does not start Stripe Checkout and does not take a card payment.
 
 ## Locks
 

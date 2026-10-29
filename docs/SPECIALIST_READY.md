@@ -19,7 +19,7 @@ Updated 29 Oct 2026. Locks below are the handoff rules for tests. A zone is READ
 | Partner Admin | no | Team, Settings, Billing, Plan, Stripe Connect stay out of this branch. |
 | Client | no | A saved inquiry is copied into Jobs as New. Booking UI is unchanged here. |
 | Worker | no | An assigned job is returned by the existing worker job list. Worker screens are unchanged here. |
-| Director / Director AI | no | Not this branch. |
+| Director / Director AI | no | Not this branch. Shell review aid only: [DIRECTOR_SHELL_CHECKLIST.md](DIRECTOR_SHELL_CHECKLIST.md). |
 
 ## Ops handoff checks
 
