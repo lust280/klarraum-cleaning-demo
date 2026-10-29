@@ -42,7 +42,8 @@ export function createDirector(config) {
   try{store=new DirectorStore(registry);finance=new PlatformFinance(store);chmodSync(registry,0o600);store.bindAuth(digest(config.passwordHash));}catch(error){store?.close();unlinkSync(marker);throw error;}
   let closing,maintenance=false,backupTimer;
   const requests=new Set();
-  const limiter=new RateLimiter(),children=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
+  const limiter=new RateLimiter(),children=new Map(),signInLinks=new Map(),url=new URL(config.origin),secure=url.protocol==='https:';
+  const operatorEmails=()=>new Set(String(process.env.DIRECTOR_OPERATOR_EMAILS??(config.production?'':'operator@klarraumapp.de')).split(',').map(item=>item.trim().toLowerCase()).filter(Boolean));
   const cookieName=secure?'__Host-klarraum_director':'klarraum_director';
   const cookie=(token,age)=>`${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure?'; Secure':''}`;
   const tenantOrigin=id=>(config.mountedDemo||config.pathPreview)?`${config.origin}/companies/${id}`:`${url.protocol}//${id}.${config.domain}${url.port?':'+url.port:''}`;
@@ -293,6 +294,37 @@ export function createDirector(config) {
         const token=randomToken(),csrf=randomToken();store.db.prepare('DELETE FROM director_sessions WHERE expires<=?').run(Date.now());
         store.db.prepare('INSERT INTO director_sessions VALUES(?,?,?)').run(digest(token),csrf,Date.now()+8*3600000);res.setHeader('Set-Cookie',cookie(token,28800));return json(res,200,{csrf});
       }
+      if(route.pathname==='/api/director/demo-signin'&&method==='POST'){
+        if(config.production)fail(404,'Google sign-in is not configured.');
+        if(!limiter.allow('demo-signin:'+req.socket.remoteAddress,8,900000,Date.now()))fail(429,'Too many attempts. Try later.');
+        const demoToken=randomToken(),demoCsrf=randomToken();
+        store.db.prepare('DELETE FROM director_sessions WHERE expires<=?').run(Date.now());
+        store.db.prepare('INSERT INTO director_sessions VALUES(?,?,?)').run(digest(demoToken),demoCsrf,Date.now()+8*3600000);
+        res.setHeader('Set-Cookie',cookie(demoToken,28800));
+        return json(res,200,{csrf:demoCsrf,operator:{name:'Culiuc Andrei',role:'Operator'}});
+      }
+      if(route.pathname==='/api/director/sign-in-link'&&method==='POST'){
+        if(!limiter.allow('magic:'+req.socket.remoteAddress,8,900000,Date.now()))fail(429,'Too many attempts. Try later.');
+        const input=await body(req);
+        const email=typeof input?.email==='string'?input.email.trim().toLowerCase():'';
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)fail(400,'Enter a valid work email.');
+        if(!operatorEmails().has(email))fail(403,'That work email is not an approved operator account.');
+        const linkToken=randomToken();
+        signInLinks.set(digest(linkToken),Date.now()+15*60*1000);
+        if(!config.production)return json(res,200,{ok:true,devLink:'/api/director/sign-in?token='+encodeURIComponent(linkToken)});
+        return json(res,200,{ok:true});
+      }
+      if(route.pathname==='/api/director/sign-in'&&method==='GET'){
+        const linkToken=route.searchParams.get('token')||'';
+        const expires=signInLinks.get(digest(linkToken));
+        signInLinks.delete(digest(linkToken));
+        if(!expires||expires<Date.now()||!/^[\w-]{43}$/.test(linkToken))fail(400,'This sign-in link has expired.');
+        const sessionToken=randomToken(),sessionCsrf=randomToken();
+        store.db.prepare('INSERT INTO director_sessions VALUES(?,?,?)').run(digest(sessionToken),sessionCsrf,Date.now()+8*3600000);
+        res.setHeader('Set-Cookie',cookie(sessionToken,28800));
+        res.writeHead(302,{Location:'/#/attention'});
+        return res.end();
+      }
       if(route.pathname.startsWith('/api/director/')) {
         const auth=session(req,!['GET','HEAD'].includes(method));
         if(route.pathname==='/api/director/backups/status'&&method==='GET'){
@@ -382,7 +414,7 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/platform-impressum.html':['platform-impressum.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/showcase.js':['showcase.js','text/javascript; charset=utf-8'],'/sales.css':['sales.css','text/css; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/platform-impressum.html':['platform-impressum.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/showcase.js':['showcase.js','text/javascript; charset=utf-8'],'/sales.css':['sales.css','text/css; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director-console.mjs':['director-console.mjs','text/javascript; charset=utf-8','lib'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(route.pathname==='/plans.mjs')return staticFile('plans.mjs','text/javascript; charset=utf-8','lib');
       if(files[route.pathname])return staticFile(...files[route.pathname]);
       const customerPreviewFiles={'/customer-preview.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/booking.css':['booking.css','text/css; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/pricing.js':['pricing.js','text/javascript; charset=utf-8'],'/site.js':['site.js','text/javascript; charset=utf-8'],'/i18n.js':['i18n.js','text/javascript; charset=utf-8'],'/favicon.svg':['favicon.svg','image/svg+xml'],'/impressum.html':['impressum.html','text/html; charset=utf-8'],'/datenschutz.html':['datenschutz.html','text/html; charset=utf-8'],'/customer-terms.html':['customer-terms.html','text/html; charset=utf-8'],'/customer-cookies.html':['customer-cookies.html','text/html; charset=utf-8']};
