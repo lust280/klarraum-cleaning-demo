@@ -446,4 +446,47 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
       await isolated.close();
     }
   });
+
+  test('11. Desktop hides the mobile Menu page; a phone still has one', async () => {
+    const context = await browser.newContext();
+    const wide = await context.newPage();
+    const phone = await context.newPage();
+    try {
+      await wide.setViewportSize({width:1280, height:800});
+      await wide.goto(origin + '/partner.html', {waitUntil:'domcontentloaded'});
+      await wide.getByRole('button', {name:'Continue with Google'}).click();
+      await wide.waitForSelector('[data-screen="today"]');
+      await wide.goto(origin + '/partner.html#menu', {waitUntil:'domcontentloaded'});
+      await wide.waitForSelector('[data-screen="today"]');
+      assert.equal(wide.url().includes('#menu'), false);
+      assert.equal(await wide.locator('.nav-list').count(), 0);
+      assert.equal(await wide.locator('.side').count(), 1);
+      assert.equal(await wide.locator('h1').innerText(), 'Today');
+      await wide.goto(origin + '/partner.html#team', {waitUntil:'domcontentloaded'});
+      await wide.waitForSelector('[data-screen="team"]');
+      await wide.locator('.side .brand').click();
+      await wide.waitForSelector('[data-screen="today"]');
+      assert.equal(wide.url().includes('#menu'), false);
+      await wide.goto(origin + '/partner.html#not-a-partner-route', {waitUntil:'domcontentloaded'});
+      await wide.waitForSelector('[data-screen="today"]');
+      assert.equal(await wide.locator('.nav-list').count(), 0);
+      await phone.setViewportSize({width:390, height:844});
+      await phone.goto(origin + '/partner.html#menu', {waitUntil:'domcontentloaded'});
+      await phone.waitForSelector('[data-screen="menu"]');
+      const menu = await phone.locator('[data-screen="menu"]').innerText();
+      assert.match(menu, /Menu/);
+      assert.match(menu, /Today/);
+      assert.match(menu, /Jobs/);
+      assert.match(menu, /Team/);
+      assert.match(menu, /Reports/);
+      assert.match(menu, /Settings/);
+      assert.equal(await phone.locator('.side').count(), 0);
+      assert.equal(await phone.locator('a[aria-label="Back"]').count(), 1);
+      await phone.locator('a[aria-label="Back"]').click();
+      await phone.waitForSelector('[data-screen="today"]');
+      assert.equal(await phone.locator('a[aria-label="Menu"]').count(), 1);
+    } finally {
+      await context.close();
+    }
+  });
 });
