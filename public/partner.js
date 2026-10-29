@@ -102,6 +102,10 @@ function handleError(error) {
     location.hash = `team/limit?reason=${encodeURIComponent(reason)}&plan=${encodeURIComponent(plan)}`;
     return;
   }
+  if (error.code === 'expired' || error.status === 410) {
+    location.hash = 'expired';
+    return;
+  }
   toast(error.message || 'Something went wrong.');
 }
 function openSheet({title, text, confirm, danger = false, cancel = 'Cancel', onConfirm}) {
