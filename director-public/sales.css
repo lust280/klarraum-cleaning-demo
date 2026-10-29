@@ -22,7 +22,7 @@ a{color:inherit}
 .pills{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 16px;color:#3d4b34;font-weight:650;font-size:15px;margin:0}
 .pills span{display:inline-flex;align-items:center;gap:7px}
 .pills i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
-.plans{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;padding:36px 0 18px;align-items:stretch}
+.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:36px 0 18px;align-items:stretch}
 .plan{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 12px 14px;display:flex;flex-direction:column;gap:12px}
 .plan.featured{border:2px solid #8fcea8;box-shadow:0 12px 28px #3c8f5c14;padding-top:26px}
 .badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#d9f3e3;color:#246b40;font-size:12px;font-weight:800;border-radius:999px;padding:4px 10px;white-space:nowrap}

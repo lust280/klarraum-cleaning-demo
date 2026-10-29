@@ -31,7 +31,7 @@ async function loadToday(){
  const data=await api(`api/admin/calendar?from=${day}&to=${day}&employee=`);
  const list=$('#today-jobs');
  const jobs=data.items||[];
- list.replaceChildren(...(jobs.length?jobs.map(job=>{const link=el('a',undefined,'today-job');link.href='./operations.html?job='+encodeURIComponent(job.id);link.append(el('strong',job.time||'—'),el('span',job.title||'Untitled job'),el('small',`${job.employeeName||'Unassigned'} · ${job.minutes||0} min`));return link;}):[el('p','No jobs scheduled today.','empty-state compact-empty')]));
+ list.replaceChildren(...(jobs.length?jobs.map(job=>{const link=el('a',undefined,'today-job');link.href='./ops.html#/jobs';link.append(el('strong',job.time||'—'),el('span',job.title||'Untitled job'),el('small',`${job.employeeName||'Unassigned'} · ${job.minutes||0} min`));return link;}):[el('p','No jobs scheduled today.','empty-state compact-empty')]));
  return jobs;
 }
 async function load(){
@@ -58,7 +58,7 @@ async function load(){
   actions.append(select);
   if(item.notification!=='sent' && !item.demo)actions.append(button(translateUI('E-Mail erneut versuchen'),async()=>{await api(`api/admin/inquiries/${item.id}/retry-mail`,{method:'POST'});await load();}));
   actions.append(button(translateUI('Löschen'),async()=>{deleteId=item.id;$('#delete-dialog').showModal();},'danger'));
-  const assign=el('a',translateUI('Auftrag erstellen'),'button small secondary');assign.href='./operations.html?inquiry='+encodeURIComponent(item.id);actions.append(assign);
+  const assign=el('a',translateUI('Auftrag erstellen'),'button small secondary');assign.href='./ops.html#/jobs/new';actions.append(assign);
   card.append(actions);
   const notes=el('div',undefined,'note-editor');const label=el('label',translateUI('Interne Notiz (nur für die Verwaltung)'));label.htmlFor='note-'+item.id;
   const input=el('textarea');input.id='note-'+item.id;input.rows=2;input.maxLength=2000;input.value=noteDrafts.get(item.id)??item.note??'';

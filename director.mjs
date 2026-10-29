@@ -145,7 +145,7 @@ export function createDirector(config) {
     if(!['en','de','ru'].includes(input.language))fail(400,'Invalid language.');
     if(input.consent!==true)fail(400,'Consent is required.');
     if(config.mountedDemo&&!email.endsWith('.invalid'))fail(400,'This public demo accepts fictional test registrations only. Use an email ending in .invalid.');
-    const plan=planFor(input.planKey||'solo');if(!plan||plan.key==='custom')fail(400,'Choose a standard plan or request assisted setup.');
+    const plan=planFor(input.planKey||'pro');if(!plan||plan.key==='custom')fail(400,'Choose a standard plan or request assisted setup.');
     return {companyName,ownerName,email,language:input.language,planKey:plan.key,consentVersion:'2026-10-27'};
   }
   function publicApplication(row) {return {id:row.id,companyName:row.company_name,ownerName:row.owner_name,email:row.email,phone:row.phone,country:row.country,language:row.language,workers:row.workers,planKey:row.plan_key||'custom',note:row.note,status:row.status,foundingOffer:Boolean(row.founding_offer),companyId:row.company_id,createdAt:row.created_at,updatedAt:row.updated_at,version:row.version};}
@@ -311,7 +311,7 @@ export function createDirector(config) {
       if(route.pathname==='/api/platform/trials/activate'&&method==='POST') {
         const input=await body(req);if(typeof input?.token!=='string'||!/^[\w-]{43}$/.test(input.token))fail(400,'Invalid trial verification link.');
         let passwordHash;try{passwordHash=await hashPassword(input.password);}catch{fail(400,'Password must have 14–256 characters.');}
-        const signup=store.trialByToken(input.token),plan=planFor(signup?.plan_key||'solo');const tariff={name:signup?.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
+        const signup=store.trialByToken(input.token),plan=planFor(signup?.plan_key)||planFor('pro');const tariff={name:signup?.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
         return json(res,201,{ok:true,company:publicCompany(created.row),foundingOffer:created.foundingOffer,loginUrl:tenantOrigin(created.row.id)+'/admin.html'});
       }
       if(route.pathname==='/api/platform/applications'&&method==='POST') {

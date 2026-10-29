@@ -9,7 +9,7 @@ Eine Installation für eine Firma. Node.js 24.13+ ist erforderlich; ein reiner P
 3. `npm run setup` starten: öffentliche HTTPS-Origin ohne abschließenden Schrägstrich eingeben, eigenes Inhaberpasswort zweimal verdeckt eingeben. Es gibt kein Standardpasswort. Ein eigenes Geheimnis und ein Passworthash werden in `.env.local` gespeichert; vorhandene Einstellungen werden nicht überschrieben.
 4. Für die Bewertung Demo wählen. Echte Anfragen bleiben ausgeschaltet, bis Geschäftsdaten, Datenschutz, Speicher und E-Mail eingerichtet sind.
 5. `npm run start:local` starten. Dieser Befehl lädt `.env.local`. Für öffentlichen Betrieb zusätzlich HTTPS-Reverse-Proxy und einen überwachten Dienst einrichten. Port standardmäßig 3000.
-6. `/admin.html` öffnen, eigenes Passwort verwenden, `/system.html` prüfen und zuerst mit erfundenen Daten testen.
+6. `/admin.html` öffnen, eigenes Passwort verwenden. Aufträge liegen unter `/ops.html`, Team und Hilfe unter `/partner.html`. Zuerst mit erfundenen Daten testen.
 
 Lokal ist `http://localhost:3000` möglich. Auf Render werden Zugangsdaten bereits durch die Hosting-Umgebung erzeugt; bestehende Installationen nicht durch den Assistenten ersetzen. Für das direkte GitHub-Deployment ist kein Render-API-Schlüssel nötig.
 

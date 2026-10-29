@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// This flow opened the retired operations.html job form from Today.
+test.beforeEach(()=>{test.skip(true,'Retired with public/operations.html. New jobs are created in /ops.html. The worker completion path is covered by e2e/worker.spec.mjs.');});
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';

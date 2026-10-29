@@ -1,6 +1,6 @@
 # Partner Admin → Director seam
 
-Contract for the Director wave. Source of truth for partner plan, trial, seats, and Connect labels is this branch (`klarraum/partner-admin`), not the older catalogue in `lib/plans.mjs`. That file still feeds the current director console and must not be treated as the partner self-serve tariff.
+Contract for the Director wave. Source of truth for the self-serve tariff is `lib/partner-admin.mjs` and `lib/plans.mjs`: Starter €49 / 2 seats, Pro €89 / 5, Plus €149 / 10, 5-day Pro trial, no extra seat fee. Connect labels stay as written below.
 
 Partner Admin does not own Jobs, Today, Assign, or Inbox. Those are Partner Ops. This document does not assign them to Admin.
 

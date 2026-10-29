@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// The German Monatsberichte screen was removed. /reports.html now redirects to Partner Reports.
+test.beforeEach(()=>{test.skip(true,'Retired with public/reports.html. Report bookmarks redirect to /partner.html#reports. The monthly cash archive is no longer a public pilot page.');});
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
