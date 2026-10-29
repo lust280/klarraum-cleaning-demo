@@ -241,7 +241,13 @@ export function createDirector(config) {
           value=value
             .replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow"><meta name="description" content="KlarraumApp is operations software for cleaning businesses: customer bookings, team scheduling, jobs and reports."><link rel="canonical" href="https://klarraumapp.com/">');
         }
-        if(file==='platform.html'||file==='pricing.html')value=applySalesRequest(value,req.headers['accept-language']);
+        if(file==='platform.html'||file==='pricing.html'){
+          const pageHost=String(host||'').split(':')[0];
+          if(pageHost==='klarraumapp.com'||pageHost==='www.klarraumapp.com'||url.hostname==='klarraumapp.com'||url.hostname==='www.klarraumapp.com'){
+            value=value.replaceAll('href="/director.html"','href="https://platform.klarraumapp.com/"');
+          }
+          value=applySalesRequest(value,req.headers['accept-language']);
+        }
         res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);
       };
       const mounted=(config.mountedDemo||config.pathPreview)&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
