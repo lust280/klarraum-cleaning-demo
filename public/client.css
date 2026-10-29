@@ -1,4 +1,5 @@
 /* Public client funnel. Company brand, light green, English. */
+html.brand-pending .client-funnel [data-company],html.brand-pending .client-funnel #price,html.brand-pending .client-funnel #price-total,html.brand-pending .client-funnel #area-unit{visibility:hidden}
 .client-funnel{--ink:#1c3328;--muted:#5e6d64;--line:#e1ebe4;--card:#fff;--green:#2f6b45;--green-soft:#e7f2ea;--btn:#6d8f78;--btn-dark:#5f8368;--bg:#f4f7f4;--danger:#8d2f2f;margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",ui-sans-serif,system-ui,sans-serif;line-height:1.45}
 .client-funnel *{box-sizing:border-box}
 .client-funnel h1,.client-funnel h2,.client-funnel h3,.client-funnel p{color:inherit;letter-spacing:0;font-family:inherit}
@@ -44,11 +45,17 @@
 .client-funnel .price-box span{display:block;letter-spacing:.12em;font-size:12px;font-weight:750;color:#6d7c72}
 .client-funnel .price-box output,.client-funnel .money{display:block;color:var(--green);font-size:48px;font-weight:750;line-height:1.1;font-family:Georgia,serif}
 .client-funnel .when{display:grid;gap:10px;margin-top:14px}
+.client-funnel .when-field{display:grid;gap:6px;min-width:0}
 .client-funnel .when label,.client-funnel .fields label{display:grid;gap:6px;font-size:14px;font-weight:650;color:#24382c}
-.client-funnel .field-row{display:flex;align-items:center;gap:10px;border:1px solid #e1e8e3;border-radius:12px;padding:10px 12px;background:#fff}
+.client-funnel .field-row{display:flex;align-items:center;gap:10px;border:1px solid #e1e8e3;border-radius:12px;padding:0 12px;background:#fff;min-height:48px}
 .client-funnel .field-row svg{width:18px;height:18px;stroke:var(--green);fill:none;stroke-width:1.7;flex:0 0 auto}
 .client-funnel .field-row select,.client-funnel .fields input,.client-funnel .fields textarea{width:100%;border:1px solid #e1e8e3;border-radius:12px;background:#fff;color:var(--ink);padding:12px 14px;margin:0}
-.client-funnel .field-row select{border:0;padding:0;background:transparent}
+.client-funnel .field-row select{flex:1 1 auto;align-self:stretch;min-height:48px;height:48px;border:0;padding:0 28px 0 0;background:transparent;cursor:pointer}
+.client-funnel .field-row select:disabled{color:#8b978f;cursor:not-allowed}
+.client-funnel .time-slots{display:flex;flex-wrap:wrap;gap:8px}
+.client-funnel .time-slots:empty{display:none}
+.client-funnel .time-slots button{border:1px solid #e1e8e3;background:#fff;color:var(--ink);border-radius:999px;min-height:40px;padding:8px 12px;cursor:pointer}
+.client-funnel .time-slots button[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
 .client-funnel .go{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;border:0;border-radius:12px;background:var(--btn);color:#fff;min-height:52px;font-size:17px;font-weight:700;cursor:pointer}
 .client-funnel .go:hover{background:var(--btn-dark)}
 .client-funnel .go:disabled{opacity:.55;cursor:not-allowed}

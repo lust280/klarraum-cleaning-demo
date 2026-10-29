@@ -13,7 +13,7 @@ const paths = {
 };
 const state = {
   live:false, demoMode:false, bookingMode:'request', connect:false, currency:'EUR', maxArea:null,
-  pricing:{rates:{home:2.2,office:1.5,deep:3.2},minimum:60}, company:{}, slots:null, result:null,
+  pricing:{rates:{home:2.2,office:1.5,deep:3.2},minimum:60}, company:{}, slots:null, result:null, dateValue:'',
 };
 let slotGen = 0;
 let requestKey = crypto.randomUUID();
@@ -109,6 +109,43 @@ function fillSelect(select, items, placeholder, current) {
   for (const item of items) select.append(new Option(item.label, item.value));
   if ([...select.options].some(option => option.value === keep)) select.value = keep;
 }
+function refreshPicker(select) {
+  const parent = select?.parentNode;
+  if (!parent) return;
+  const next = select.nextSibling;
+  parent.removeChild(select);
+  parent.insertBefore(select, next);
+}
+function renderTimeSlots(times, selected) {
+  const host = $('#time-slots');
+  if (!host) return;
+  host.replaceChildren(...times.map(item => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = item.label;
+    button.setAttribute('aria-pressed', String(item.value === selected));
+    button.addEventListener('click', () => {
+      const select = $('#preferred-time');
+      if (!select) return;
+      select.disabled = false;
+      select.value = item.value;
+      renderTimeSlots(times, item.value);
+    });
+    return button;
+  }));
+}
+function setTimeOptions(times, current = '') {
+  const select = $('#preferred-time');
+  const open = times.length > 0;
+  fillSelect(select, times, open ? 'Select a time' : 'Choose a date first', open ? current : '');
+  if (!select) return;
+  select.disabled = !open;
+  refreshPicker(select);
+  renderTimeSlots(times, select.value);
+}
+function selectedDay() {
+  return state.slots?.dates?.find(item => item.value === $('#date')?.value);
+}
 async function loadSlots() {
   const gen = ++slotGen;
   const area = Number($('#area').value);
@@ -118,8 +155,8 @@ async function loadSlots() {
     if (gen !== slotGen) return;
     state.slots = data;
     fillSelect($('#date'), data.dates, 'Select a date');
-    const day = data.dates.find(item => item.value === $('#date').value);
-    fillSelect($('#preferred-time'), day?.times || [], 'Select a time');
+    setTimeOptions(selectedDay()?.times || [], $('#preferred-time')?.value || '');
+    state.dateValue = $('#date')?.value || '';
   } catch (error) {
     if (gen === slotGen) showError('#quote-error', error);
   }
@@ -151,19 +188,15 @@ function resultLines(data) {
   const pay = data.paymentStatus === 'Paid online' ? `${money(data.price)} paid` : data.paymentStatus === 'Unpaid' && data.jobStatus === 'Accepted' ? `${money(data.price)} — pay on site` : `${money(data.price)} estimate`;
   return [data.serviceTitle, data.dateLabel, data.timeLabel, `${data.area} m²`, pay, [data.address, data.postcode].filter(Boolean).join(', '), data.reference ? `Booking ${data.reference}` : ''];
 }
+function revealBrand() {
+  document.documentElement.classList.remove('brand-pending');
+}
 function showScreens() {
   for (const name of screens) {
     const node = document.getElementById(`screen-${name}`);
     if (node) node.hidden = true;
   }
   const name = screenName();
-  if (!state.live && name === 'quote') {
-    $('#screen-quote').hidden = false;
-    $('#screen-contacts').hidden = false;
-    $('#continue-quote').hidden = true;
-    $('#contacts-aside').hidden = true;
-    return;
-  }
   if (state.bookingMode === 'paused' && ['quote','contacts','pay'].includes(name)) {
     $('#screen-paused').hidden = false;
     const phone = $('#paused-phone'), email = $('#paused-email');
@@ -369,7 +402,6 @@ function explainPricing(site) {
   node.textContent = parts.join(', ');
 }
 function bind() {
-  $('#menu-open')?.addEventListener('click', () => $('#client-menu').showModal());
   $('#get-quote')?.addEventListener('click', () => $('#quote')?.scrollIntoView({behavior:'smooth'}));
   document.querySelectorAll('[data-service-card]').forEach(button => button.addEventListener('click', () => {
     if (button.hidden) return;
@@ -380,9 +412,22 @@ function bind() {
   }));
   $('#area')?.addEventListener('input', () => { requestKey = crypto.randomUUID(); refreshPrice(); loadSlots(); });
   $('#area-range')?.addEventListener('input', () => { $('#area').value = $('#area-range').value; refreshPrice(); loadSlots(); });
-  $('#date')?.addEventListener('change', () => {
-    const day = state.slots?.dates?.find(item => item.value === $('#date').value);
-    fillSelect($('#preferred-time'), day?.times || [], 'Select a time', '');
+  const onDate = () => {
+    const value = $('#date')?.value || '';
+    if (value === state.dateValue) return;
+    state.dateValue = value;
+    setTimeOptions(selectedDay()?.times || [], '');
+  };
+  $('#date')?.addEventListener('change', onDate);
+  $('#date')?.addEventListener('input', onDate);
+  $('#preferred-time')?.addEventListener('change', () => renderTimeSlots(selectedDay()?.times || [], $('#preferred-time').value));
+  document.querySelectorAll('.field-row').forEach(row => {
+    row.addEventListener('click', event => {
+      const select = row.querySelector('select');
+      if (!select || select.disabled || event.target === select) return;
+      select.focus();
+      try { select.showPicker(); } catch { /* The select opens from its own tap. */ }
+    });
   });
   $('#quote')?.addEventListener('submit', event => { event.preventDefault(); onQuoteContinue(); });
   $('#continue-quote')?.addEventListener('click', onQuoteContinue);
@@ -419,7 +464,6 @@ function bind() {
 }
 async function init() {
   bind();
-  refreshPrice();
   try {
     const pub = await api('api/config');
     state.currency = pub.currency || state.currency;
@@ -448,6 +492,7 @@ async function init() {
     explainPricing(pub.site);
     syncService();
     refreshPrice();
+    revealBrand();
     if (state.demoMode) {
       $('#customer-name').value = 'Demo customer';
       $('#customer-email').value = 'demo@example.invalid';
@@ -459,11 +504,13 @@ async function init() {
     const draft = readStore(DRAFT);
     if (draft?.date) {
       fillSelect($('#date'), state.slots?.dates || [], 'Select a date', draft.date);
-      const day = state.slots?.dates?.find(item => item.value === draft.date);
-      fillSelect($('#preferred-time'), day?.times || [], 'Select a time', draft.time || '');
+      setTimeOptions(selectedDay()?.times || [], draft.time || '');
+      state.dateValue = $('#date')?.value || '';
     }
   } catch {
     state.live = false;
+    refreshPrice();
+    revealBrand();
     $('#footer-mode').textContent = 'Preview only. Nothing is sent.';
   }
   if (screenName() === 'pay' && new URLSearchParams(location.search).get('card') === '1' && !state.connect) {

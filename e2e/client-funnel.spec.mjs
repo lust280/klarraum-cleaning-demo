@@ -54,6 +54,8 @@ async function chooseSlot(page){
 }
 async function contacts(page){
   await page.locator('#continue-quote').click();
+  await expect(page.locator('#screen-quote')).toBeHidden();
+  await expect(page.locator('#screen-contacts')).toBeVisible();
   await page.locator('#customer-name').fill('Anna Example');
   await page.locator('#customer-email').fill('anna@example.invalid');
   await page.locator('#postcode').fill('10115');
@@ -65,6 +67,31 @@ async function jobs(){
   const response=await fetch(origin+'/api/admin/client-jobs',{headers:{...headers,Origin:origin}});
   return response.json();
 }
+
+test('time slots can be chosen after a date, and the page stays on the company site',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(origin+'/');
+  await expect(page.locator('#menu-open')).toHaveCount(0);
+  await expect(page.locator('#client-menu')).toHaveCount(0);
+  await expect(page.locator('a[href="/plans"], a[href^="/check-email"], a[href*="for-companies"]')).toHaveCount(0);
+  const logo=page.locator('.booking-header .logo');
+  await expect(logo).toHaveAttribute('href',/index\.html$/);
+  await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
+  await expect(page.locator('#preferred-time')).toBeDisabled();
+  await expect(page.locator('#time-slots button')).toHaveCount(0);
+  await page.locator('#date').selectOption({index:1});
+  await expect(page.locator('#preferred-time')).toBeEnabled();
+  await expect.poll(()=>page.locator('#preferred-time option').count()).toBeGreaterThan(1);
+  await page.locator('#time-slots button').first().click();
+  await expect(page.locator('#preferred-time')).not.toHaveValue('');
+  await expect(page.locator('#time-slots button').first()).toHaveAttribute('aria-pressed','true');
+  await page.evaluate(()=>document.querySelector('#get-quote').click());
+  await expect(page.locator('#screen-contacts')).toBeHidden();
+  await logo.click();
+  await expect(page).toHaveURL(/\/index\.html$/);
+  await expect(page).not.toHaveURL(/for-companies/);
+  await expect(page.locator('#screen-quote')).toBeVisible();
+});
 
 test('request mode skips the card and saves a new unpaid request',async({page})=>{
   const slot=await chooseSlot(page);
