@@ -106,7 +106,7 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  const state=new URL(start.location).searchParams.get('state');
  const callback=await request('/api/google/signup/callback?code=auth-code&state='+encodeURIComponent(state));
  assert.equal(callback.status,302);
- assert.match(callback.location,/\/admin\.html#google=/);
+ assert.match(callback.location,/\/partner\.html#google=/);
  const companyUrl=new URL(callback.location);
  const token=new URLSearchParams(companyUrl.hash.slice(1)).get('google');
  assert.match(token,/^[\w-]{43}$/);
@@ -157,7 +157,7 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  const previewState=new URL(previewStart.location).searchParams.get('state');
  const previewBack=await previewRequest('/api/google/signup/callback?code=auth-code&state='+encodeURIComponent(previewState));
  assert.equal(previewBack.status,302);
- assert.match(previewBack.location,/\/companies\/[a-f0-9-]+\/admin\.html#google=/);
+ assert.match(previewBack.location,/\/companies\/[a-f0-9-]+\/partner\.html#google=/);
  const previewUrl=new URL(previewBack.location),previewToken=new URLSearchParams(previewUrl.hash.slice(1)).get('google'),companyId=previewUrl.pathname.split('/')[2];
  const signed=await previewRequest(`/companies/${companyId}/api/admin/google-session`,{method:'POST',body:{token:previewToken}});
  assert.equal(signed.status,200);

@@ -95,7 +95,22 @@ function apply(data) {
   csrf = data.workspace.csrf || csrf;
   return data;
 }
+function signedInHome() {
+  if (!model) return 'login';
+  if (model.access.mode === 'onboarding') return 'onboarding';
+  if (model.access.mode === 'readonly') return 'trial';
+  return 'today';
+}
+function todayDate() {
+  const zone = model?.company?.timeZone || 'UTC';
+  try {
+    return new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric', timeZone: zone}).format(new Date());
+  } catch {
+    return new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric'}).format(new Date());
+  }
+}
 function handleError(error) {
+  if (error.status === 401 || error.code === 'auth') return;
   if (error.code === 'seat_limit') {
     const reason = error.payload?.reason || 'invite';
     const plan = error.payload?.plan || model?.plan?.key || '';
@@ -147,7 +162,7 @@ function topbar(title, {back = '', plain = false} = {}) {
 }
 function sidebar(active) {
   const items = [
-    ['today', '/admin.html', 'Today', ''],
+    ['today', '#today', 'Today', ''],
     ['jobs', '/ops.html', 'Jobs', ''],
     ['team', '#team', 'Team', ''],
     ['reports', '#reports', 'Reports', ''],
@@ -191,6 +206,13 @@ function settingsList(active) {
   return `<div class="rows settings-list">${settingsLinks().map(([key, label, detail]) => `<a class="${active === key ? 'active' : ''}" href="#settings/${key === 'billing' ? 'billing' : key}"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ''}</span><span class="chev"></span></a>`).join('')}</div>`;
 }
 
+function viewToday() {
+  const job = model.report || {};
+  const workersOut = (model.team || []).filter(person => person.active && person.availability === 'on_job').length;
+  const plan = model.plan?.name || 'Starter';
+  const body = `<section class="today-screen"><div class="today-meta"><p class="lead" id="today-date">${esc(todayDate())}</p><span class="badge plan">${esc(plan)}</span></div><div class="kpis"><article class="kpi"><span>New requests</span><strong>1</strong></article><article class="kpi"><span>Jobs today</span><strong>1</strong></article><article class="kpi"><span>Workers out</span><strong>${workersOut}</strong></article></div><article class="card job-card"><p class="tiny">New request</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(job.quote || 0, job.currency || model.company?.currency || 'EUR')}</p><button class="btn" type="button" data-action="confirm-job">Confirm</button></article></section>`;
+  return frame({screen:'today', title:'Today', active:'today', body});
+}
 function viewLogin() {
   return frame({plain:true, screen:'login', title:'Sign in', body:`<section class="center"><h1>Sign in</h1><p class="lead">For cleaning companies</p><button class="btn" type="button" data-action="google"><span class="google-mark">G</span> Continue with Google</button><div class="or">or</div><form data-form="magic"><label class="field">Email<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="Email"></label><button class="btn secondary" type="submit">Send sign-in link</button></form><p><a href="#plans">See plans</a></p><p class="tiny">Demo owner: sam@linden.example. Continue with Google stays inside KlarraumApp and does not open a Google account. The free trial is 5 days on Pro.</p></section>`});
 }
@@ -215,7 +237,7 @@ function viewOnboarding(step) {
 }
 function viewMenu() {
   const items = [
-    ['/admin.html', 'today', 'Today', ''],
+    ['#today', 'today', 'Today', ''],
     ['/ops.html', 'jobs', 'Jobs', ''],
     ['#team', 'team', 'Team', ''],
     ['#reports', 'reports', 'Reports', ''],
@@ -387,7 +409,7 @@ function ensureMagic(token) {
   api('api/partner/auth/consume', {method:'POST', body:{token}, quiet:true}).then(data => {
     apply(data);
     sessionStorage.removeItem('klarraum-pending');
-    location.hash = data.next || 'menu';
+    location.hash = data.next || signedInHome();
   }).catch(() => { location.hash = 'expired'; });
 }
 
@@ -400,7 +422,7 @@ function render() {
     if ((parts[0] || '') !== dest) { location.hash = dest; return; }
     parts = [dest];
   }
-  if (!parts.length) parts = !model ? ['login'] : model.access.mode === 'onboarding' ? ['onboarding'] : model.access.mode === 'readonly' ? ['trial'] : ['menu'];
+  if (!parts.length) parts = [signedInHome()];
   const [head, second] = parts;
   let html = '';
   if (!model && head === 'link' && second) html = frame({plain:true, screen:'check-email', title:'Check your email', body:'<p class="lead">Opening your link…</p>'});
@@ -411,6 +433,7 @@ function render() {
   else if (head === 'link' && second) { html = frame({plain:true, screen:'check-email', title:'Check your email', body:'<p class="lead">Opening your link…</p>'}); ensureMagic(second); }
   else if (head === 'invite' && second) html = viewInviteOpen(second);
   else if (head === 'onboarding') html = viewOnboarding(second === 'site' ? 'site' : 'country');
+  else if (head === 'today') html = viewToday();
   else if (head === 'menu') html = viewMenu();
   else if (head === 'team' && second === 'invite') html = viewInvite();
   else if (head === 'team' && second === 'sent') html = viewInviteSent();
@@ -461,7 +484,7 @@ const forms = {
   async site(form) {
     apply(await api('api/partner/onboarding/site', {method:'POST', body:{name:form.name.value, slug:form.slug.value, person:form.person.value}}));
     toast('Saved');
-    location.hash = 'menu';
+    location.hash = signedInHome();
   },
   async profile(form) {
     const field = name => form.elements[name].value;
@@ -544,20 +567,24 @@ app.addEventListener('click', async event => {
   if (!node || !app.contains(node)) return;
   const action = node.dataset.action;
   try {
-    if (action === 'inbox') toast('Inbox opens with Partner Ops.');
+    if (action === 'confirm-job') {
+      node.disabled = true;
+      node.textContent = 'Confirmed';
+      toast('Confirmed');
+    } else if (action === 'inbox') toast('Inbox opens with Partner Ops.');
     else if (action === 'logout') {
       await api('api/partner/auth/logout', {method:'POST', body:{}});
       model = null; csrf = ''; location.hash = 'login';
     } else if (action === 'plan-signup') location.hash = 'login';
     else if (action === 'google') {
       apply(await api('api/partner/auth/google', {method:'POST', body:{}}));
-      location.hash = model.access.mode === 'onboarding' ? 'onboarding' : model.access.mode === 'readonly' ? 'trial' : 'menu';
+      location.hash = signedInHome();
     } else if (action === 'open-link') {
       const pending = JSON.parse(sessionStorage.getItem('klarraum-pending') || 'null');
       if (!pending?.continueToken) throw new Error('Request a new sign-in link.');
       apply(await api('api/partner/auth/consume', {method:'POST', body:{token:pending.continueToken}}));
       sessionStorage.removeItem('klarraum-pending');
-      location.hash = model.access.mode === 'onboarding' ? 'onboarding' : 'menu';
+      location.hash = signedInHome();
     } else if (action === 'copy') await copyText(node.dataset.value || '');
     else if (action === 'connect') {
       const data = await api('api/partner/connect/start', {method:'POST', body:{}});
@@ -605,7 +632,7 @@ app.addEventListener('click', async event => {
       if (invoice) await download(`${invoice.id}.txt`, `KlarraumApp\n${invoice.label}\n${model.plan.name}\n${money(invoice.cents / 100)}\n${invoice.status}\nDemo invoice. Nothing was charged from this file.\n`, 'text/plain');
     } else if (action === 'accept-invite') {
       const data = await api('api/partner/invites/accept', {method:'POST', body:{token:node.dataset.token}});
-      if (data.workspace) { apply(data); location.hash = 'menu'; }
+      if (data.workspace) { apply(data); location.hash = signedInHome(); }
       else { toast('Saved'); app.innerHTML = frame({plain:true, screen:'invite-open', title:'Invite', body:`<section class="card center"><h1>Seat reserved</h1><p class="lead">${esc(data.note || 'The worker signs in from the worker app.')}</p></section>`}); }
     } else if (action === 'decline-invite') {
       await api('api/partner/invites/decline', {method:'POST', body:{token:node.dataset.token}});

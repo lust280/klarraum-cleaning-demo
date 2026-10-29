@@ -21,6 +21,7 @@ export function createServerApp(config = loadConfig(), options = {}) {
   const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-console.mjs','/director-ai.html','/director-ai.js','/director-ai.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/pricing.html','/platform-privacy.html','/platform-terms.html','/cookies.html','/platform-impressum.html','/trial-activate.html','/platform.css','/sales.css','/platform.js','/showcase.js','/plans.mjs','/trial-activate.js','/api/google/calendar/callback','/api/google/signup/status','/api/google/signup/start','/api/google/signup/callback']);
   // German pilot screens. Bookmarks land on the wave cabinets instead.
   const legacyRedirects={
+    '/admin.html':'/partner.html',
     '/planning.html':'/ops.html',
     '/operations.html':'/partner.html#team',
     '/reports.html':'/partner.html#reports',
@@ -50,7 +51,9 @@ export function createServerApp(config = loadConfig(), options = {}) {
       }
       const legacyTarget=legacyRedirects[url.pathname];
       if(legacyTarget&&['GET','HEAD'].includes(req.method)){
-        res.writeHead(301,{Location:(config.basePath||'')+legacyTarget,'Cache-Control':'no-store'});return res.end();
+        const hashAt=legacyTarget.indexOf('#');
+        const located=hashAt===-1?legacyTarget+url.search:legacyTarget.slice(0,hashAt)+url.search+legacyTarget.slice(hashAt);
+        res.writeHead(301,{Location:(config.basePath||'')+located,'Cache-Control':'no-store'});return res.end();
       }
       if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/api/platform/')||url.pathname.startsWith('/companies/'))){
         director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:config.directorDataDir||resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true,quiesce,legacyDataDir:resolve(config.dbPath,'..'),legacyRuntime:{...config,dbPath:undefined,directorDataDir:undefined}});

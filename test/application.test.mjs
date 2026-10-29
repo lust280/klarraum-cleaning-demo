@@ -126,7 +126,18 @@ test('preview rejects real submissions and protects server files',async t=>{
  assert.equal((await f.request('/healthz')).data.ok,true);
  assert.equal((await f.request('/server.mjs')).status,404);
  assert.equal((await f.request('/.env')).status,404);
- assert.equal((await f.request('/admin.html')).status,200);
+ const admin=await fetch(f.config.origin+'/admin.html',{redirect:'manual'});
+ assert.equal(admin.status,301);
+ assert.equal(admin.headers.get('location'),'/partner.html');
+ const adminBody=await admin.text();
+ assert.equal(adminBody.includes('OWNER ACCESS'),false);
+ assert.equal(adminBody.includes('Heute'),false);
+ assert.equal(adminBody.includes('Please sign in'),false);
+ assert.equal((await f.request('/partner.html')).status,200);
+ const partnerScript=await f.request('/partner.js');
+ assert.match(partnerScript.data,/Continue with Google/);
+ assert.match(partnerScript.data,/Send sign-in link/);
+ assert.equal(String(partnerScript.data).includes('Owner password'),false);
  assert.ok((await f.request('/')).headers.get('content-security-policy').includes("frame-ancestors 'none'"));
 });
 
