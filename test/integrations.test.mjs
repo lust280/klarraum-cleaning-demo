@@ -17,10 +17,12 @@ test('stripe and google stay inactive until both required keys exist, and never 
 });
 
 test('public and partner pages do not offer Stripe checkout or Google sign-in',async()=>{
- const files=await Promise.all(['public/index.html','public/admin.html','public/employee.html','public/ops.html','public/ops.js'].map(file=>readFile(new URL('../'+file,import.meta.url),'utf8')));
+ const files=await Promise.all(['public/index.html','public/admin.html','public/employee.html','public/ops.html','public/ops.js','public/partner.html','public/partner.js'].map(file=>readFile(new URL('../'+file,import.meta.url),'utf8')));
  const html=files.join('\n');
  assert.equal(html.includes('checkout.stripe.com'),false);
  assert.equal(html.includes('accounts.google.com'),false);
  assert.equal(html.includes('Pay with Stripe'),false);
  assert.equal(html.includes('Sign in with Google'),false);
+ assert.equal(html.includes('sk_live'),false);
+ assert.equal(html.includes('sk_test'),false);
 });
