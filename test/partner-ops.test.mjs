@@ -101,6 +101,32 @@ test('a client request appears in Jobs as New, then follows the status chain wit
  assert.equal(manual.status,201);assert.equal(manual.data.priceCents,15400);assert.equal(manual.data.rateCents,220);
 });
 
+test('partner Confirm accepts a new request through the ops status chain',async t=>{
+ const f=await fixture(t);
+ const saved=await f.submit();
+ assert.equal(saved.status,201);
+ const owner=await f.login();
+ const item=(await f.request('/api/admin/ops/jobs?status=new',{headers:owner})).data.items[0];
+ const google=await f.request('/api/partner/auth/google',{method:'POST',body:{}});
+ assert.equal(google.status,200);
+ const headers={Cookie:google.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':google.data.workspace.csrf};
+ const confirmed=await f.post('/api/partner/jobs/confirm',{id:item.id},headers);
+ assert.equal(confirmed.status,200);
+ assert.equal(confirmed.data.job.id,item.id);
+ assert.equal(confirmed.data.job.status,'accepted');
+ assert.equal(confirmed.data.job.step,1);
+ const sarah=confirmed.data.job.workers.find(worker=>worker.name==='Sarah Jenkins');
+ assert.ok(sarah);
+ const assigned=await f.post(`/api/partner/jobs/${item.id}/assign`,{employeeId:sarah.id,version:confirmed.data.job.version},headers);
+ assert.equal(assigned.status,200);
+ assert.equal(assigned.data.job.status,'assigned');
+ assert.equal(assigned.data.job.worker.id,sarah.id);
+ const ops=await f.request('/api/admin/ops/jobs/'+item.id,{headers:owner});
+ assert.equal(ops.data.status,'assigned');
+ assert.equal(ops.data.worker.name,'Sarah Jenkins');
+ assert.equal(ops.data.jobId,assigned.data.job.jobId);
+});
+
 test('partner Start and Done move the live status map',async t=>{
  const f=await fixture(t),owner=await f.login(),person=await worker(f,owner,'anna.koch@example.invalid');
  const created=await f.post('/api/admin/ops/jobs',{service:'home',areaM2:50,date:'2026-11-08',time:'09:00',address:'Gartenstraße 5, Berlin',customer:'Nora Feld',phone:'+491510001112',notes:'',employeeId:person.id},owner);
