@@ -90,8 +90,30 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
   async function signIn() {
     await page.goto(origin + '/partner.html', {waitUntil: 'networkidle'});
     await page.waitForSelector('[data-screen="login"]');
+    const login = await page.locator('[data-screen="login"]').innerText();
+    assert.match(login, /For cleaning companies/);
+    assert.match(login, /Continue with Google/);
+    assert.match(login, /Send sign-in link/);
+    assert.match(login, /See plans/);
+    assert.match(login, /sam@linden\.example/);
+    assert.equal(login.includes('Owner password'), false);
+    assert.equal(login.includes('OWNER ACCESS'), false);
+    assert.equal(/\bTeam\b/.test(login), false);
+    assert.equal(/\bHelp\b/.test(login), false);
+    assert.equal(/\bReports\b/.test(login), false);
+    assert.equal(await page.locator('#toast').isHidden(), true);
     await page.getByRole('button', {name: 'Continue with Google'}).click();
-    await page.waitForSelector('[data-screen="menu"]');
+    await page.waitForSelector('[data-screen="today"]');
+    const today = await page.locator('[data-screen="today"]').innerText();
+    assert.match(today, /New requests/);
+    assert.match(today, /Jobs today/);
+    assert.match(today, /Workers out/);
+    assert.match(today, /Confirm/);
+    assert.match(today, /Pro/);
+    assert.equal(await page.locator('[data-screen="today"] a[aria-label="Menu"]').count(), 1);
+    assert.equal(today.includes('Heute'), false);
+    assert.equal(today.includes('Übersicht'), false);
+    assert.equal(today.includes('Owner password'), false);
     await syncJar();
   }
 
@@ -263,7 +285,7 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
     try {
       await authPage.goto(auth.origin + '/partner.html', {waitUntil: 'networkidle'});
       await authPage.getByRole('button', {name: 'Continue with Google'}).click();
-      await authPage.waitForSelector('[data-screen="menu"]');
+      await authPage.waitForSelector('[data-screen="today"]');
       await authPage.goto(auth.origin + '/partner.html#team/invite', {waitUntil: 'networkidle'});
       await authPage.locator('input[name="name"]').fill('Expire Me');
       await authPage.locator('input[name="email"]').fill('expire-me@linden.example');
@@ -310,7 +332,7 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
       await setupPage.locator('input[name="name"]').fill('Nord Clean');
       await setupPage.locator('input[name="slug"]').fill('nord-clean');
       await setupPage.getByRole('button', {name: 'Finish'}).click();
-      await setupPage.waitForSelector('[data-screen="menu"]');
+      await setupPage.waitForSelector('[data-screen="today"]');
       const session = await setupPage.evaluate(async () => (await fetch('api/partner/session')).json());
       assert.equal(session.company.currency, 'EUR');
       assert.equal(session.company.areaUnit, 'm2');
@@ -367,12 +389,18 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
       assert.equal(body.includes('Planung'), false);
       assert.equal(body.includes('Monatsberichte'), false);
     }
-    const admin = await fetch(origin + '/admin.html').then(response => response.text());
-    assert.match(admin, /Heute/);
-    assert.equal(admin.includes('planning.html'), false);
-    assert.equal(admin.includes('operations.html'), false);
-    assert.equal(admin.includes('reports.html'), false);
-    assert.equal(admin.includes('system.html'), false);
-    assert.equal(admin.includes('Connect Stripe'), false);
+    const admin = await fetch(origin + '/admin.html', {redirect:'manual'});
+    assert.equal(admin.status, 301);
+    assert.equal(admin.headers.get('location'), '/partner.html');
+    const adminBody = await admin.text();
+    assert.equal(adminBody.includes('Heute'), false);
+    assert.equal(adminBody.includes('OWNER ACCESS'), false);
+    assert.equal(adminBody.includes('Please sign in'), false);
+    assert.equal(adminBody.includes('Owner password'), false);
+    const partnerScript = await fetch(origin + '/partner.js').then(response => response.text());
+    assert.match(partnerScript, /Continue with Google/);
+    assert.match(partnerScript, /Send sign-in link/);
+    assert.equal(partnerScript.includes('/admin.html'), false);
+    assert.equal(partnerScript.includes('Owner password'), false);
   });
 });

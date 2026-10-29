@@ -378,7 +378,7 @@ async function route(){
 
 $('#menu').addEventListener('click',()=>{const side=$('#side');side.classList.toggle('open');$('#menu').setAttribute('aria-expanded',side.classList.contains('open')?'true':'false');});
 $('#side').addEventListener('click',event=>{if(event.target.closest('a'))$('#side').classList.remove('open');});
-$('#sign-out').addEventListener('click',async()=>{await api('api/admin/logout',{method:'POST',body:'{}'});location.href='./admin.html';});
+$('#sign-out').addEventListener('click',async()=>{await api('api/admin/logout',{method:'POST',body:'{}'});location.href='./partner.html';});
 addEventListener('hashchange',()=>route());
 
 const session=await fetch('api/admin/session',{credentials:'same-origin'});

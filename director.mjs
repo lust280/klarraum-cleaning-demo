@@ -312,7 +312,7 @@ export function createDirector(config) {
         const input=await body(req);if(typeof input?.token!=='string'||!/^[\w-]{43}$/.test(input.token))fail(400,'Invalid trial verification link.');
         let passwordHash;try{passwordHash=await hashPassword(input.password);}catch{fail(400,'Password must have 14–256 characters.');}
         const signup=store.trialByToken(input.token),plan=planFor(signup?.plan_key)||planFor('pro');const tariff={name:signup?.company_name,baseCents:plan.baseCents,included:plan.included,seatCents:plan.seatCents};const created=store.activateTrial(input.token,passwordHash,checked(tariff));
-        return json(res,201,{ok:true,company:publicCompany(created.row),foundingOffer:created.foundingOffer,loginUrl:tenantOrigin(created.row.id)+'/admin.html'});
+        return json(res,201,{ok:true,company:publicCompany(created.row),foundingOffer:created.foundingOffer,loginUrl:tenantOrigin(created.row.id)+'/partner.html'});
       }
       if(route.pathname==='/api/platform/applications'&&method==='POST') {
         if(!limiter.allow('application:'+req.socket.remoteAddress,5,3600000,Date.now()))fail(429,'Too many applications. Try again later.');
@@ -472,7 +472,7 @@ export function createDirector(config) {
     await start(row);
     const token=randomToken(),db=new DatabaseSync(join(companyDir(row.id),'klarraum.sqlite'));
     try{db.exec('PRAGMA busy_timeout=3000');db.exec('CREATE TABLE IF NOT EXISTS google_owner_login(id INTEGER PRIMARY KEY CHECK(id=1), token_hash TEXT NOT NULL, expires_at INTEGER NOT NULL)');db.prepare('INSERT INTO google_owner_login(id,token_hash,expires_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET token_hash=excluded.token_hash, expires_at=excluded.expires_at').run(digest(token),Date.now()+10*60*1000);}finally{db.close();}
-    res.writeHead(302,{Location:tenantOrigin(row.id)+'/admin.html#google='+encodeURIComponent(token)});res.end();
+    res.writeHead(302,{Location:tenantOrigin(row.id)+'/partner.html#google='+encodeURIComponent(token)});res.end();
   }
   async function platformGoogleCallback(route,res){
     if(!googleConfigured(process.env))fail(404,'Google Calendar is not configured.');

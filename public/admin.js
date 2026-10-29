@@ -123,6 +123,7 @@ $('#account-closure-form').addEventListener('submit',async event=>{event.prevent
 $('#inquiry-setup-form').addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=event.submitter;button.disabled=true;try{const data=await api('api/platform-inquiries',{method:'PUT',body:JSON.stringify({contactEmail:form.elements.contactEmail.value,phone:form.elements.phone.value,owner:form.elements.owner.value,address:form.elements.address.value,priceNote:form.elements.priceNote.value,postcodes:form.elements.postcodes.value,privacyDetails:form.elements.privacyDetails.value,additionalLegal:form.elements.additionalLegal.value,legalReviewed:form.elements.legalReviewed.checked,inquiries:form.elements.inquiries.value})});fillInquiryForm(data);$('#inquiry-setup-status').textContent=data.accepting?'Saved. Customers can send inquiries.':`Saved. ${data.blockers||'Inquiries stay off until the missing pieces are ready.'}`;}catch(error){showError(error);}finally{button.disabled=false;}});
 $('#platform-support-form').addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=event.submitter;button.disabled=true;try{await api('api/platform-support',{method:'POST',body:JSON.stringify({message:form.elements.message.value})});form.reset();$('#platform-support-status').textContent='Message sent to KlarraumApp support.';await loadPlatformSupport();}catch(error){showError(error);}finally{button.disabled=false;}});
 async function init(){
+ if(location.pathname.endsWith('/admin.html')){location.replace(new URL('partner.html',location.href).pathname+location.search);return;}
  if(location.hostname.endsWith('.github.io')){$('#notice').textContent='The public preview has no administrator access. Administration requires the configured server.';return;}
  const googleToken=new URLSearchParams(location.hash.slice(1)).get('google');
  if(googleToken){
@@ -134,16 +135,9 @@ async function init(){
    csrf=data.csrf;await openDashboard();return;
   }catch(error){showLogin();showError(error);return;}
  }
- try{await openDashboard();}catch(error){showLogin();$('#notice').textContent='Sign in with your administrator password. Sign-in is unavailable until a server is configured.';if(!error.message.includes('sign in'))showError(error);}
+ try{await openDashboard();}catch(error){showLogin();const signedOut=/anmelden|sign in/i.test(String(error.message||''));if(signedOut){const notice=$('#notice');if(notice){notice.hidden=true;notice.textContent='';}const alert=$('#admin-error');if(alert){alert.hidden=true;alert.textContent='';}return;}$('#notice').textContent='Sign in with your administrator password.';showError(error);}
 }
 $('#company-setup-form')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=event.submitter;button.disabled=true;clearError();try{await api('api/admin/company-setup',{method:'POST',body:JSON.stringify({city:form.elements.city.value,phone:form.elements.phone.value,email:form.elements.email.value,timeZone:form.elements.timeZone.value,currency:form.elements.currency.value})});$('#company-setup').hidden=true;await loadCompanyPreferences();await loadSiteEditor(api);}catch(error){showError(error);}finally{button.disabled=false;}});
 $('#company-setup-skip')?.addEventListener('click',async()=>{clearError();try{await api('api/admin/company-setup',{method:'POST',body:JSON.stringify({skip:true})});$('#company-setup').hidden=true;}catch(error){showError(error);}});
 init();
 window.addEventListener('beforeunload',event=>{if(noteDrafts.size){event.preventDefault();event.returnValue='';}});
-
-// The shared-host director is available only on the root fictional-data demo.
-if(location.pathname==='/admin.html'&&!location.hostname.endsWith('.github.io')){
- fetch(new URL('api/config',location.href)).then(r=>r.ok?r.json():null).then(config=>{
-  if(!config?.demoMode)return;const link=document.createElement('a');link.className='button small secondary';link.href='./director.html';link.textContent='Director console';document.querySelector('header')?.append(link);
- }).catch(()=>{});
-}

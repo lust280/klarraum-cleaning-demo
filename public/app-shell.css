@@ -17,4 +17,5 @@ body.app-shell :is(.workspace-nav a,.today-job,.calendar-job){background:#fff!im
 body.app-shell .workspace-nav a.active{background:#e7f5ea!important;border-color:#b8dfc3!important;color:#1d6c39!important}
 body.app-shell :is(.admin-stats>div,.worker-quick){background:#fff!important;border-color:#e6e8ee!important;color:#172033!important}
 body.app-shell .form-notice{background:#f1faf3!important;color:#245c38!important;border-left-color:#3c8f5c!important}
+body.app-shell .form-error{background:#fdecea!important;color:#8d2f2f!important}
 body.app-shell footer{background:#fff!important;color:#667085!important}
