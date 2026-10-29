@@ -187,7 +187,7 @@ function topbar(title, {back = '', plain = false} = {}) {
 function sidebar(active) {
   const items = [
     ['today', '#today', tr('Today'), ''],
-    ['jobs', '/ops.html', tr('Jobs'), ''],
+    ['jobs', './ops.html', tr('Jobs'), ''],
     ['team', '#team', tr('Team'), ''],
     ['reports', '#reports', tr('Reports'), ''],
     ['settings', '#settings', tr('Settings'), ''],
@@ -313,7 +313,7 @@ function viewOnboarding(step) {
 function viewMenu() {
   const items = [
     ['#today', 'today', tr('Today'), ''],
-    ['/ops.html', 'jobs', tr('Jobs'), ''],
+    ['./ops.html', 'jobs', tr('Jobs'), ''],
     ['#team', 'team', tr('Team'), ''],
     ['#reports', 'reports', tr('Reports'), ''],
     ['#settings', 'settings', tr('Settings'), ''],

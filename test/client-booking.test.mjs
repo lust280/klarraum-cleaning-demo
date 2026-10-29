@@ -31,6 +31,7 @@ test('public booking contract drives the funnel and falls back to request',()=>{
 
 test('public booking page keeps clients off platform pricing and navigation',async()=>{
   const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  const script=await readFile(new URL('../public/client.js',import.meta.url),'utf8');
   assert.equal(html.includes('menu-open'),false);
   assert.equal(html.includes('client-menu'),false);
   assert.equal(/href="\/"/.test(html),false);
@@ -41,6 +42,9 @@ test('public booking page keeps clients off platform pricing and navigation',asy
   assert.match(html,/id="time-slots"/);
   assert.equal(html.includes('€0.00'),false);
   assert.match(html,/href="index\.html"/);
+  assert.match(script,/const mountedCompanyBase = \(location\.pathname\.match/);
+  assert.match(script,/const customerPath = path => `\$\{mountedCompanyBase\}\$\{path\}`/);
+  assert.match(script,/goCustomer\('\/contacts'\)/);
 });
 
 test('quote, duration and footer follow the client locks',()=>{
