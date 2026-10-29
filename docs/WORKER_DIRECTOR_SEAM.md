@@ -4,7 +4,9 @@ Cross-zone contract for the Director zone (Support / Companies). This file descr
 
 Implemented by Worker PR #15 on branch `cursor/klarraum-worker-6778`.
 
-Product status names below are the ones Support and Companies should use. The stored `jobs.state` value is in parentheses when it differs from the label.
+Product status names below are the ones Support and Companies should use. The stored `jobs.state` value is named when it differs from the label.
+
+Worker My jobs shows only that worker’s **Assigned**, **In progress**, and **Done** jobs. **New request** and an unassigned **Accepted** job are not on the worker list.
 
 ## Lifecycle (Worker events Director/Support/Companies may observe)
 
@@ -67,4 +69,4 @@ Canonical demo job:
 
 ## Pointer
 
-Worker PR #15, branch `cursor/klarraum-worker-6778`, implements the Worker app. This document is the cross-zone contract for Director.
+Worker PR #15, branch `cursor/klarraum-worker-6778`, implements the Worker app. Director PR #16 is the Director implementation peer. This document is the Worker → Director contract only. Admin still owns plans, Connect, and billing; those are not restated here.
