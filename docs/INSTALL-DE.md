@@ -33,7 +33,7 @@ Mit English/Deutsch im Kopfbereich die Bedienelemente umschalten. Die Wahl wird 
 
 ## Tägliche Bedienung
 
-Unter „Kalender & Objekte“ Kunden und Objekte erstellen. Unter „Team & Einsätze“ Mitarbeiter hinzufügen und den privaten Einladungslink weitergeben; er gilt einmalig für 48 Stunden. Mitarbeiter wählen ein eigenes Passwort und sehen nur zugewiesene Aufträge.
+Unter „Kalender & Objekte“ Kunden und Objekte erstellen. Unter „Team & Einsätze“ Mitarbeiter hinzufügen und den privaten Einladungslink weitergeben; er gilt einmalig für 24 Stunden. Mitarbeiter wählen ein eigenes Passwort und sehen nur zugewiesene Aufträge.
 
 Objekt/Mitarbeiter wählen und Einzeltermin oder endliche Serie zuweisen: wöchentlich, alle zwei Wochen oder monatlich; maximal ein Jahr / 120 Termine. Monatliche Serien verwenden bei einem fehlenden Tag den letzten Monatstag. Der ursprüngliche Monatstag bleibt für spätere Monate erhalten.
 

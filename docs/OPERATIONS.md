@@ -36,7 +36,7 @@ Back up first, push reviewed changes to `main`, run tests, and redeploy the Node
 
 ## Staff accounts and private job records
 
-Employee cookies are separate, eight-hour HttpOnly sessions. Invitation tokens are hashed, single use and expire after 48 hours; the owner shares a fragment-based link privately. An employee may only view or mutate their own jobs. Owner changes, time corrections and worker transitions are audited. Disabling/resetting staff access pauses active work and invalidates staff sessions. `APP_SECRET` rotation invalidates staff tokens/invitations as well as owner sessions; account password changes revoke staff sessions for that account.
+Employee cookies are separate, eight-hour HttpOnly sessions. Invitation tokens are hashed, single use and expire after 24 hours; the owner shares a fragment-based link privately. An employee may only view or mutate their own jobs. Owner changes, time corrections and worker transitions are audited. Disabling/resetting staff access pauses active work and invalidates staff sessions. `APP_SECRET` rotation invalidates staff tokens/invitations as well as owner sessions; account password changes revoke staff sessions for that account.
 
 The backup now also includes `.sqlite.jobs`; restore it to `DATA_DIR/job-photos`. These images contain potentially private object information, require authentication, and must not be moved into `public/` or the public `uploads` library. When verifying recovery, test both the owner's and the assigned employee's access and verify a different employee is denied.
 
