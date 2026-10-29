@@ -1,17 +1,96 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Klarraum · Director console</title><link rel="stylesheet" href="/director.css"><script type="module" src="/director.js"></script></head>
-<body><header><strong>✳ Klarraum · <span data-i18n="title">Director console</span></strong><label class="language"><select id="language" aria-label="Language"><option value="en">English</option><option value="de">Deutsch</option><option value="ru">Русский</option></select></label><button id="logout" hidden data-i18n="signOut">Sign out</button></header>
-<main><p id="error" role="alert" hidden></p>
-<section id="login"><h1 data-i18n="loginTitle">Director sign-in</h1><form id="login-form"><label><span data-i18n="password">Password</span><input name="password" type="password" autocomplete="current-password" required></label><button data-i18n="signIn">Sign in</button></form></section>
-<section id="dashboard" hidden><nav class="director-nav" aria-label="Director"><a href="#attention" data-i18n="attentionNav">Attention</a><a href="#companies" data-i18n="companies">Companies</a><a href="#finance" data-i18n="finance">Costs and pricing</a><a href="#platform-backup" data-i18n="backups">Platform backup</a></nav><div class="director-heading"><h1 data-i18n="title">Director console</h1><p data-i18n="intro"></p></div><div id="totals" class="totals"></div><section id="attention" class="attention" hidden aria-label="Attention"></section><h2 id="companies" data-i18n="companies">Companies</h2><p id="demo-notice" class="notice" data-i18n="notice"></p>
-<details class="public-pages"><summary data-i18n="publicPages">Public pages</summary><div class="review-link-grid"><a href="/for-companies.html" target="_blank" rel="noopener" data-i18n="reviewCompanies">Company sign-up page</a><a href="/trial-activate.html" target="_blank" rel="noopener" data-i18n="reviewTrial">Trial activation page</a><a href="/customer-preview.html" target="_blank" rel="noopener" data-i18n="openCustomerPreview">Customer calculator preview</a></div></details>
-<details id="plan-overview" class="plan-overview"><summary>Companies by plan</summary></details>
-<section id="invitation" hidden><h2 data-i18n="invitation"></h2><p data-i18n="inviteHelp"></p><input id="invite-url" readonly aria-label="Owner invitation"><button id="dismiss-invite" data-i18n="closeInvite"></button></section>
-<div class="toolbar"><label><span data-i18n="search"></span><input id="search" type="search"></label><button id="refresh" data-i18n="refresh"></button></div><p data-i18n="workerHelp"></p><div id="companies"></div>
-<section><h2>Company applications</h2><p>Applications do not open an account automatically. Review the details and agree terms before approving a 15-day trial.</p><div id="applications"></div></section>
-<section id="finance"><h2 data-i18n="finance">Costs and pricing</h2><p data-i18n="financeHelp"></p><div class="toolbar"><label><span data-i18n="month"></span><input id="finance-month" type="month" required></label><button id="finance-refresh" data-i18n="refresh"></button></div><div id="finance-totals" class="totals"></div>
-<details><summary data-i18n="addEntry"></summary><form id="finance-entry"><label><span data-i18n="entryType"></span><select name="type"><option value="expense" data-i18n="expense"></option><option value="income" data-i18n="income"></option><option value="refund" data-i18n="refund"></option></select></label><label><span data-i18n="date"></span><input name="date" type="date" required></label><label><span data-i18n="amount"></span><input name="amount" type="number" min="0.01" max="1000000" step="0.01" required></label><label><span data-i18n="category"></span><select name="category" id="finance-category"></select></label><label><span data-i18n="companies"></span><select name="companyId" id="finance-company"></select></label><label><span data-i18n="note"></span><input name="note" maxlength="500"></label><button data-i18n="addEntry"></button></form></details>
-<div id="finance-entries"></div><h3 data-i18n="snapshots"></h3><p data-i18n="snapshotHelp"></p><button id="finance-snapshot" data-i18n="snapshot"></button><div id="finance-snapshots"></div><div id="finance-print" hidden><h2 data-i18n="openedReport"></h2><p data-i18n="reportHelp"></p><div id="finance-saved-report"></div><button id="finance-print-button" data-i18n="print"></button><button id="finance-json">JSON</button><button id="finance-csv">CSV</button></div>
-</section>
-<section id="platform-backup"><h2 data-i18n="backups">Platform backup</h2><p data-i18n="backupHelp"></p><p class="notice" data-i18n="backupWarning"></p><p id="backup-status" role="status"></p><form id="backup-form"><label><span data-i18n="backupPassword"></span><input name="backupPassword" type="password" minlength="16" maxlength="256" autocomplete="new-password" required></label><label><span data-i18n="backupRepeat"></span><input name="backupRepeat" type="password" minlength="16" maxlength="256" autocomplete="new-password" required></label><button data-i18n="backupDownload"></button></form><p id="backup-progress" role="status" hidden data-i18n="backupProgress"></p><p data-i18n="backupRestore"></p></section>
-</section></main></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Klarraum · Director</title>
+<link rel="stylesheet" href="/director.css">
+<script type="module" src="/director.js"></script>
+</head>
+<body class="director-shell">
+<div id="login-view">
+  <header class="login-bar">
+    <a class="brand" href="/for-companies.html">Klarraum</a>
+    <a class="home-link" href="/for-companies.html" aria-label="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    </a>
+    <span class="role-pill">Operator</span>
+  </header>
+  <main class="login-main">
+    <section class="login-card" aria-labelledby="login-title">
+      <h1 id="login-title">Operator sign in</h1>
+      <p class="lede">Klarraum Operator — internal team only</p>
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+      <button id="google-signin" type="button">
+        <span class="g-mark" aria-hidden="true">G</span>
+        Continue with Google
+      </button>
+      <div class="or" role="separator"><span>or</span></div>
+      <form id="magic-form">
+        <label class="sr" for="work-email">Work email</label>
+        <input id="work-email" name="email" type="email" autocomplete="username" placeholder="Work email" required maxlength="254">
+        <button class="outline" type="submit">Send sign-in link</button>
+      </form>
+      <p class="fine expiry">Only approved operator accounts. Sign-in links expire after 15 minutes.</p>
+      <section id="check-email" hidden>
+        <h2>Check your email</h2>
+        <p>A sign-in link is on its way. It expires after 15 minutes.</p>
+        <p id="magic-status" class="fine"></p>
+      </section>
+    </section>
+    <p class="switch-role">Not an operator? <a href="/for-companies.html">Company sign in</a></p>
+  </main>
+</div>
+<div id="app-view" hidden>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand-block"><strong>Klarraum</strong><span>Director</span></p>
+      <nav class="side-nav" aria-label="Director">
+        <a href="#/attention" data-nav="attention">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
+          Attention <span class="badge" data-badge="attention" hidden></span>
+        </a>
+        <a href="#/companies" data-nav="companies">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V6l8-3 8 3v14"/><path d="M9 20v-5h6v5M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg>
+          Companies
+        </a>
+        <a href="#/support" data-nav="support">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2zM20 13v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>
+          Support <span class="badge" data-badge="support" hidden></span>
+        </a>
+      </nav>
+      <div class="operator-card">
+        <span class="avatar" aria-hidden="true">C</span>
+        <div class="operator-id"><strong>Culiuc Andrei</strong><span>Operator</span></div>
+        <button type="button" class="sign-out" data-action="sign-out">Sign out <span aria-hidden="true">→</span></button>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <a class="brand" href="#/attention">Klarraum</a>
+        <div class="topbar-actions">
+          <span class="avatar" aria-hidden="true">C</span>
+          <button type="button" data-action="sign-out">Sign out</button>
+        </div>
+      </header>
+      <main id="screen" tabindex="-1"></main>
+    </div>
+  </div>
+  <nav class="tabbar" aria-label="Director mobile">
+    <a href="#/attention" data-nav="attention">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+      Attention <span class="badge" data-badge="attention" hidden></span>
+    </a>
+    <a href="#/companies" data-nav="companies">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V6h12v14M10 10h.01M14 10h.01M10 14h.01M14 14h.01"/></svg>
+      Companies
+    </a>
+    <a href="#/support" data-nav="support">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2zM20 13v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/></svg>
+      Support <span class="badge" data-badge="support" hidden></span>
+    </a>
+  </nav>
+</div>
+</body>
+</html>
