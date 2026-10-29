@@ -1,3 +1,5 @@
+import { translate } from './partner-i18n.js';
+
 const app = document.querySelector('#app');
 const toastNode = document.querySelector('#toast');
 const sheet = document.querySelector('#sheet');
@@ -30,8 +32,22 @@ let looked = {};
 let drafts = {};
 let todayBoard = null;
 let jobView = null;
+let inboxView = null;
+let inboxLoading = false;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function uiLocale() {
+  const lang = model?.company?.language;
+  return lang === 'de' ? 'de-DE' : lang === 'ru' ? 'ru-RU' : 'en-US';
+}
+function tr(text, vars) {
+  let value = translate(model?.company?.language, text);
+  if (vars) for (const [key, item] of Object.entries(vars)) value = value.replaceAll(`{${key}}`, String(item ?? ''));
+  return value;
+}
+function roleLabel(role) {
+  return tr({cleaner:'Cleaner', helper:'Helper', admin:'Admin'}[role] || role || '');
+}
 const money = (amount, currency = 'EUR') => `${currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€'}${Number(amount).toFixed(2)}`;
 const planPrice = (cents, currency = model?.company?.currency || 'EUR') => `${currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€'}${Number(cents) / 100}/mo`;
 const unitLabel = unit => unit === 'sqft' ? 'sq ft' : 'm²';
@@ -63,13 +79,18 @@ async function copyText(text) {
     document.execCommand('copy');
     node.remove();
   }
-  toast('Copied');
+  toast(tr('Copied'));
 }
 function workers() {
   return (model?.team || []).filter(person => (person.role === 'cleaner' || person.role === 'helper') && person.active && !['revoked', 'expired', 'declined'].includes(person.invite));
 }
 function highlights(plan) {
-  return plan.highlights || [`${plan.seats} seats (cleaners and helpers)`, 'Branded booking site', 'Jobs, photos and reports (12 months)', plan.support];
+  const items = plan.highlights || [`${plan.seats} seats (cleaners and helpers)`, 'Branded booking site', 'Jobs, photos and reports (12 months)', plan.support];
+  return items.map(item => {
+    const seats = String(item).match(/^(\d+) seats \(cleaners and helpers\)$/);
+    if (seats) return tr('{n} seats (cleaners and helpers)', {n: seats[1]});
+    return tr(item);
+  });
 }
 
 async function api(path, {method = 'GET', body, quiet = false} = {}) {
@@ -106,9 +127,9 @@ function signedInHome() {
 function todayDate() {
   const zone = model?.company?.timeZone || 'UTC';
   try {
-    return new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric', timeZone: zone}).format(new Date());
+    return new Intl.DateTimeFormat(uiLocale(), {weekday:'long', month:'long', day:'numeric', timeZone: zone}).format(new Date());
   } catch {
-    return new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric'}).format(new Date());
+    return new Intl.DateTimeFormat(uiLocale(), {weekday:'long', month:'long', day:'numeric'}).format(new Date());
   }
 }
 function handleError(error) {
@@ -123,10 +144,10 @@ function handleError(error) {
     location.hash = 'expired';
     return;
   }
-  toast(error.message || 'Something went wrong.');
+  toast(error.message || tr('Something went wrong.'));
 }
 function openSheet({title, text, confirm, danger = false, cancel = 'Cancel', onConfirm}) {
-  sheet.innerHTML = `<div class="panel"><div class="grab"></div><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="stack"><button class="btn secondary" type="button" data-sheet="cancel">${esc(cancel)}</button>${confirm ? `<button class="btn ${danger ? 'danger' : ''}" type="button" data-sheet="ok">${esc(confirm)}</button>` : ''}</div></div>`;
+  sheet.innerHTML = `<div class="panel"><div class="grab"></div><h2>${esc(tr(title))}</h2><p>${esc(tr(text))}</p><div class="stack"><button class="btn secondary" type="button" data-sheet="cancel">${esc(tr(cancel))}</button>${confirm ? `<button class="btn ${danger ? 'danger' : ''}" type="button" data-sheet="ok">${esc(tr(confirm))}</button>` : ''}</div></div>`;
   if (!sheet.open) sheet.showModal();
   sheet.querySelector('[data-sheet="cancel"]').onclick = () => sheet.close();
   const ok = sheet.querySelector('[data-sheet="ok"]');
@@ -159,49 +180,52 @@ function topbar(title, {back = '', plain = false} = {}) {
     return `<header class="plain-top"><a class="brand" href="./">${icon('home')} KlarraumApp</a></header>`;
   }
   const letter = esc(model.account.name.slice(0, 1).toUpperCase());
-  const backLink = back ? `<a class="back mobile-only" href="${esc(back)}" aria-label="Back">${icon('back')}</a>` : `<a class="icon-btn" href="#menu" aria-label="Menu">${icon('menu')}</a>`;
-  return `<header class="top"><div class="top-actions">${backLink}</div><h1>${esc(title)}</h1><div class="top-actions"><button class="bell" type="button" data-action="inbox" aria-label="Inbox">${icon('bell')}</button><span class="avatar" aria-hidden="true">${letter}</span><button class="signout" type="button" data-action="logout">Sign out</button></div></header>`;
+  const backLink = back ? `<a class="back mobile-only" href="${esc(back)}" aria-label="${esc(tr('Back'))}">${icon('back')}</a>` : `<a class="icon-btn" href="#menu" aria-label="${esc(tr('Menu'))}">${icon('menu')}</a>`;
+  return `<header class="top"><div class="top-actions">${backLink}</div><h1>${esc(title)}</h1><div class="top-actions"><a class="bell" href="#inbox" aria-label="${esc(tr('Inbox'))}">${icon('bell')}</a><a class="avatar" href="#settings/billing/plan" aria-label="${esc(tr('Your plan'))}">${letter}</a><button class="signout" type="button" data-action="logout">${esc(tr('Sign out'))}</button></div></header>`;
 }
 function sidebar(active) {
   const items = [
-    ['today', '#today', 'Today', ''],
-    ['jobs', '/ops.html', 'Jobs', ''],
-    ['team', '#team', 'Team', ''],
-    ['reports', '#reports', 'Reports', ''],
-    ['settings', '#settings', 'Settings', ''],
+    ['today', '#today', tr('Today'), ''],
+    ['jobs', '/ops.html', tr('Jobs'), ''],
+    ['team', '#team', tr('Team'), ''],
+    ['reports', '#reports', tr('Reports'), ''],
+    ['settings', '#settings', tr('Settings'), ''],
   ];
   return `<aside class="side"><a class="brand" href="#menu">${icon('home')} KlarraumApp</a><nav>${items.map(([key, href, label, note]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${icon(key === 'today' ? 'today' : key === 'jobs' ? 'jobs' : key)}${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</a>`).join('')}</nav></aside>`;
 }
 function frame({title, screen, back = '', body, active = '', plain = false}) {
-  document.title = `${title} · KlarraumApp`;
-  if (plain || !model) return `<main class="plain" data-screen="${screen}">${topbar(title, {plain:true})}${body}</main>`;
+  const heading = tr(title);
+  document.documentElement.lang = uiLocale().slice(0, 2);
+  document.title = `${heading} · KlarraumApp`;
+  if (plain || !model) return `<main class="plain" data-screen="${screen}">${topbar(heading, {plain:true})}${body}</main>`;
   if (wide) {
-    return `<div class="desk" data-screen="${screen}">${sidebar(active)}<div class="desk-main"><header class="desk-top"><h1>${esc(title)}</h1><div class="top-actions"><button class="bell" type="button" data-action="inbox" aria-label="Inbox">${icon('bell')}</button><span class="pill">${esc(model.plan.name)}</span><span class="avatar">${esc(model.account.name.slice(0, 1).toUpperCase())}</span><button class="signout" type="button" data-action="logout">Sign out</button></div></header>${body}</div></div>`;
+    const letter = esc(model.account.name.slice(0, 1).toUpperCase());
+    return `<div class="desk" data-screen="${screen}">${sidebar(active)}<div class="desk-main"><header class="desk-top"><h1>${esc(heading)}</h1><div class="top-actions"><a class="bell" href="#inbox" aria-label="${esc(tr('Inbox'))}">${icon('bell')}</a><span class="pill">${esc(model.plan.name)}</span><a class="avatar" href="#settings/billing/plan" aria-label="${esc(tr('Your plan'))}">${letter}</a><button class="signout" type="button" data-action="logout">${esc(tr('Sign out'))}</button></div></header>${body}</div></div>`;
   }
-  return `<main class="phone" data-screen="${screen}">${topbar(title, {back})}${body}</main>`;
+  return `<main class="phone" data-screen="${screen}">${topbar(heading, {back})}${body}</main>`;
 }
 function ownerNote() {
-  return model.account.owner ? '' : '<p class="tiny">Only the company owner can change the plan or Connect. You can view both.</p>';
+  return model.account.owner ? '' : `<p class="tiny">${esc(tr('Only the company owner can change the plan or Connect. You can view both.'))}</p>`;
 }
 function planCards(plans, {current = '', action = 'choose-plan'} = {}) {
-  return `<div class="plan-grid three">${plans.map(plan => `<article class="plan-card ${plan.key === current ? 'current' : ''}"><div class="plan-top"><div><strong>${esc(plan.name)}</strong>${plan.key === current ? ' <span class="badge on">Current plan</span>' : ''}</div><span class="price">${planPrice(plan.cents)}</span></div><ul>${highlights(plan).map(item => `<li>✓ ${esc(item)}</li>`).join('')}</ul>${plan.key === current ? '<button class="btn secondary" type="button" disabled>Current plan</button>' : `<button class="btn ${plan.cents > (plans.find(item => item.key === current)?.cents || 0) ? '' : 'secondary'}" type="button" data-action="${action}" data-plan="${esc(plan.key)}" ${model && !model.account.owner ? 'disabled' : ''}>${current && plan.cents < (plans.find(item => item.key === current)?.cents || 0) ? 'Downgrade' : current ? 'Upgrade' : 'Choose ' + esc(plan.name)}</button>`}</article>`).join('')}</div><p class="tiny">Prices include VAT. Photos and reports are kept for 12 months. A trial is 5 days on Pro, with no card at the start. Admins do not use a seat.</p>`;
+  return `<div class="plan-grid three">${plans.map(plan => `<article class="plan-card ${plan.key === current ? 'current' : ''}"><div class="plan-top"><div><strong>${esc(plan.name)}</strong>${plan.key === current ? ` <span class="badge on">${esc(tr('Current plan'))}</span>` : ''}</div><span class="price">${planPrice(plan.cents)}</span></div><ul>${highlights(plan).map(item => `<li>✓ ${esc(item)}</li>`).join('')}</ul>${plan.key === current ? `<button class="btn secondary" type="button" disabled>${esc(tr('Current plan'))}</button>` : `<button class="btn ${plan.cents > (plans.find(item => item.key === current)?.cents || 0) ? '' : 'secondary'}" type="button" data-action="${action}" data-plan="${esc(plan.key)}" ${model && !model.account.owner ? 'disabled' : ''}>${current && plan.cents < (plans.find(item => item.key === current)?.cents || 0) ? esc(tr('Downgrade')) : current ? esc(tr('Upgrade')) : esc(tr('Choose')) + ' ' + esc(plan.name)}</button>`}</article>`).join('')}</div><p class="tiny">${esc(tr('Prices include VAT. Photos and reports are kept for 12 months. A trial is 5 days on Pro, with no card at the start. Admins do not use a seat.'))}</p>`;
 }
 
 function settingsLinks() {
-  const connect = model.connect.status === 'connected' ? 'Connected' : model.connect.status === 'incomplete' ? 'Setup not finished' : 'Not connected';
-  const rate = `${money(model.prices.homeDisplay, model.prices.currency)} / ${unitLabel(model.prices.areaUnit)}`;
+  const connect = model.connect.status === 'connected' ? tr('Connected') : model.connect.status === 'incomplete' ? tr('Setup not finished') : tr('Not connected');
+  const rate = `${money(model.prices.homeDisplay, model.prices.currency)} / ${tr(unitLabel(model.prices.areaUnit))}`;
   return [
-    ['profile', 'Company profile', model.company.name || 'Add the company'],
-    ['area', 'Service area', model.serviceArea.length ? `${model.serviceArea.length} postcodes` : 'Add postcodes'],
-    ['prices', 'Service prices', rate],
-    ['site', 'Booking site', model.bookingSite.slug || 'Set the link'],
-    ['booking-mode', 'Booking mode', modeName[model.bookingMode] || 'Request'],
-    ['billing', 'Billing / Connect', connect],
-    ['language', 'Language', langName[model.company.language] || 'English'],
-    ['legal', 'Legal', ''],
-    ['notifications', 'Notifications', ''],
-    ['calendar', 'Google Calendar', model.integrations.googleCalendar ? 'Keys saved' : 'Not connected'],
-    ['help', 'Help', ''],
+    ['profile', tr('Company profile'), model.company.name || tr('Add the company')],
+    ['area', tr('Service area'), model.serviceArea.length ? tr('{n} postcodes', {n: model.serviceArea.length}) : tr('Add postcodes')],
+    ['prices', tr('Service prices'), rate],
+    ['site', tr('Booking site'), model.bookingSite.slug || tr('Set the link')],
+    ['booking-mode', tr('Booking mode'), tr(modeName[model.bookingMode] || 'Request')],
+    ['billing', tr('Billing / Connect'), connect],
+    ['language', tr('Language'), langName[model.company.language] || 'English'],
+    ['legal', tr('Legal'), ''],
+    ['notifications', tr('Notifications'), ''],
+    ['calendar', tr('Google Calendar'), model.calendar?.connected ? tr('Connected') : model.integrations.googleCalendar ? tr('Keys saved') : tr('Not connected')],
+    ['help', tr('Help'), ''],
   ];
 }
 function settingsList(active) {
@@ -212,9 +236,9 @@ function requestCard(job, {label, open = false} = {}) {
   const amount = Number.isInteger(job.priceCents) ? job.priceCents / 100 : Number(job.quote || 0);
   const currency = model.company?.currency || job.currency || 'EUR';
   const control = open
-    ? `<a class="btn" href="#jobs/${esc(job.id)}">Assign</a>`
-    : `<button class="btn" type="button" data-action="confirm-job"${job.id ? ` data-id="${esc(job.id)}"` : ''}>Confirm</button>`;
-  return `<article class="card job-card"><p class="tiny">${esc(label)}</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(amount, currency)}</p>${control}</article>`;
+    ? `<a class="btn" href="#jobs/${esc(job.id)}">${esc(tr('Assign'))}</a>`
+    : `<button class="btn" type="button" data-action="confirm-job"${job.id ? ` data-id="${esc(job.id)}"` : ''}>${esc(tr('Confirm'))}</button>`;
+  return `<article class="card job-card"><p class="tiny">${esc(tr(label))}</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(amount, currency)}</p>${control}</article>`;
 }
 function viewToday() {
   const workersOut = (model.team || []).filter(person => person.active && person.availability === 'on_job').length;
@@ -227,8 +251,8 @@ function viewToday() {
     : [
       ...(todayBoard.attention || []).map(job => requestCard(job, {label:'New request'})),
       ...(todayBoard.assign || []).map(job => requestCard(job, {label:'Accepted', open:true})),
-    ].join('') || '<article class="card"><h2>No new requests</h2><p class="lead">Jobs from your booking site appear here.</p></article>';
-  const body = `<section class="today-screen"><div class="today-meta"><p class="lead" id="today-date">${esc(todayDate())}</p><span class="badge plan">${esc(plan)}</span></div><div class="kpis"><article class="kpi"><span>New requests</span><strong>${esc(newCount)}</strong></article><article class="kpi"><span>Jobs today</span><strong>${esc(jobsCount)}</strong></article><article class="kpi"><span>Workers out</span><strong>${workersOut}</strong></article></div>${cards}</section>`;
+    ].join('') || `<article class="card"><h2>${esc(tr('No new requests'))}</h2><p class="lead">${esc(tr('Jobs from your booking site appear here.'))}</p></article>`;
+  const body = `<section class="today-screen"><div class="today-meta"><p class="lead" id="today-date">${esc(todayDate())}</p><span class="badge plan">${esc(plan)}</span></div><div class="kpis"><article class="kpi"><span>${esc(tr('New requests'))}</span><strong>${esc(newCount)}</strong></article><article class="kpi"><span>${esc(tr('Jobs today'))}</span><strong>${esc(jobsCount)}</strong></article><article class="kpi"><span>${esc(tr('Workers out'))}</span><strong>${workersOut}</strong></article></div>${cards}</section>`;
   return frame({screen:'today', title:'Today', active:'today', body});
 }
 function visitWhen(job) {
@@ -250,11 +274,11 @@ function viewJob(id) {
     const current = job.worker?.id === worker.id;
     const control = !picking
       ? '<span class="pill">Assigned</span>'
-      : `<button class="btn" type="button" data-action="assign-worker" data-job="${esc(job.id)}" data-worker="${esc(worker.id)}" data-version="${esc(job.version)}" ${current ? 'disabled' : ''}>${current ? 'Assigned' : 'Assign'}</button>`;
-    return `<article class="card worker-row"><span class="person-avatar" aria-hidden="true">${esc((worker.name || '?').slice(0, 1))}</span><span class="worker-meta"><strong>${esc(worker.name)}</strong><small>${esc(worker.role || 'Cleaner')}</small></span>${control}</article>`;
-  }).join('') || '<p class="lead">No workers yet. Invite a cleaner from Team.</p>';
-  const again = picking ? '' : '<button class="btn ghost" type="button" data-action="reassign-worker">Reassign</button>';
-  const body = `<p><a href="#today">‹ Jobs</a></p><article class="card job-summary"><div><h2>${esc(job.serviceTitle || 'Home cleaning')}</h2><p>${esc(visitWhen(job))}</p><p>${esc(job.address || '')}</p></div><strong class="price">${money(amount, currency)}</strong></article><h2 class="section-title">${picking ? 'Assign worker' : 'Assigned worker'}</h2><div class="stack">${rows}</div>${again}`;
+      : `<button class="btn" type="button" data-action="assign-worker" data-job="${esc(job.id)}" data-worker="${esc(worker.id)}" data-version="${esc(job.version)}" ${current ? 'disabled' : ''}>${esc(tr(current ? 'Assigned' : 'Assign'))}</button>`;
+    return `<article class="card worker-row"><span class="person-avatar" aria-hidden="true">${esc((worker.name || '?').slice(0, 1))}</span><span class="worker-meta"><strong>${esc(worker.name)}</strong><small>${esc(tr(worker.role || 'Cleaner'))}</small></span>${control}</article>`;
+  }).join('') || `<p class="lead">${esc(tr('No workers yet. Invite a cleaner from Team.'))}</p>`;
+  const again = picking ? '' : `<button class="btn ghost" type="button" data-action="reassign-worker">${esc(tr('Reassign'))}</button>`;
+  const body = `<p><a href="#today">${esc(tr('‹ Jobs'))}</a></p><article class="card job-summary"><div><h2>${esc(tr(job.serviceTitle || 'Home cleaning'))}</h2><p>${esc(visitWhen(job))}</p><p>${esc(job.address || '')}</p></div><strong class="price">${money(amount, currency)}</strong></article><h2 class="section-title">${esc(tr(picking ? 'Assign worker' : 'Assigned worker'))}</h2><div class="stack">${rows}</div>${again}`;
   return frame({screen: picking ? 'job-assign' : 'job-assigned', title:'Job Detail', back:'#today', active:'today', body});
 }
 function viewLogin() {
@@ -281,11 +305,11 @@ function viewOnboarding(step) {
 }
 function viewMenu() {
   const items = [
-    ['#today', 'today', 'Today', ''],
-    ['/ops.html', 'jobs', 'Jobs', ''],
-    ['#team', 'team', 'Team', ''],
-    ['#reports', 'reports', 'Reports', ''],
-    ['#settings', 'settings', 'Settings', ''],
+    ['#today', 'today', tr('Today'), ''],
+    ['/ops.html', 'jobs', tr('Jobs'), ''],
+    ['#team', 'team', tr('Team'), ''],
+    ['#reports', 'reports', tr('Reports'), ''],
+    ['#settings', 'settings', tr('Settings'), ''],
   ];
   return frame({screen:'menu', title:'Menu', active:'', body:`<nav class="nav-list">${items.map(([href, key, label, note]) => `<a href="${href}">${icon(key === 'today' ? 'today' : key)}<span>${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</span></a>`).join('')}</nav>`});
 }
@@ -320,10 +344,10 @@ function settingsPanel(section) {
     return `<section class="card" data-panel="booking-site"><h2>Booking site</h2><p class="lead">Share this page with clients. The public site shows your company brand.</p><p><strong>${esc(url)}</strong></p><p class="tiny">Link name: ${esc(model.bookingSite.slug || 'not set')}</p><div class="stack"><button class="btn" type="button" data-action="copy" data-value="${esc(url)}">Copy link</button><a class="btn secondary" href="./" target="_blank" rel="noopener">Preview</a></div></section>`;
   }
   if (section === 'booking-mode') {
-    return `<form data-form="booking" data-panel="booking-mode"><p class="tiny">How clients book</p><div class="card flush">${['paused', 'request', 'instant'].map(mode => `<label class="mode"><input type="radio" name="bookingMode" value="${mode}" ${model.bookingMode === mode ? 'checked' : ''}><span aria-hidden="true">${mode === 'paused' ? '❚❚' : mode === 'instant' ? '⚡' : ''}</span><span><strong>${modeCopy[mode][0]}${mode === 'request' ? ' <span class="badge on">Default</span>' : ''}</strong><small>${modeCopy[mode][1]}</small></span></label>`).join('')}</div><div class="note"><span aria-hidden="true">▦</span><p>Only free calendar slots are shown to clients. Busy times cannot be booked.</p></div><p class="tiny">Existing jobs are not affected.</p><button class="btn" type="submit">Save</button></form>`;
+    return `<form data-form="booking" data-panel="booking-mode"><p class="tiny">${esc(tr('How clients book'))}</p><div class="card flush">${['paused', 'request', 'instant'].map(mode => `<label class="mode"><input type="radio" name="bookingMode" value="${mode}" ${model.bookingMode === mode ? 'checked' : ''}><span aria-hidden="true">${mode === 'paused' ? '❚❚' : mode === 'instant' ? '⚡' : ''}</span><span><strong>${esc(tr(modeCopy[mode][0]))}${mode === 'request' ? ` <span class="badge on">${esc(tr('Default'))}</span>` : ''}</strong><small>${esc(tr(modeCopy[mode][1]))}</small></span></label>`).join('')}</div><div class="note"><span aria-hidden="true">▦</span><p>${esc(tr('Only free calendar slots are shown to clients. Busy times cannot be booked.'))}</p></div><p class="tiny">${esc(tr('Existing jobs are not affected.'))}</p><button class="btn" type="submit">${esc(tr('Save'))}</button></form>`;
   }
   if (section === 'language') {
-    return `<form data-form="language" class="card"><h2>Language</h2><p class="lead">English, Deutsch or Русский. Customer pages and emails use this language.</p>${['en', 'de', 'ru'].map(code => `<label class="mode"><input type="radio" name="language" value="${code}" ${model.company.language === code ? 'checked' : ''}><span></span><span><strong>${langName[code]}</strong></span></label>`).join('')}<button class="btn" type="submit">Save</button></form>`;
+    return `<form data-form="language" class="card"><h2>${esc(tr('Language'))}</h2><p class="lead">${esc(tr('English, Deutsch or Русский. This sets the language of KlarraumApp. Customer pages use it too.'))}</p>${['en', 'de', 'ru'].map(code => `<label class="mode"><input type="radio" name="language" value="${code}" ${model.company.language === code ? 'checked' : ''}><span></span><span><strong>${langName[code]}</strong></span></label>`).join('')}<button class="btn" type="submit">${esc(tr('Save'))}</button></form>`;
   }
   if (section === 'legal') {
     return `<form data-form="legal" class="card"><h2>Legal</h2><div class="rows"><a href="./impressum.html" target="_blank" rel="noopener">Impressum <span class="chev"></span></a><a href="./datenschutz.html" target="_blank" rel="noopener">Privacy <span class="chev"></span></a><a href="./customer-terms.html" target="_blank" rel="noopener">Terms <span class="chev"></span></a></div><label class="field">Note for your customers<textarea name="note" maxlength="2000">${esc(model.legal.note || '')}</textarea></label><button class="btn" type="submit">Save</button></form>`;
@@ -334,7 +358,15 @@ function settingsPanel(section) {
     return `<form data-form="notifications" class="card"><h2>Notifications</h2>${box('requests', 'New requests')}${box('schedule', 'Schedule changes')}${box('payments', 'Payments')}${box('trial', 'Trial reminders')}<button class="btn" type="submit">Save</button></form>`;
   }
   if (section === 'calendar') {
-    return `<section class="card"><h2>Google Calendar</h2><p class="lead">${model.integrations.googleCalendar ? 'Google keys are saved on this server.' : 'Google Calendar is not connected.'} Jobs can be exported later. Busy times are not read from the calendar.</p><button class="btn" type="button" disabled>Connect Google Calendar</button></section>`;
+    const ready = Boolean(model.integrations.googleCalendar);
+    const connected = Boolean(model.calendar?.connected);
+    const status = connected
+      ? tr('Google Calendar is connected.')
+      : ready
+        ? tr('Google keys are saved on this server. Connect a calendar to copy job times. Busy times are not read back.')
+        : tr('Google Calendar is not set up on this server. Busy times are not read from a calendar.');
+    const actions = !ready ? '' : `<div class="stack"><button class="btn" type="button" data-action="connect-calendar">${esc(tr('Connect Google Calendar'))}</button>${connected ? `<button class="btn secondary" type="button" data-action="sync-calendar">${esc(tr('Sync jobs'))}</button><button class="btn ghost" type="button" data-action="disconnect-calendar">${esc(tr('Disconnect'))}</button>` : ''}</div>`;
+    return `<section class="card"><h2>${esc(tr('Google Calendar'))}</h2><p class="lead">${esc(status)}</p>${actions}</section>`;
   }
   if (section === 'help') {
     const messages = model.help.length ? `<div class="thread">${model.help.map(message => `<article class="bubble"><b>${esc(message.name || 'You')}</b>${esc(message.body)}</article>`).join('')}</div>` : '<p class="lead">Send a message to KlarraumApp. An operator replies in this thread.</p>';
@@ -393,9 +425,9 @@ function viewConnectMock() {
 }
 function viewTeam() {
   const people = workers();
-  const list = people.length ? people.map(person => `<a class="card person" href="#team/person/${esc(person.id)}"><span class="person-main"><span class="person-avatar">${esc(person.name.slice(0, 1))}</span><span><strong>${esc(person.name)}</strong><small class="tiny">${esc(roleName[person.role] || person.role)}</small></span></span><span class="badge ${person.invite === 'pending' ? 'wait' : person.availability === 'on_job' ? '' : 'on'}">${person.invite === 'pending' ? 'Invited' : person.availability === 'on_job' ? 'On job' : 'Available'}</span></a>`).join('') : `<section class="card center" data-empty="team"><h2>No workers yet</h2><p class="lead">Invite a cleaner or a helper when you are ready. Admins do not use a seat.</p></section>`;
-  const admins = model.admins.map(person => `<p class="tiny">${esc(person.name)} · Admin${person.owner ? ' · Owner' : ''}</p>`).join('');
-  return frame({screen: people.length ? 'team' : 'team-empty', title:'Team', active:'team', body:`<p><a class="badge plan" href="#settings/billing/plan">Plan</a> <span class="tiny">${model.seats.used} of ${model.seats.included} seats · admins free</span></p><a class="btn" href="#team/invite">Invite worker</a><div class="stack">${list}</div><section class="card"><h2>Admins</h2><p class="tiny">Admins do not use a seat and do not take jobs. ${model.seats.used} of ${model.seats.included} seats are used by cleaners and helpers.</p>${admins}</section>`});
+  const list = people.length ? people.map(person => `<a class="card person" href="#team/person/${esc(person.id)}"><span class="person-main"><span class="person-avatar">${esc(person.name.slice(0, 1))}</span><span><strong>${esc(person.name)}</strong><small class="tiny">${esc(roleLabel(person.role))}</small></span></span><span class="badge ${person.invite === 'pending' ? 'wait' : person.availability === 'on_job' ? '' : 'on'}">${esc(person.invite === 'pending' ? tr('Invited') : person.availability === 'on_job' ? tr('On job') : tr('Available'))}</span></a>`).join('') : `<section class="card center" data-empty="team"><h2>${esc(tr('No workers yet'))}</h2><p class="lead">${esc(tr('Invite a cleaner or a helper when you are ready. Admins do not use a seat.'))}</p></section>`;
+  const admins = model.admins.map(person => `<p class="tiny">${esc(person.name)} · ${esc(tr('Admin'))}${person.owner ? ' · Owner' : ''}</p>`).join('');
+  return frame({screen: people.length ? 'team' : 'team-empty', title:'Team', active:'team', body:`<p><a class="badge plan" href="#settings/billing/plan">${esc(tr('Plan'))}</a> <span class="tiny">${esc(tr('{used} of {included} seats · admins free', {used: model.seats.used, included: model.seats.included}))}</span></p><a class="btn" href="#team/invite">${esc(tr('Invite worker'))}</a><div class="stack">${list}</div><section class="card"><h2>${esc(tr('Admins'))}</h2><p class="tiny">${esc(tr('Admins do not use a seat and do not take jobs. {used} of {included} seats are used by cleaners and helpers.', {used: model.seats.used, included: model.seats.included}))}</p>${admins}</section>`});
 }
 function viewInvite() {
   return frame({screen:'invite', title:'Invite worker', back:'#team', active:'team', body:`<p><a href="#team">← Back to Team</a></p><form data-form="invite" class="card"><label class="field">Name<input name="name" required maxlength="80"></label><label class="field">Email<input name="email" type="email" required maxlength="254"></label><label class="field">Role<select name="role"><option value="cleaner">Cleaner</option><option value="helper">Helper</option><option value="admin">Admin</option></select></label><label class="field">Invite language<select name="language"><option value="en">English</option><option value="de">Deutsch</option><option value="ru">Русский</option></select></label><p class="tiny">Cleaners and helpers use a seat. Admins do not. The link expires in 24 hours. This demo does not send email.</p><button class="btn" type="submit">Send invite</button></form>`});
@@ -427,7 +459,21 @@ function viewSeatLimit() {
 }
 function viewReports() {
   const job = model.report;
-  return frame({screen:'reports', title:'Reports', active:'reports', body:`<section class="card"><p class="tiny">This month · demo job</p><h2>${esc(job.address)}</h2><p class="lead">${job.areaM2} m² · ${money(job.ratePerM2)}/m²</p><p><strong>${money(job.quote)}</strong> · ${esc(job.payment)} · ${esc(job.status)}</p><button class="btn" type="button" data-action="export-open">Export</button></section><p class="tiny">The same demo job is used across KlarraumApp. This is an internal report, not an invoice. Export stays available after a trial ends.</p>`});
+  return frame({screen:'reports', title:'Reports', active:'reports', body:`<section class="card"><p class="tiny">${esc(tr('This month · demo job'))}</p><h2>${esc(job.address)}</h2><p class="lead">${job.areaM2} m² · ${money(job.ratePerM2)}/m²</p><p><strong>${money(job.quote)}</strong> · ${esc(tr(job.payment))} · ${esc(tr(job.status))}</p><button class="btn" type="button" data-action="export-open">${esc(tr('Export'))}</button></section><p class="tiny">${esc(tr('The same demo job is used across KlarraumApp. This is an internal report, not an invoice. Export stays available after a trial ends.'))}</p>`});
+}
+function viewInbox() {
+  if (!inboxView) return frame({screen:'inbox', title:'Inbox', back:'#today', active:'today', body:`<p class="lead">${esc(tr('Loading…'))}</p>`});
+  const items = inboxView.items || [];
+  const locale = uiLocale();
+  const cards = items.map(item => {
+    const when = item.createdAt ? new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'}).format(new Date(item.createdAt)) : '';
+    const title = item.kind === 'job_completed' ? tr('Report submitted') : item.kind === 'worker_unavailable' ? tr('Worker unavailable') : item.kind === 'invite_declined' ? tr('Invite declined') : tr('Notification');
+    const body = `<article class="card"><p class="tiny">${esc(when)}</p><h2>${esc(title)}</h2><p>${esc(item.note || '')}</p></article>`;
+    return item.jobId ? `<a href="#jobs/${esc(item.jobId)}">${body}</a>` : body;
+  }).join('');
+  const empty = `<section class="card center" data-empty="inbox"><h2>${esc(tr('No notifications yet'))}</h2><p class="lead">${esc(tr('Job reports and worker updates show up here.'))}</p></section>`;
+  const out = inboxView.workersOut ? `<p class="tiny">${esc(tr('Workers out'))}: ${esc(inboxView.workersOut)}</p>` : '';
+  return frame({screen:'inbox', title:'Inbox', back:'#today', active:'today', body:`${out}<div class="stack">${items.length ? cards : empty}</div>`});
 }
 function viewInviteOpen(token) {
   const entry = looked['invite:' + token];
@@ -486,6 +532,7 @@ function render() {
   else if (head === 'team' && second === 'person') html = viewPerson();
   else if (head === 'team') html = viewTeam();
   else if (head === 'reports') html = viewReports();
+  else if (head === 'inbox') html = viewInbox();
   else if (head === 'trial') html = viewTrial();
   else if (head === 'connect') html = viewConnectMock();
   else if (head === 'settings' && second === 'billing') html = viewBilling(parts[2] === 'plan' ? 'plan' : parts[2] === 'change' ? 'change' : 'payments');
@@ -504,6 +551,7 @@ function render() {
   }
   if (head === 'today' && model && !todayBoard) refreshToday();
   if (head === 'jobs' && second && jobView?.id !== second) loadJob(second);
+  if (head === 'inbox' && model && !inboxView) loadInbox();
 }
 function allowed(parts) {
   const head = parts[0] || '';
@@ -511,7 +559,7 @@ function allowed(parts) {
   if (!model) return ['login', 'check-email', 'expired', 'plans', 'link', 'invite'].includes(head);
   if (model.access.mode === 'onboarding') return ['onboarding', 'login', 'expired', 'link'].includes(head);
   if (model.access.mode === 'readonly') {
-    if (['trial', 'reports', 'login', 'expired', 'help'].includes(head)) return true;
+    if (['trial', 'reports', 'inbox', 'login', 'expired', 'help'].includes(head)) return true;
     if (head === 'settings' && (parts[1] === 'billing' || parts[1] === 'help')) return true;
     return false;
   }
@@ -530,13 +578,13 @@ const forms = {
   },
   async site(form) {
     apply(await api('api/partner/onboarding/site', {method:'POST', body:{name:form.name.value, slug:form.slug.value, person:form.person.value}}));
-    toast('Saved');
+    toast(tr('Saved'));
     location.hash = signedInHome();
   },
   async profile(form) {
     const field = name => form.elements[name].value;
     apply(await api('api/partner/company', {method:'PUT', body:{name:field('name'), country:field('country'), currency:field('currency'), areaUnit:field('areaUnit'), timeZone:field('timeZone'), days:field('days'), start:field('start'), end:field('end'), phone:field('phone'), email:field('email'), address:field('address')}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async area(form) {
@@ -544,38 +592,38 @@ const forms = {
     if (form.postcode.value.trim()) codes.push(form.postcode.value.trim());
     apply(await api('api/partner/area', {method:'PUT', body:{postcodes:codes}}));
     delete drafts.area;
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async prices(form) {
     const value = name => form.elements[name].value;
     apply(await api('api/partner/prices', {method:'PUT', body:{home:value('home'), office:value('office'), deep:value('deep'), minimum:value('minimum'), maxArea:value('maxArea'), speed:value('speed')}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async booking(form) {
     apply(await api('api/partner/booking-mode', {method:'PUT', body:{bookingMode:form.bookingMode.value}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async language(form) {
     apply(await api('api/partner/language', {method:'PUT', body:{language:form.language.value}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async notifications(form) {
     apply(await api('api/partner/notifications', {method:'PUT', body:{requests:form.requests.checked, schedule:form.schedule.checked, payments:form.payments.checked, trial:form.trial.checked}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async legal(form) {
     apply(await api('api/partner/legal', {method:'PUT', body:{note:form.note.value}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async help(form) {
     apply(await api('api/partner/help', {method:'POST', body:{message:form.message.value}}));
-    toast('Saved');
+    toast(tr('Saved'));
     render();
   },
   async invite(form) {
@@ -585,18 +633,41 @@ const forms = {
   },
 };
 
-async function download(filename, contents, type) {
-  const blob = new Blob([contents], {type});
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  toast('Saved');
-}
 function reportCsv() {
   const job = model.report;
-  return `address,area_m2,rate_eur_per_m2,quote_eur,payment,status\n"${job.address}",${job.areaM2},${job.ratePerM2},${job.quote},${job.payment},${job.status}\n`;
+  const currency = job.currency || model.company?.currency || 'EUR';
+  const cells = [job.address, job.areaM2, job.ratePerM2, job.quote, currency, job.payment, job.status].map(value => {
+    const text = String(value ?? '');
+    const guarded = /^[\t\r\n \uFEFF]*[=+\-@]/.test(text) ? `'${text}` : text;
+    return `"${guarded.replaceAll('"', '""')}"`;
+  });
+  return `address,area_m2,rate_per_m2,quote,currency,payment,status\n${cells.join(',')}\n`;
+}
+function clickAttachment(href, filename, contents) {
+  const link = document.createElement('a');
+  if (href) link.href = href;
+  else {
+    link.href = URL.createObjectURL(new Blob([contents], {type: 'application/octet-stream'}));
+    setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+  }
+  link.download = filename;
+  link.rel = 'noopener';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+function saveFile({filename, contents, type, href}) {
+  // iOS Safari ignores blob: URLs and the download attribute for text/csv and JSON,
+  // and revoking the URL immediately cancels the save. Share a File when the browser
+  // can open the system sheet; otherwise navigate to a same-origin attachment.
+  const file = new File([contents], filename, {type: type || 'application/octet-stream'});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    navigator.share({files: [file], title: filename}).catch(error => {
+      if (error?.name !== 'AbortError') clickAttachment(href, filename, contents);
+    });
+    return;
+  }
+  clickAttachment(href, filename, contents);
 }
 
 app.addEventListener('submit', async event => {
@@ -633,7 +704,7 @@ app.addEventListener('click', async event => {
       try {
         const data = await api(`api/partner/jobs/${node.dataset.job}/assign`, {method:'POST', body:{employeeId: node.dataset.worker, version: Number(node.dataset.version)}});
         jobView = data.job;
-        toast('Saved');
+        toast(tr('Saved'));
         render();
       } catch (error) {
         node.disabled = false;
@@ -642,7 +713,7 @@ app.addEventListener('click', async event => {
     } else if (action === 'reassign-worker') {
       if (jobView) jobView.reassign = true;
       render();
-    } else if (action === 'inbox') toast('Inbox opens with Partner Ops.');
+    } else if (action === 'inbox') location.hash = 'inbox';
     else if (action === 'logout') {
       await api('api/partner/auth/logout', {method:'POST', body:{}});
       model = null; csrf = ''; location.hash = 'login';
@@ -662,26 +733,38 @@ app.addEventListener('click', async event => {
       location.href = data.url;
     } else if (action === 'finish-connect') {
       apply(await api('api/partner/connect/finish', {method:'POST', body:{result:node.dataset.result}}));
-      toast('Saved');
+      toast(tr('Saved'));
       location.hash = 'settings/billing';
     } else if (action === 'manage-connect') location.hash = 'connect/mock?manage=1';
-    else if (action === 'ask-disconnect') openSheet({title:'Disconnect Stripe?', text:'Online card payments will pause. Cash on site keeps working.', confirm:'Disconnect', danger:true, onConfirm: async () => { apply(await api('api/partner/connect/disconnect', {method:'POST', body:{}})); toast('Saved'); render(); }});
+    else if (action === 'connect-calendar') {
+      const data = await api('api/partner/calendar/connect', {method:'POST', body:{}});
+      if (!data.url) throw new Error(tr('Google Calendar is not set up on this server.'));
+      location.assign(data.url);
+    } else if (action === 'sync-calendar') {
+      const data = await api('api/partner/calendar/sync', {method:'POST', body:{}});
+      toast(tr('Copied {n} jobs.', {n: data.copied ?? 0}));
+    } else if (action === 'disconnect-calendar') {
+      await api('api/partner/calendar/disconnect', {method:'POST', body:{}});
+      model.calendar = {connected:false, email:''};
+      toast(tr('Saved'));
+      render();
+    } else if (action === 'ask-disconnect') openSheet({title:'Disconnect Stripe?', text:'Online card payments will pause. Cash on site keeps working.', confirm:'Disconnect', danger:true, onConfirm: async () => { apply(await api('api/partner/connect/disconnect', {method:'POST', body:{}})); toast(tr('Saved')); render(); }});
     else if (action === 'manage-billing') openSheet({title:'Manage billing with Stripe', text:'Stripe Billing is not connected in this demo. Plan charges stay with the operator. Nothing is charged from this page.', confirm:'Close', cancel:'Back', onConfirm: async () => {}});
-    else if (action === 'ask-cancel') openSheet({title:'Cancel subscription?', text:'The workspace stays open until the end of this period. This demo does not call Stripe.', confirm:'Cancel subscription', danger:true, cancel:'Keep plan', onConfirm: async () => { apply(await api('api/partner/plan/cancel', {method:'POST', body:{}})); toast('Saved'); render(); }});
+    else if (action === 'ask-cancel') openSheet({title:'Cancel subscription?', text:'The workspace stays open until the end of this period. This demo does not call Stripe.', confirm:'Cancel subscription', danger:true, cancel:'Keep plan', onConfirm: async () => { apply(await api('api/partner/plan/cancel', {method:'POST', body:{}})); toast(tr('Saved')); render(); }});
     else if (action === 'choose-plan') {
       apply(await api('api/partner/plan', {method:'POST', body:{key:node.dataset.plan}}));
-      toast('Saved');
+      toast(tr('Saved'));
       location.hash = 'settings/billing/plan';
     } else if (action === 'preview-trial') {
       apply(await api('api/partner/plan/preview-trial', {method:'POST', body:{}}));
       location.hash = 'trial';
     } else if (action === 'restore-demo') {
       apply(await api('api/partner/plan/restore-demo', {method:'POST', body:{}}));
-      toast('Saved');
+      toast(tr('Saved'));
       location.hash = 'settings/billing/plan';
     } else if (action === 'demo-as') {
       apply(await api('api/partner/auth/demo-as', {method:'POST', body:{accountId:node.dataset.account}}));
-      toast('Saved');
+      toast(tr('Saved'));
       render();
     } else if (action === 'add-postcode') {
       const form = node.closest('form');
@@ -694,17 +777,17 @@ app.addEventListener('click', async event => {
       render();
     } else if (action === 'ask-deactivate') {
       const pending = node.dataset.pending === '1';
-      openSheet({title: pending ? 'Cancel invite?' : `Deactivate ${node.dataset.name}?`, text: pending ? 'The seat is freed. The link stops working.' : 'They lose access. Their seat is freed. Existing jobs are not deleted.', confirm: pending ? 'Cancel invite' : 'Deactivate', danger:true, onConfirm: async () => { apply(await api('api/partner/team/deactivate', {method:'POST', body:{id:node.dataset.id}})); toast('Saved'); location.hash = 'team'; }});
+      openSheet({title: pending ? 'Cancel invite?' : tr('Deactivate {name}?', {name: node.dataset.name}), text: pending ? 'The seat is freed. The link stops working.' : 'They lose access. Their seat is freed. Existing jobs are not deleted.', confirm: pending ? 'Cancel invite' : 'Deactivate', danger:true, onConfirm: async () => { apply(await api('api/partner/team/deactivate', {method:'POST', body:{id:node.dataset.id}})); toast(tr('Saved')); location.hash = 'team'; }});
     } else if (action === 'export-open') {
-      openSheet({title:'Export report', text:'Download the demo month as CSV or JSON. This is not an invoice.', confirm:'Download CSV', cancel:'Download JSON', onConfirm: async () => download('klarraum-report.csv', reportCsv(), 'text/csv')});
-      sheet.querySelector('[data-sheet="cancel"]').onclick = () => { download('klarraum-report.json', JSON.stringify(model.report, null, 2), 'application/json'); sheet.close(); };
+      openSheet({title:'Export report', text:'Download the demo month as CSV or JSON. This is not an invoice.', confirm:'Download CSV', cancel:'Download JSON', onConfirm: async () => saveFile({filename:'klarraum-report.csv', contents: reportCsv(), type:'text/csv', href:'api/partner/export?format=csv'})});
+      sheet.querySelector('[data-sheet="cancel"]').onclick = () => { saveFile({filename:'klarraum-report.json', contents: JSON.stringify(model.report, null, 2), type:'application/json', href:'api/partner/export?format=json'}); sheet.close(); };
     } else if (action === 'download-invoice') {
       const invoice = model.invoices.find(item => item.id === node.dataset.id);
-      if (invoice) await download(`${invoice.id}.txt`, `KlarraumApp\n${invoice.label}\n${model.plan.name}\n${money(invoice.cents / 100)}\n${invoice.status}\nDemo invoice. Nothing was charged from this file.\n`, 'text/plain');
+      if (invoice) saveFile({filename:`${invoice.id}.txt`, contents:`KlarraumApp\n${invoice.label}\n${model.plan.name}\n${money(invoice.cents / 100)}\n${invoice.status}\nDemo invoice. Nothing was charged from this file.\n`, type:'text/plain', href:`api/partner/export?format=invoice&id=${encodeURIComponent(invoice.id)}`});
     } else if (action === 'accept-invite') {
       const data = await api('api/partner/invites/accept', {method:'POST', body:{token:node.dataset.token}});
       if (data.workspace) { apply(data); location.hash = signedInHome(); }
-      else { toast('Saved'); app.innerHTML = frame({plain:true, screen:'invite-open', title:'Invite', body:`<section class="card center"><h1>Seat reserved</h1><p class="lead">${esc(data.note || 'The worker signs in from the worker app.')}</p></section>`}); }
+      else { toast(tr('Saved')); app.innerHTML = frame({plain:true, screen:'invite-open', title:'Invite', body:`<section class="card center"><h1>${esc(tr('Seat reserved'))}</h1><p class="lead">${esc(tr(data.note || 'The worker signs in from the worker app.'))}</p></section>`}); }
     } else if (action === 'decline-invite') {
       await api('api/partner/invites/decline', {method:'POST', body:{token:node.dataset.token}});
       app.innerHTML = frame({plain:true, screen:'invite-open', title:'Invite', body:'<section class="card center"><h1>Invite declined</h1><p class="lead">The seat is free. The company sees this in Team.</p></section>'});
@@ -721,6 +804,15 @@ async function refreshToday() {
   } catch (error) { handleError(error); }
   finally { refreshToday.running = false; }
 }
+async function loadInbox() {
+  if (inboxLoading) return;
+  inboxLoading = true;
+  try {
+    inboxView = await api('api/partner/inbox');
+    if ((partsOf()[0] || '') === 'inbox') render();
+  } catch (error) { handleError(error); }
+  finally { inboxLoading = false; }
+}
 async function loadJob(id) {
   try {
     const data = await api(`api/partner/jobs/${id}`);
@@ -732,7 +824,18 @@ async function loadJob(id) {
 }
 matchMedia('(min-width:960px)').addEventListener('change', render);
 window.addEventListener('hashchange', () => {
-  if ((partsOf()[0] || '') === 'today') todayBoard = null;
+  const head = partsOf()[0] || '';
+  if (head === 'today') todayBoard = null;
+  if (head === 'inbox') inboxView = null;
   render();
 });
-api('api/partner/session', {quiet:true}).then(data => { model = data; csrf = data.csrf; render(); }).catch(() => { model = null; render(); });
+api('api/partner/session', {quiet:true}).then(data => {
+  model = data;
+  csrf = data.csrf;
+  const google = new URLSearchParams(location.search).get('google');
+  if (google) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    toast(google === 'connected' ? tr('Google Calendar connected.') : tr('Google Calendar was not connected.'));
+  }
+  render();
+}).catch(() => { model = null; render(); });

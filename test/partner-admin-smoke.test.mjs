@@ -402,5 +402,48 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
     assert.match(partnerScript, /Send sign-in link/);
     assert.equal(partnerScript.includes('/admin.html'), false);
     assert.equal(partnerScript.includes('Owner password'), false);
+    assert.equal(partnerScript.includes('Inbox opens with Partner Ops.'), false);
+  });
+
+  test('10. Bell, avatar, export and language are live controls', async () => {
+    const isolated = await boot();
+    try {
+      await page.goto(isolated.origin + '/partner.html', {waitUntil: 'networkidle'});
+      await page.getByRole('button', {name: 'Continue with Google'}).click();
+      await page.waitForSelector('[data-screen="today"]');
+      await page.getByRole('link', {name: 'Inbox'}).click();
+      await page.waitForSelector('[data-screen="inbox"]');
+      const inbox = await page.locator('[data-screen="inbox"]').innerText();
+      assert.match(inbox, /No notifications yet/);
+      assert.equal(await page.locator('#toast').isHidden(), true);
+      await page.getByRole('link', {name: 'Your plan'}).click();
+      await page.waitForSelector('[data-screen="billing-plan"]');
+      assert.match(await page.locator('[data-screen="billing-plan"]').innerText(), /Pro/);
+      await page.goto(isolated.origin + '/partner.html#reports', {waitUntil: 'networkidle'});
+      await page.getByRole('button', {name: 'Export'}).click();
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByRole('button', {name: 'Download CSV'}).click();
+      const download = await downloadPromise;
+      assert.match(download.suggestedFilename(), /klarraum-report\.csv/);
+      await page.goto(isolated.origin + '/partner.html#settings/language', {waitUntil: 'networkidle'});
+      await page.locator('input[name="language"][value="de"]').check();
+      await page.getByRole('button', {name: 'Save'}).click();
+      await page.waitForFunction(() => /Sprache/.test(document.body.innerText) && /Speichern/.test(document.body.innerText));
+      await page.goto(isolated.origin + '/partner.html#today', {waitUntil: 'networkidle'});
+      const today = await page.locator('[data-screen="today"]').innerText();
+      assert.match(today, /Heute/);
+      assert.match(today, /Neue Anfragen/);
+      assert.match(today, /Bestätigen/);
+      await page.locator('input[name="language"], a[href="#settings/language"]').first();
+      await page.goto(isolated.origin + '/partner.html#settings/language', {waitUntil: 'networkidle'});
+      await page.locator('input[name="language"][value="ru"]').check();
+      await page.getByRole('button', {name: 'Speichern'}).click();
+      await page.waitForFunction(() => /Язык/.test(document.body.innerText));
+      await page.goto(isolated.origin + '/partner.html#today', {waitUntil: 'networkidle'});
+      assert.match(await page.locator('[data-screen="today"]').innerText(), /Сегодня/);
+      assert.match(await page.locator('[data-screen="today"]').innerText(), /Подтвердить/);
+    } finally {
+      await isolated.close();
+    }
   });
 });

@@ -8,6 +8,8 @@ import {loadConfig} from '../lib/config.mjs';
 import {hashPassword} from '../lib/security.mjs';
 import {stripeCheckout, connectOnboardingStub} from '../lib/integrations.mjs';
 import {classifyRefund, quoteEuros, jobDurationMinutes, seatsUsed, DEMO_JOB, PLANS, TRIAL_MS, MAGIC_MS, INVITE_MS} from '../lib/partner-admin.mjs';
+import {translate} from '../public/partner-i18n.js';
+import {DatabaseSync} from 'node:sqlite';
 
 const passwordHash = await hashPassword('test-only-partner-admin-password');
 
@@ -42,7 +44,7 @@ async function fixture(t) {
     else if (data?.csrf) jar.csrf = data.csrf;
     return {status: response.status, data};
   }
-  return {request, jar, origin: config.origin, advance(ms) { clock += ms; }};
+  return {request, jar, origin: config.origin, dir, advance(ms) { clock += ms; }};
 }
 
 test('quote, duration, seats and refunds follow the locked rules', () => {
@@ -221,4 +223,51 @@ test('partner Confirm accepts the request and Assign stores the worker', async t
   const replaced = await f.request(`/api/partner/jobs/${job.id}/assign`, {method:'POST', body:{employeeId: job.workers[1].id, version: assigned.data.job.version}});
   assert.equal(replaced.status, 200);
   assert.equal(replaced.data.job.worker.name, 'Mike Chen');
+});
+
+test('export, inbox and language are real partner actions', async t => {
+  assert.equal(translate('de', 'Today'), 'Heute');
+  assert.equal(translate('ru', 'Today'), 'Сегодня');
+  assert.equal(translate('de', 'Confirm'), 'Bestätigen');
+  assert.equal(translate('ru', 'Settings'), 'Настройки');
+  assert.equal(translate('de', 'Save'), 'Speichern');
+  assert.equal(translate('ru', 'Inbox'), 'Входящие');
+  const source = await readFile(new URL('../public/partner.js', import.meta.url), 'utf8');
+  assert.equal(source.includes('Inbox opens with Partner Ops.'), false);
+  assert.match(source, /#settings\/billing\/plan/);
+  assert.match(source, /api\/partner\/export\?format=/);
+  assert.match(source, /api\/partner\/inbox/);
+  assert.match(source, /navigator\.share/);
+  assert.equal(source.includes('/admin.html'), false);
+  assert.match(source, /api\/partner\/jobs\/confirm/);
+  const f = await fixture(t);
+  assert.equal((await f.request('/api/partner/export?format=csv', {auth:false})).status, 401);
+  assert.equal((await f.request('/api/partner/inbox', {auth:false})).status, 401);
+  assert.equal((await f.request('/api/partner/auth/google', {method:'POST', body:{}})).status, 200);
+  const headers = {Cookie: f.jar.cookie, Origin: f.origin};
+  const csv = await fetch(f.origin + '/api/partner/export?format=csv', {headers});
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get('content-disposition') || '', /attachment;\s*filename="klarraum-report\.csv"/);
+  assert.equal(csv.headers.get('content-type'), 'application/octet-stream');
+  const csvText = await csv.text();
+  assert.match(csvText, /12 Linden St, 10115 Berlin/);
+  assert.match(csvText, /"154"/);
+  const jsonFile = await fetch(f.origin + '/api/partner/export?format=json', {headers});
+  assert.match(jsonFile.headers.get('content-disposition') || '', /klarraum-report\.json/);
+  const report = JSON.parse(await jsonFile.text());
+  assert.equal(report.status, 'Accepted');
+  assert.equal(report.quote, 154);
+  assert.equal((await f.request('/api/partner/inbox')).status, 200);
+  const db = new DatabaseSync(join(f.dir, 'klarraum.sqlite'));
+  db.prepare('INSERT INTO partner_inbox(id,kind,job_id,employee_id,note,created_at) VALUES(?,?,?,?,?,?)').run('note-1', 'job_completed', null, null, '12 Linden St · report submitted', 1);
+  db.close();
+  const inbox = await f.request('/api/partner/inbox');
+  assert.equal(inbox.data.items[0].kind, 'job_completed');
+  assert.match(inbox.data.items[0].note, /report submitted/);
+  assert.equal(typeof inbox.data.workersOut, 'number');
+  const invoice = await fetch(f.origin + '/api/partner/export?format=invoice&id=inv-2026-10', {headers});
+  assert.equal(invoice.status, 200);
+  assert.match(invoice.headers.get('content-disposition') || '', /inv-2026-10\.txt/);
+  assert.match(await invoice.text(), /KlarraumApp/);
+  assert.equal((await f.request('/api/partner/calendar/connect', {method:'POST', body:{}})).status, 404);
 });

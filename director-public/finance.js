@@ -17,8 +17,9 @@ export function createFinance({api,busy,el,label}){
  $('#finance-entry').oninput=()=>{entryKey=crypto.randomUUID();};
  $('#finance-snapshot').onclick=e=>busy(e.target,async()=>{openSnapshot(await api('finance/snapshots',{method:'POST',body:{month:$('#finance-month').value}}));await refresh();});
  $('#finance-print-button').onclick=()=>{if(currentSnapshot)window.print();};
- function download(value,name,type){const url=URL.createObjectURL(new Blob([value],{type})),link=el('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ function download(value,name,type){const file=new File([value],name,{type:type||'application/octet-stream'});if(navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:name}).catch(error=>{if(error?.name!=='AbortError')saveBlob(value,name);});return;}saveBlob(value,name);}
+ function saveBlob(value,name){const url=URL.createObjectURL(new Blob([value],{type:'application/octet-stream'})),link=el('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
  $('#finance-json').onclick=()=>{if(currentSnapshot)download(JSON.stringify(currentSnapshot,null,2),'platform-'+currentSnapshot.month+'.json','application/json');};
- $('#finance-csv').onclick=e=>busy(e.target,async()=>{if(!currentSnapshot)return;const response=await fetch('/api/director/finance/snapshots/'+currentSnapshot.id+'?format=csv');if(!response.ok)throw new Error(t('failed'));download(await response.text(),'platform-'+currentSnapshot.month+'.csv','text/csv;charset=utf-8');});
+ $('#finance-csv').onclick=()=>{if(!currentSnapshot)return;const link=el('a');link.href='/api/director/finance/snapshots/'+currentSnapshot.id+'?format=csv';link.download='platform-'+currentSnapshot.month+'.csv';document.body.append(link);link.click();link.remove();};
  return {refresh,companyOptions};
 }

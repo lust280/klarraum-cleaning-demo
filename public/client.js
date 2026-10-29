@@ -256,10 +256,23 @@ function downloadCalendar(data) {
   if (!data?.date || !data?.time) return;
   const stamp = value => `${data.date.replaceAll('-','')}T${value.replace(':','')}00`;
   const body = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nDTSTART;TZID=Europe/Berlin:${stamp(data.time)}\r\nDTEND;TZID=Europe/Berlin:${stamp(data.endTime || data.time)}\r\nSUMMARY:${data.serviceTitle || 'Cleaning'}\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+  const filename = `${data.reference || 'cleaning'}.ics`;
+  const file = new File([body], filename, {type:'text/calendar'});
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    navigator.share({files:[file], title:filename}).catch(error => { if (error?.name !== 'AbortError') saveCalendarFile(body, filename); });
+    return;
+  }
+  saveCalendarFile(body, filename);
+}
+function saveCalendarFile(body, filename) {
+  const url = URL.createObjectURL(new Blob([body], {type:'application/octet-stream'}));
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([body], {type:'text/calendar'}));
-  link.download = `${data.reference || 'cleaning'}.ics`;
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
   link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 async function onQuoteContinue() {
   showError('#quote-error', null);

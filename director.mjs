@@ -404,7 +404,7 @@ export function createDirector(config) {
         const snapshotMatch=/^finance\/snapshots\/([a-f0-9-]{36})$/.exec(financePath);
         if(snapshotMatch&&method==='GET'){
           const report=finance.getSnapshot(snapshotMatch[1]);
-          if(route.searchParams.get('format')==='csv'){res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="platform-'+report.month+'.csv"'});return res.end(financeCsv(report));}
+          if(route.searchParams.get('format')==='csv'){res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':'attachment; filename="platform-'+report.month+'.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(financeCsv(report));}
           return json(res,200,report);
         }
         if(route.pathname==='/api/director/session'&&method==='GET')return json(res,200,{csrf:auth.csrf});
