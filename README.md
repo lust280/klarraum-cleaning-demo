@@ -76,7 +76,7 @@ Before customer handover, use the [Russian company checklist](docs/CLIENT-CHECKL
 
 ## Team and field jobs
 
-Owner portal: `/operations.html`, linked from the admin dashboard. Employee portal: `/employee.html`. Supports account invitations/disablement, regional search, paginated employees/jobs, assignment and pre-start plan changes, server-timed work/breaks, checklists, reports, up to six private proof photos, owner review and reasoned time corrections. Sessions and access scope are separate from the owner. No hardcoded small employee-count cap; infrastructure remains finite and untested for country-wide scale.
+Owner jobs: `/ops.html`. Owner team: `/partner.html#team`. Employee portal: `/employee.html`. Old `/operations.html` redirects to Team. Supports account invitations/disablement, regional search, paginated employees/jobs, assignment and pre-start plan changes, server-timed work/breaks, checklists, reports, up to six private proof photos, owner review and reasoned time corrections. Sessions and access scope are separate from the owner. No hardcoded small employee-count cap; infrastructure remains finite and untested for country-wide scale.
 
 See [team workflow and limitations](docs/TEAM-RU.md). GPS, customer signatures, payroll, automatic invitation email and regional-manager roles are not included. Job timing is not complete statutory working-time recording. Work records and staff data need a separate retention/deletion policy before live operation; the inquiry-retention timer does not purge them.
 
@@ -84,7 +84,7 @@ Private proof photos are in `DATA_DIR/job-photos`, authenticated at `/private/jo
 
 ## Monthly work and payment reports
 
-Owner-only `/reports.html` provides Berlin-calendar monthly work summaries, date-assigned time corrections and explicit manual payment/refund entries. Job closure and quoted prices never count as collected money automatically. Payment mistakes are voided with a reason; original values are retained. Monthly archive revisions preserve JSON snapshots; later changes require a new revision.
+Partner reports live at `/partner.html#reports` (old `/reports.html` redirects there). The reporting store still keeps Berlin-calendar monthly work summaries, date-assigned time corrections and explicit manual payment/refund entries. Job closure and quoted prices never count as collected money automatically. Payment mistakes are voided with a reason; original values are retained. Monthly archive revisions preserve JSON snapshots; later changes require a new revision.
 
 Export CSV or JSON, or use **Drucken / Als PDF speichern** to generate a PDF through the browser print dialog. This is an internal management report, not an invoice, certified fiscal archive, tax calculation, cash book or complete payroll/timesheet solution. See [monthly reporting](docs/MONTHLY-REPORTS-RU.md) for period rules, export fields and storage limits. Downloaded reports and full database/image backups serve different purposes.
 
@@ -93,10 +93,10 @@ Export CSV or JSON, or use **Drucken / Als PDF speichern** to generate a PDF thr
 See [German installation and buyer guide](docs/INSTALL-DE.md), [English installation and buyer guide](docs/INSTALL-EN.md), [release scope](docs/RELEASE-PLAN-RU.md), and [marketplace prerequisites](docs/MARKETPLACE-READINESS-RU.md).
 
 - `npm run setup` creates a new private `.env.local` without overwriting existing credentials. `npm run start:local` loads that file. For Docker, after setup use `docker compose up -d --build`; the named data volume persists independently of the container. Configure HTTPS in the reverse proxy. Never run `docker compose down -v` unless deliberately destroying that installation's data.
-- `npm run doctor` checks an existing configured database without creating one or showing secrets. The owner-only `/system.html` shows configuration/backup indicators and operator guidance, not an independent certification of storage or delivery.
+- `npm run doctor` checks an existing configured database without creating one or showing secrets. Old `/system.html` redirects to Partner Help. Neither is an independent certification of storage or delivery.
 - `npm run release` creates an allowlisted source `.tar.gz` and SHA-256 in ignored `dist/`. No databases, `.env.local`, node_modules, Git history or user photos are included. `npm run licenses` lists installed dependency license identifiers; retain native-library notices when distributing binaries.
 - `npm run restore -- --source /protected/name.sqlite --target /new/empty/data` validates and restores a complete database/photo set to a separate directory. It refuses existing data.
-- `/planning.html` provides owner-only customer/property records and history, paginated search, weekly/monthly calendar, finite recurring series and future cancellation. Editing records does not rewrite historical job details. A series is materialized once through an explicit end date, up to one year/120 visits; no infinite background recurrence engine is promised.
+- Customer and property records, paginated search, the weekly/monthly calendar API, finite recurring series and future cancellation remain on the server. Old `/planning.html` redirects to `/ops.html`. Editing records does not rewrite historical job details. A series is materialized once through an explicit end date, up to one year/120 visits; no infinite background recurrence engine is promised.
 - A job can link a property, whose data is copied as a historical snapshot. Calendar uses Europe/Berlin and rejects DST gaps/ambiguous wall times for new schedules. Overlaps are warnings, not a guarantee of employee availability or travel feasibility.
 - Employees have a private notification inbox. Optional Resend operational email is off by default and blocked in the demo; it is queued, retried at most five times, and contains no customer address. It is checked approximately once per minute while the server runs. A successful provider response does not prove inbox delivery.
 

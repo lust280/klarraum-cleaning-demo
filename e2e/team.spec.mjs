@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// The German Team & Einsätze screen was removed. /operations.html now redirects to Partner Team.
+test.beforeEach(()=>{test.skip(true,'Retired with public/operations.html. Team bookmarks redirect to /partner.html#team. The worker app is covered by e2e/worker.spec.mjs.');});
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';

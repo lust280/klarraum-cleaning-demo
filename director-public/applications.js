@@ -1,4 +1,4 @@
-const text={applicationsEmpty:'There are no company applications yet.',applicant:'Applicant',workers:'Workers',applicationStatus:'Application status',new:'New',reviewing:'Reviewing',rejected:'Rejected',approved:'Approved',approveTrial:'Approve and start 15-day trial',foundingGranted:'Founding-company offer assigned.',foundingNotGranted:'Standard trial; founding offer limit is already used.',save:'Save',name:'Name'};
+const text={applicationsEmpty:'There are no company applications yet.',applicant:'Applicant',workers:'Workers',applicationStatus:'Application status',new:'New',reviewing:'Reviewing',rejected:'Rejected',approved:'Approved',approveTrial:'Approve and start 5-day trial',foundingGranted:'Founding-company offer assigned.',foundingNotGranted:'Standard trial; founding offer limit is already used.',save:'Save',name:'Name'};
 const t=key=>text[key]||key;
 
 export function createApplications({api,busy,el,label,invite,onApproved}) {

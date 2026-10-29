@@ -16,7 +16,7 @@ One installation serves one company. This is a Node.js application, not a WordPr
 3. Run `npm run setup`. Enter the public HTTPS origin without a trailing slash, then choose and repeat your own owner password (14–256 characters). Password entry is hidden; a distinct application secret and password hash are saved to `.env.local` with restrictive permissions. An existing file is never overwritten.
 4. Choose fictional demo mode for evaluation. Choose private mode only after arranging storage, access, business information and data-handling policies. Public inquiries remain disabled in both cases until configured.
 5. Run `npm run start:local`. Despite the command name, it simply loads `.env.local`; for public use configure a reverse proxy, HTTPS and a supervised service. Node listens on `PORT` (default 3000). Do not expose an unprotected raw port as a substitute for HTTPS.
-6. Open `/admin.html` and log in using the password you chose. Check `/system.html`, then test a complete fictional workflow before accepting real records.
+6. Open `/admin.html` and log in using the password you chose. Jobs are at `/ops.html`, team and help at `/partner.html`. Test a complete fictional workflow before accepting real records.
 
 Local evaluation may use `http://localhost:3000`. Do not use HTTP origins for a public site. Startup configuration is intentionally not managed by an unauthenticated setup web page.
 

@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+// The German Planung screen was removed. /planning.html now redirects to Ops jobs.
+test.beforeEach(()=>{test.skip(true,'Retired with public/planning.html. Calendar bookmarks redirect to /ops.html. Customer and property APIs remain; this browser flow is not part of the wave UI.');});
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';

@@ -19,6 +19,13 @@ export function createServerApp(config = loadConfig(), options = {}) {
   const app = createApplication(config, {...options,isMaintenance:()=>Boolean(director?.maintenance)});
   async function quiesce(exclude){const until=Date.now()+15000;while([...activeRequests].some(item=>item!==exclude)){if(Date.now()>until)throw new Error('Active requests did not finish.');await new Promise(r=>setTimeout(r,25));}await app.drain();}
   const directorPaths=new Set(['/director.html','/director.js','/director.css','/director-console.mjs','/director-ai.html','/director-ai.js','/director-ai.css','/director-applications.js','/director-finance.js','/director-i18n.js','/director-backup.js','/for-companies.html','/pricing.html','/platform-privacy.html','/platform-terms.html','/cookies.html','/platform-impressum.html','/trial-activate.html','/platform.css','/sales.css','/platform.js','/showcase.js','/plans.mjs','/trial-activate.js','/api/google/calendar/callback','/api/google/signup/status','/api/google/signup/start','/api/google/signup/callback']);
+  // German pilot screens. Bookmarks land on the wave cabinets instead.
+  const legacyRedirects={
+    '/planning.html':'/ops.html',
+    '/operations.html':'/partner.html#team',
+    '/reports.html':'/partner.html#reports',
+    '/system.html':'/partner.html#settings/help',
+  };
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
   const server = createServer(async (req, res) => {
@@ -40,6 +47,10 @@ export function createServerApp(config = loadConfig(), options = {}) {
       // but never use it as the public landing page or search result.
       if(config.demoMode&&!config.basePath&&url.origin==='https://klarraumapp.com'&&url.pathname==='/'&&['GET','HEAD'].includes(req.method)){
         res.writeHead(308,{Location:'/for-companies.html','Cache-Control':'no-store'});return res.end();
+      }
+      const legacyTarget=legacyRedirects[url.pathname];
+      if(legacyTarget&&['GET','HEAD'].includes(req.method)){
+        res.writeHead(301,{Location:(config.basePath||'')+legacyTarget,'Cache-Control':'no-store'});return res.end();
       }
       if(config.demoMode&&!config.directorDisabled&&!config.basePath&&config.passwordHash&&(directorPaths.has(url.pathname)||url.pathname.startsWith('/api/director/')||url.pathname.startsWith('/api/platform/')||url.pathname.startsWith('/companies/'))){
         director ||= createDirector({origin:config.origin,domain:'companies.localhost',passwordHash:config.passwordHash,dataDir:config.directorDataDir||resolve(config.dbPath,'..','director'),maxRunning:5,mountedDemo:true,quiesce,legacyDataDir:resolve(config.dbPath,'..'),legacyRuntime:{...config,dbPath:undefined,directorDataDir:undefined}});

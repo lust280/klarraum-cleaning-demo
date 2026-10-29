@@ -3,7 +3,6 @@ import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { chromium } from '@playwright/test';
@@ -14,8 +13,6 @@ import { quoteEuros, jobDurationMinutes, DEMO_JOB, TRIAL_MS, MAGIC_MS, INVITE_MS
 
 const passwordHash = await hashPassword('test-only-partner-admin-password');
 const HUB = ['Company profile', 'Service area', 'Service prices', 'Booking site', 'Booking mode', 'Billing / Connect', 'Language', 'Legal', 'Notifications', 'Google Calendar', 'Help'];
-const OPS = ['public/admin.html', 'public/admin.js', 'public/operations.html', 'public/operations.js', 'public/planning.html', 'public/planning.js', 'public/i18n.js'];
-
 function chromePath() {
   if (process.env.CHROMIUM_PATH && existsSync(process.env.CHROMIUM_PATH)) return process.env.CHROMIUM_PATH;
   for (const path of ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']) {
@@ -355,19 +352,27 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
     await page.waitForFunction(() => document.querySelector('#toast')?.textContent === 'Copied');
   });
 
-  test('9. Jobs, Today, and Assign pages are unchanged', async () => {
-    const diff = execFileSync('git', ['diff', '--name-only', 'main', '--', ...OPS], {encoding: 'utf8'}).trim();
-    assert.equal(diff, '', diff);
-    const operations = await fetch(origin + '/operations.html').then(response => response.text());
-    const operationsJs = await fetch(origin + '/operations.js').then(response => response.text());
+  test('9. Retired pilot screens redirect and Today no longer links to them', async () => {
+    const redirects = {
+      '/operations.html':'/partner.html#team',
+      '/planning.html':'/ops.html',
+      '/reports.html':'/partner.html#reports',
+      '/system.html':'/partner.html#settings/help',
+    };
+    for (const [path, location] of Object.entries(redirects)) {
+      const response = await fetch(origin + path, {redirect:'manual'});
+      assert.equal(response.status, 301, path);
+      assert.equal(response.headers.get('location'), location);
+      const body = await response.text();
+      assert.equal(body.includes('Planung'), false);
+      assert.equal(body.includes('Monatsberichte'), false);
+    }
     const admin = await fetch(origin + '/admin.html').then(response => response.text());
-    const planning = await fetch(origin + '/planning.html').then(response => response.text());
-    assert.match(operations, /Einsätze/);
-    assert.match(operations, /Mitarbeiter &amp; Einsätze/);
-    assert.match(operationsJs, /Auftrag zuweisen/);
     assert.match(admin, /Heute/);
-    assert.match(planning, /Kalender|planning/i);
-    assert.equal(operations.includes('booking-mode'), false);
+    assert.equal(admin.includes('planning.html'), false);
+    assert.equal(admin.includes('operations.html'), false);
+    assert.equal(admin.includes('reports.html'), false);
+    assert.equal(admin.includes('system.html'), false);
     assert.equal(admin.includes('Connect Stripe'), false);
   });
 });

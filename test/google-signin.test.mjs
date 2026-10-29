@@ -113,9 +113,9 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  const login=await director.store.list();
  assert.equal(login.length,1);
  assert.equal(login[0].plan_key,'plus');
- assert.equal(login[0].base_cents,25900);
- assert.equal(login[0].included,25);
- assert.equal(login[0].seat_cents,800);
+ assert.equal(login[0].base_cents,14900);
+ assert.equal(login[0].included,10);
+ assert.equal(login[0].seat_cents,0);
  assert.equal(login[0].payment,'trial');
  assert.ok(login[0].password_hash);
  assert.equal(login[0].google_sub,'google-sub-plus');
@@ -126,7 +126,7 @@ test('choosing Plus and continuing with Google opens the owner cabinet',async t=
  assert.equal(session.status,200);
  assert.match(session.cookie,/klarraum_session=/);
  assert.ok(session.data.csrf);
- const again=await request('/api/google/signup/start?plan=solo');
+ const again=await request('/api/google/signup/start?plan=starter');
  const againState=new URL(again.location).searchParams.get('state');
  const returning=await request('/api/google/signup/callback?code=auth-code&state='+encodeURIComponent(againState));
  assert.equal(returning.status,302);
