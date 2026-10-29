@@ -37,16 +37,17 @@ Demo company on this branch: Linden Cleaning, Pro, Europe/Berlin, EUR, m².
 
 Partner customer-payment screens are stubs. Nothing calls Stripe. Money for customer card payments is a future direct charge on the company’s own Express account, not a charge through the operator.
 
-Partner Connect states in the partner app:
+Labels Director should show (Admin side is still stubs; nothing calls Stripe):
 
-| Partner state | Label Director should show |
+| Label | Meaning |
 |---|---|
-| `disconnected` | **Not connected** |
-| `connected` | **Connected** |
-| `incomplete` (setup unfinished / error) | **Error** |
-| Disconnect confirm | Confirmation only. Not a stored status. Cancelling it leaves the account connected. |
+| **Not connected** | Partner Connect state `disconnected`. |
+| **Connected** | Partner Connect state `connected`. |
+| **Error/unfinished** | Partner Connect state `incomplete` (setup stopped or failed). |
+| **Past due** | KlarraumApp SaaS subscription is past due. Not a partner Connect screen. Director companies list may show it. |
+| **Disconnect confirm** | Confirmation only. Cancelling it leaves the account Connected. |
 
-**Past due** is not a partner Connect screen. It is the label for the company’s KlarraumApp SaaS subscription when that subscription is past due. The Director companies list may show it. Expected company-list labels for payments are **Not connected**, **Error**, and **Past due**. Do not invent a fourth partner-facing Connect screen for Past due in Partner Admin.
+Customer card money is a future direct charge on the company’s own Express account, not a charge through the operator.
 
 ### Public APIs already on this branch
 
@@ -89,7 +90,7 @@ Read from the partner APIs and this contract. Do not hardcode a conflicting tari
 - Plan name, monthly EUR price, and included seats.
 - Trial length: 5 days on Pro, no card at the start.
 - Seat usage excluding Admins.
-- Connect / subscription labels: Not connected, Connected, Error, and Past due for the SaaS list.
+- Connect / subscription labels: Not connected, Connected, Error/unfinished, Past due, Disconnect confirm.
 - `bookingMode` / `storedBookingMode` when a company detail screen shows how clients book.
 
 ## 3. Out of scope for Partner Admin
