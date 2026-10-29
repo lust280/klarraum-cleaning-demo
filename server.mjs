@@ -51,7 +51,8 @@ export function createServerApp(config = loadConfig(), options = {}) {
       if (url.pathname.startsWith('/private/jobs/')) return await app.serveJobPhoto(req,res,url);
       if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405, {Allow:'GET, HEAD'}); return res.end(); }
       const pathname = decodeURIComponent(url.pathname);
-      const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+      const clientPages = new Set(['/contacts','/pay','/sent','/confirmed','/paid','/pay-failed','/paused','/pay-blocked','/plans','/check-email','/cancel','/cancelled','/link-expired']);
+      const file = resolve(root, '.' + (pathname === '/' || clientPages.has(pathname) ? '/index.html' : pathname));
       if (!file.startsWith(root.endsWith(sep) ? root : root + sep) || !types[extname(file)]) {
         res.writeHead(404); return res.end('Not found');
       }

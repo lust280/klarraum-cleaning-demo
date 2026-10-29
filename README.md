@@ -42,6 +42,8 @@ CHROMIUM_PATH=/usr/bin/chromium npm run test:browser
 
 API/storage tests use temporary databases and a mock email provider. Browser tests exercise the actual local form-to-dashboard flow on desktop and mobile, XSS-safe rendering, price changes and deletion. These do not prove delivery through a real Resend account.
 
+The public client funnel (quote, contacts, pay-on-site, card stub, paused, cancel) is covered by `node --test test/client-booking.test.mjs` and `npx playwright test e2e/client-funnel.spec.mjs`. It reads booking mode from `GET /api/config` `partnerBooking` (or `GET /api/partner/booking-mode`). Until that Admin contract is merged, the funnel stays in request mode. Card payment is a stub: nothing calls Stripe. Customer magic-link sign-in is a hook for shared auth and does not create a session.
+
 ## Deployment and handover
 
 See [deployment](docs/DEPLOYMENT.md), [operations](docs/OPERATIONS.md), and the [proposed €660 package](docs/PRODUCT-RU.md).

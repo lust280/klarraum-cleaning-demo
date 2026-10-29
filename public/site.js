@@ -1,11 +1,11 @@
 export function defaultSite(business = {}) {
   return {
     company:{name:business.name || 'Klarraum',phone:business.phone || '',email:business.email || '',address:business.address || '',hours:'By appointment',area:'Your local service area',theme:'light'},
-    hero:{title:'Get a clean home in minutes',subtitle:'Booked in seconds.',description:'Choose a service and see the estimate update before you send a request.'},
+    hero:{title:'Get a clean home in minutes',subtitle:'Professional, reliable cleaning.',description:'Booked in seconds, done to perfection.'},
     services:{
-      home:{title:'Home cleaning',description:'Kitchens, bathrooms, floors and surfaces. Come home to a space that feels cared for.',enabled:true},
-      office:{title:'Office cleaning',description:'Fresh workspaces and welcoming shared areas, leaving more room for good work.',enabled:true},
-      deep:{title:'Deep cleaning',description:'When your space needs more attention: a fresh start for every room.',enabled:true},
+      home:{title:'Home',description:'House or apartment.',enabled:true},
+      office:{title:'Office',description:'Workplace care.',enabled:true},
+      deep:{title:'Deep clean',description:'Extra attention.',enabled:true},
     },
     windowsEnabled:true,tipEnabled:true,booking:{enabled:true,dateEnabled:true,timeEnabled:true},media:{logo:null,hero:null,gallery:[]},testimonials:[],
   };
