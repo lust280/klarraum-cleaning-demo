@@ -18,6 +18,7 @@ import {backupSchedule,runScheduledBackup} from './lib/backup-schedule.mjs';
 import {googleConfigured,googleRedirectUri,readGoogleState,exchangeGoogleCode,saveGoogleConnection} from './lib/google-calendar.mjs';
 import {signinRedirectUri,signSignupState,readSignupState,googleSigninUrl,exchangeSigninCode,googleProfile,signupPlans} from './lib/google-signin.mjs';
 import {companyInquiryEnv,companyInquiryReadiness,inquiryBlockers} from './lib/company-inquiry.mjs';
+import {DirectorAi,handleDirectorAi} from './lib/director-ai.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const fail=(status,message)=>{const error=new Error(message);error.status=status;throw error;};
@@ -184,6 +185,35 @@ export function createDirector(config) {
       child.once('exit',()=>{clearTimeout(timer);if(children.get(row.id)===item)children.delete(row.id);reject(new Error('Company stopped.'));});
     });child.send(companyConfig);return item.ready;
   }
+  async function deliverOperatorMail(message) {
+    if(config.operatorMailer)return config.operatorMailer(message);
+    const to=(process.env.DIRECTOR_OPERATOR_EMAIL||'').trim();
+    const key=config.trialMail?.key,from=config.trialMail?.from;
+    if(!to||!key||!from)return {sent:false,reason:'not_configured'};
+    try {
+      const response=await (config.fetcher||fetch)('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(10000),body:JSON.stringify({from,to:[to],subject:message.subject,text:message.text})});
+      return {sent:response.ok};
+    } catch {return {sent:false};}
+  }
+  const ai=new DirectorAi(store.db,{
+    clock:()=>config.clock?config.clock():Date.now(),
+    addAiReply:(companyId,text)=>store.addSupport(companyId,'director',text,'ai'),
+    markMessageRead:id=>store.db.prepare('UPDATE support_messages SET read_at=? WHERE id=? AND read_at IS NULL').run(Date.now(),id),
+    reopenMessage:id=>store.db.prepare('UPDATE support_messages SET read_at=NULL WHERE id=?').run(id),
+    company:id=>{const row=store.company(id);return row?{id:row.id,name:row.name,trialEndsAt:row.trial_ends_at||null}:null;},
+    mailer:deliverOperatorMail,
+    event:(id,action,details)=>store.event(id,action,details),
+    shellAlerts(){
+      const soon=Date.now()+7*86400000,trials=[],storage=[];
+      for(const row of store.list()){
+        const company=publicCompany(row);
+        if(company.payment==='trial'&&company.trialEndsAt&&company.trialEndsAt<=soon)trials.push({companyId:company.id,name:company.name,trialEndsAt:company.trialEndsAt});
+        const level=company.storageState?.level;
+        if(level==='warning'||level==='critical')storage.push({companyId:company.id,name:company.name,level});
+      }
+      return {trials,storage};
+    }
+  });
   const server=createServer(async(req,res)=>{
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Frame-Options','DENY');res.setHeader('Cross-Origin-Opener-Policy','same-origin');res.setHeader('Cross-Origin-Resource-Policy','same-origin');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
@@ -247,7 +277,7 @@ export function createDirector(config) {
         if(route.pathname==='/api/platform-support') {
           ownerSession(req,id,method!=='GET'&&method!=='HEAD');
           if(method==='GET'){const unread=store.supportUnread(id,'director');store.markSupportRead(id,'director');return json(res,200,{items:store.support(id),unread});}
-          if(method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');return json(res,201,{item:store.addSupport(id,'company',message)});}
+          if(method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');const item=store.addSupport(id,'company',message);const outcome=await ai.handleIncoming({companyId:id,messageId:item.id,body:message});return json(res,201,{item,ai:outcome});}
           fail(405,'Method not allowed.');
         }
         const port=await start(row);
@@ -327,6 +357,7 @@ export function createDirector(config) {
       }
       if(route.pathname.startsWith('/api/director/')) {
         const auth=session(req,!['GET','HEAD'].includes(method));
+        if(route.pathname.startsWith('/api/director/ai')){await handleDirectorAi(ai,{route,method,req,res,readJson:()=>body(req),json,fail,markRead:companyId=>store.markSupportRead(companyId,'company')});return;}
         if(route.pathname==='/api/director/backups/status'&&method==='GET'){
           const value=store.db.prepare("SELECT value FROM director_meta WHERE key='last_backup'").get();
           const schedule=backupSchedule(process.env);let lastScheduled=null;
@@ -402,19 +433,20 @@ export function createDirector(config) {
             const dir=companyDir(row.id),parent=resolve(config.dataDir,'companies'),target=resolve(dir);
             if(target!==resolve(parent,row.id)||!target.startsWith(parent+sep))fail(400,'Invalid company path.');
             store.removeCompany(row.id,row.name);
+            ai.forgetCompany(row.id);
             await rm(target,{recursive:true,force:true});
             return json(res,200,{deleted:row.id});
           }
           if(match[2]==='invite'&&method==='POST'){if(row.password_hash)fail(409,'Owner already activated. Password recovery requires the operator procedure.');const token=store.invite(row.id);return json(res,200,{inviteUrl:tenantOrigin(row.id)+'/owner-setup.html#token='+token});}
           if(match[2]==='events'&&method==='GET')return json(res,200,{items:store.db.prepare('SELECT action,details,created_at FROM director_events WHERE company_id=? ORDER BY id DESC LIMIT 100').all(row.id)});
           if(match[2]==='support'&&method==='GET'){store.markSupportRead(row.id,'company');return json(res,200,{items:store.support(row.id)});}
-          if(match[2]==='support'&&method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');return json(res,201,{item:store.addSupport(row.id,'director',message)});}
+          if(match[2]==='support'&&method==='POST'){const input=await body(req),message=typeof input?.message==='string'?input.message.trim():'';if(!message||message.length>4000)fail(400,'Support message must be 1–4000 characters.');const item=store.addSupport(row.id,'director',message,'manual');ai.resolveEscalations(row.id,item.created_at);return json(res,201,{item});}
         }
         fail(404,'Not found.');
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
-      const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/platform-impressum.html':['platform-impressum.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/showcase.js':['showcase.js','text/javascript; charset=utf-8'],'/sales.css':['sales.css','text/css; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director-console.mjs':['director-console.mjs','text/javascript; charset=utf-8','lib'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/platform-impressum.html':['platform-impressum.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/showcase.js':['showcase.js','text/javascript; charset=utf-8'],'/sales.css':['sales.css','text/css; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director-console.mjs':['director-console.mjs','text/javascript; charset=utf-8','lib'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-ai.html':['ai.html','text/html; charset=utf-8'],'/director-ai.js':['ai.js','text/javascript; charset=utf-8'],'/director-ai.css':['ai.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(route.pathname==='/plans.mjs')return staticFile('plans.mjs','text/javascript; charset=utf-8','lib');
       if(files[route.pathname])return staticFile(...files[route.pathname]);
       const customerPreviewFiles={'/customer-preview.html':['index.html','text/html; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/booking.css':['booking.css','text/css; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/pricing.js':['pricing.js','text/javascript; charset=utf-8'],'/site.js':['site.js','text/javascript; charset=utf-8'],'/i18n.js':['i18n.js','text/javascript; charset=utf-8'],'/favicon.svg':['favicon.svg','image/svg+xml'],'/impressum.html':['impressum.html','text/html; charset=utf-8'],'/datenschutz.html':['datenschutz.html','text/html; charset=utf-8'],'/customer-terms.html':['customer-terms.html','text/html; charset=utf-8'],'/customer-cookies.html':['customer-cookies.html','text/html; charset=utf-8']};

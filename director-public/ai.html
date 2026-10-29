@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Klarraum · AI</title>
+<link rel="stylesheet" href="/director-ai.css">
+</head>
+<body>
+<section id="login" class="login-wrap">
+  <form id="login-form" class="card login-card">
+    <p class="brand">Klarraum</p>
+    <h1>Director sign-in</h1>
+    <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+    <p id="login-error" class="alert" role="alert" hidden></p>
+    <button type="submit">Sign in</button>
+  </form>
+</section>
+<div id="app" class="app" hidden>
+  <aside class="side">
+    <a class="brand" href="#attention">Klarraum</a>
+    <nav class="side-nav" aria-label="Director">
+      <a href="#attention" data-nav="attention">Attention</a>
+      <a href="/#companies">Companies</a>
+      <a href="#support" data-nav="support">Support</a>
+      <a href="#settings" data-nav="settings">AI settings</a>
+    </nav>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <span class="avatar" aria-hidden="true">L</span>
+      <span class="who">Operator</span>
+      <button id="signout" type="button">Sign out</button>
+    </header>
+    <p id="error" class="alert" role="alert" hidden></p>
+    <div id="view"></div>
+  </div>
+  <nav class="tabbar" aria-label="Director">
+    <a href="#attention" data-nav="attention"><span class="tab-icon" aria-hidden="true">☺</span>Attention</a>
+    <a href="/#companies"><span class="tab-icon" aria-hidden="true">▣</span>Companies</a>
+    <a href="#support" data-nav="support"><span class="tab-icon" aria-hidden="true">✓</span>Support</a>
+    <a href="#settings" data-nav="settings"><span class="tab-icon" aria-hidden="true">⚙</span>Settings</a>
+  </nav>
+</div>
+<script type="module" src="/director-ai.js"></script>
+</body>
+</html>
