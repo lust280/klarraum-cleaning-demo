@@ -28,6 +28,8 @@ let wide = false;
 let toastTimer = 0;
 let looked = {};
 let drafts = {};
+let todayBoard = null;
+let jobView = null;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const money = (amount, currency = 'EUR') => `${currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€'}${Number(amount).toFixed(2)}`;
@@ -206,12 +208,54 @@ function settingsList(active) {
   return `<div class="rows settings-list">${settingsLinks().map(([key, label, detail]) => `<a class="${active === key ? 'active' : ''}" href="#settings/${key === 'billing' ? 'billing' : key}"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ''}</span><span class="chev"></span></a>`).join('')}</div>`;
 }
 
+function requestCard(job, {label, open = false} = {}) {
+  const amount = Number.isInteger(job.priceCents) ? job.priceCents / 100 : Number(job.quote || 0);
+  const currency = model.company?.currency || job.currency || 'EUR';
+  const control = open
+    ? `<a class="btn" href="#jobs/${esc(job.id)}">Assign</a>`
+    : `<button class="btn" type="button" data-action="confirm-job"${job.id ? ` data-id="${esc(job.id)}"` : ''}>Confirm</button>`;
+  return `<article class="card job-card"><p class="tiny">${esc(label)}</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(amount, currency)}</p>${control}</article>`;
+}
 function viewToday() {
-  const job = model.report || {};
   const workersOut = (model.team || []).filter(person => person.active && person.availability === 'on_job').length;
   const plan = model.plan?.name || 'Starter';
-  const body = `<section class="today-screen"><div class="today-meta"><p class="lead" id="today-date">${esc(todayDate())}</p><span class="badge plan">${esc(plan)}</span></div><div class="kpis"><article class="kpi"><span>New requests</span><strong>1</strong></article><article class="kpi"><span>Jobs today</span><strong>1</strong></article><article class="kpi"><span>Workers out</span><strong>${workersOut}</strong></article></div><article class="card job-card"><p class="tiny">New request</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(job.quote || 0, job.currency || model.company?.currency || 'EUR')}</p><button class="btn" type="button" data-action="confirm-job">Confirm</button></article></section>`;
+  const preview = !todayBoard || todayBoard.preview;
+  const newCount = preview ? 1 : todayBoard.counts.newRequests;
+  const jobsCount = preview ? 1 : todayBoard.counts.jobsToday;
+  const cards = preview
+    ? requestCard(model.report || {}, {label:'New request'})
+    : [
+      ...(todayBoard.attention || []).map(job => requestCard(job, {label:'New request'})),
+      ...(todayBoard.assign || []).map(job => requestCard(job, {label:'Accepted', open:true})),
+    ].join('') || '<article class="card"><h2>No new requests</h2><p class="lead">Jobs from your booking site appear here.</p></article>';
+  const body = `<section class="today-screen"><div class="today-meta"><p class="lead" id="today-date">${esc(todayDate())}</p><span class="badge plan">${esc(plan)}</span></div><div class="kpis"><article class="kpi"><span>New requests</span><strong>${esc(newCount)}</strong></article><article class="kpi"><span>Jobs today</span><strong>${esc(jobsCount)}</strong></article><article class="kpi"><span>Workers out</span><strong>${workersOut}</strong></article></div>${cards}</section>`;
   return frame({screen:'today', title:'Today', active:'today', body});
+}
+function visitWhen(job) {
+  if (!job?.date || !job?.time) return '';
+  const [year, month, day] = job.date.split('-').map(Number);
+  const date = new Intl.DateTimeFormat('en-US', {month:'short', day:'numeric', timeZone:'UTC'}).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  const [hour, minute] = job.time.split(':').map(Number);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  return `${date} ${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`;
+}
+function viewJob(id) {
+  const job = jobView?.id === id ? jobView : null;
+  if (!job) return frame({screen:'job-detail', title:'Job Detail', back:'#today', active:'today', body:'<p class="lead">Loading…</p>'});
+  const amount = (Number(job.priceCents) || 0) / 100;
+  const currency = model.company?.currency || job.currency || 'EUR';
+  const picking = !job.worker || job.reassign;
+  const people = picking ? (job.workers || []) : (job.workers || []).filter(worker => worker.id === job.worker.id);
+  const rows = people.map(worker => {
+    const current = job.worker?.id === worker.id;
+    const control = !picking
+      ? '<span class="pill">Assigned</span>'
+      : `<button class="btn" type="button" data-action="assign-worker" data-job="${esc(job.id)}" data-worker="${esc(worker.id)}" data-version="${esc(job.version)}" ${current ? 'disabled' : ''}>${current ? 'Assigned' : 'Assign'}</button>`;
+    return `<article class="card worker-row"><span class="person-avatar" aria-hidden="true">${esc((worker.name || '?').slice(0, 1))}</span><span class="worker-meta"><strong>${esc(worker.name)}</strong><small>${esc(worker.role || 'Cleaner')}</small></span>${control}</article>`;
+  }).join('') || '<p class="lead">No workers yet. Invite a cleaner from Team.</p>';
+  const again = picking ? '' : '<button class="btn ghost" type="button" data-action="reassign-worker">Reassign</button>';
+  const body = `<p><a href="#today">‹ Jobs</a></p><article class="card job-summary"><div><h2>${esc(job.serviceTitle || 'Home cleaning')}</h2><p>${esc(visitWhen(job))}</p><p>${esc(job.address || '')}</p></div><strong class="price">${money(amount, currency)}</strong></article><h2 class="section-title">${picking ? 'Assign worker' : 'Assigned worker'}</h2><div class="stack">${rows}</div>${again}`;
+  return frame({screen: picking ? 'job-assign' : 'job-assigned', title:'Job Detail', back:'#today', active:'today', body});
 }
 function viewLogin() {
   return frame({plain:true, screen:'login', title:'Sign in', body:`<section class="center"><h1>Sign in</h1><p class="lead">For cleaning companies</p><button class="btn" type="button" data-action="google"><span class="google-mark">G</span> Continue with Google</button><div class="or">or</div><form data-form="magic"><label class="field">Email<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="Email"></label><button class="btn secondary" type="submit">Send sign-in link</button></form><p><a href="#plans">See plans</a></p><p class="tiny">Demo owner: sam@linden.example. Continue with Google stays inside KlarraumApp and does not open a Google account. The free trial is 5 days on Pro.</p></section>`});
@@ -434,6 +478,7 @@ function render() {
   else if (head === 'invite' && second) html = viewInviteOpen(second);
   else if (head === 'onboarding') html = viewOnboarding(second === 'site' ? 'site' : 'country');
   else if (head === 'today') html = viewToday();
+  else if (head === 'jobs' && second) html = viewJob(second);
   else if (head === 'menu') html = viewMenu();
   else if (head === 'team' && second === 'invite') html = viewInvite();
   else if (head === 'team' && second === 'sent') html = viewInviteSent();
@@ -457,6 +502,8 @@ function render() {
     select.addEventListener('change', write);
     write();
   }
+  if (head === 'today' && model && !todayBoard) refreshToday();
+  if (head === 'jobs' && second && jobView?.id !== second) loadJob(second);
 }
 function allowed(parts) {
   const head = parts[0] || '';
@@ -569,8 +616,32 @@ app.addEventListener('click', async event => {
   try {
     if (action === 'confirm-job') {
       node.disabled = true;
-      node.textContent = 'Confirmed';
-      toast('Confirmed');
+      try {
+        const body = node.dataset.id ? {id: node.dataset.id} : {};
+        const data = await api('api/partner/jobs/confirm', {method:'POST', body});
+        jobView = data.job;
+        todayBoard = null;
+        const next = `jobs/${data.job.id}`;
+        if (location.hash === `#${next}`) render();
+        else location.hash = next;
+      } catch (error) {
+        node.disabled = false;
+        throw error;
+      }
+    } else if (action === 'assign-worker') {
+      node.disabled = true;
+      try {
+        const data = await api(`api/partner/jobs/${node.dataset.job}/assign`, {method:'POST', body:{employeeId: node.dataset.worker, version: Number(node.dataset.version)}});
+        jobView = data.job;
+        toast('Saved');
+        render();
+      } catch (error) {
+        node.disabled = false;
+        throw error;
+      }
+    } else if (action === 'reassign-worker') {
+      if (jobView) jobView.reassign = true;
+      render();
     } else if (action === 'inbox') toast('Inbox opens with Partner Ops.');
     else if (action === 'logout') {
       await api('api/partner/auth/logout', {method:'POST', body:{}});
@@ -641,6 +712,27 @@ app.addEventListener('click', async event => {
   } catch (error) { handleError(error); }
 });
 
+async function refreshToday() {
+  if (refreshToday.running) return;
+  refreshToday.running = true;
+  try {
+    todayBoard = await api('api/partner/today');
+    if ((partsOf()[0] || '') === 'today') render();
+  } catch (error) { handleError(error); }
+  finally { refreshToday.running = false; }
+}
+async function loadJob(id) {
+  try {
+    const data = await api(`api/partner/jobs/${id}`);
+    if (data?.job?.id !== id) return;
+    jobView = data.job;
+    const [head, second] = partsOf();
+    if (head === 'jobs' && second === id) render();
+  } catch (error) { handleError(error); }
+}
 matchMedia('(min-width:960px)').addEventListener('change', render);
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => {
+  if ((partsOf()[0] || '') === 'today') todayBoard = null;
+  render();
+});
 api('api/partner/session', {quiet:true}).then(data => { model = data; csrf = data.csrf; render(); }).catch(() => { model = null; render(); });

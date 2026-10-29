@@ -47,6 +47,17 @@ p, li, label { color:var(--muted); }
 .kpi strong { display:block; margin-top:6px; font-size:22px; color:var(--ink); }
 .job-card { display:grid; gap:8px; }
 .job-card h2 { font-size:18px; }
+.job-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.job-summary h2 { font-size:18px; }
+.job-summary p { margin-top:4px; }
+.job-summary .price { font-size:28px; line-height:1; }
+.section-title { margin:22px 0 12px; }
+.worker-row { display:flex; align-items:center; gap:12px; }
+.worker-meta { flex:1; min-width:0; }
+.worker-meta strong { display:block; color:var(--ink); }
+.worker-meta small { color:var(--muted); }
+.worker-row .btn { width:auto; min-height:40px; padding:8px 18px; }
+.worker-row .pill { padding:8px 14px; }
 
 .card { background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:22px 18px; }
 .stack { display:grid; gap:12px; }
