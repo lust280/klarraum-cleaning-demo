@@ -40,15 +40,24 @@ test('booking pickers stay visible and the real cabinet hides the demo banner',a
  assert.match(admin,/company-setup/);
 });
 
-test('director console groups the six plans and hides company creation',async()=>{
+test('director console is the manual operator shell',async()=>{
  const html=await readFile(new URL('../director-public/index.html',import.meta.url),'utf8');
  const script=await readFile(new URL('../director-public/director.js',import.meta.url),'utf8');
+ const model=await readFile(new URL('../lib/director-console.mjs',import.meta.url),'utf8');
  assert.equal(html.includes('Create company'),false);
  assert.equal(html.includes('id="create-form"'),false);
  assert.equal(html.includes('Create empty installation'),false);
- for(const name of ['Solo','Starter','Team','Business','Scale','Plus'])assert.match(script,new RegExp(`'${name}'`));
- assert.match(script,/plan-count/);
- assert.match(script,/cataloguePlans/);
+ assert.equal(html.includes('Manual | AI assist'),false);
+ assert.equal(script.includes('Manual | AI assist'),false);
+ assert.equal(html.includes('Costs and pricing'),false);
+ assert.equal(html.includes('Platform backup'),false);
+ for(const label of ['Attention','Companies','Support','Operator sign in'])assert.match(html,new RegExp(label));
+ assert.equal(html.includes('AI settings'),false);
+ assert.equal(script.includes('AI settings'),false);
+ for(const name of ['Starter','Pro','Plus'])assert.match(model,new RegExp(name));
+ assert.equal(model.includes("name:'Business'"),false);
+ assert.equal(model.includes('api.stripe.com'),false);
+ assert.equal(script.includes('api.stripe.com'),false);
 });
 
 test('choosing Plus and continuing with Google opens the owner cabinet',async t=>{

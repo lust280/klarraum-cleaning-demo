@@ -40,7 +40,7 @@ async function jobs(){
  $('#job-count').textContent=translateUI(`${jobTotal} ${jobTotal===1?'Auftrag':'Aufträge'} · ${jobTotal?jobOffset+1:0}–${Math.min(jobOffset+50,jobTotal)}`);$('#jobs-prev').disabled=jobOffset===0;$('#jobs-next').disabled=jobOffset+50>=jobTotal;
  $('#jobs').replaceChildren(...data.items.map(job=>{
   const card=displayJob(job);const controls=el('div',undefined,'actions');const reason=el('textarea');reason.rows=2;reason.maxLength=500;reason.placeholder=translateUI('Grund / Rückmeldung für den Mitarbeiter');reason.setAttribute('aria-label','Grund oder Rückmeldung');
-  if(job.state==='assigned')controls.append(act(translateUI('Plan bearbeiten'),async()=>{
+  if(job.state==='assigned'||job.state==='accepted')controls.append(act(translateUI('Plan bearbeiten'),async()=>{
    editPlan(job);
   }));
   if(job.state==='submitted')controls.append(act(translateUI('Bericht abnehmen'),()=>changeJob(job,'approve',reason.value),'primary'),act(translateUI('Zur Nacharbeit'),()=>changeJob(job,'return',reason.value)));
@@ -78,7 +78,7 @@ async function init(){try{
  $('#job-form').elements.date.value=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  await Promise.all([employees(),jobs(),loadProperties()]);
  const params=new URLSearchParams(location.search);const selectedProperty=params.get('property');if(selectedProperty){openJobEditor();if(![...$('#job-property').options].some(o=>o.value===selectedProperty)){const p=await api('api/admin/properties/'+encodeURIComponent(selectedProperty));propertiesById.set(p.id,p);const o=el('option',p.name);o.value=p.id;$('#job-property').append(o);}$('#job-property').value=selectedProperty;$('#job-property').dispatchEvent(new Event('change'));}
- const selectedJob=params.get('job');if(selectedJob){const j=await api('api/admin/jobs/'+encodeURIComponent(selectedJob));if(j.state==='assigned')editPlan(j);else{$('#jobs').prepend(displayJob(j));$('#jobs').scrollIntoView({behavior:'smooth'});}}
+ const selectedJob=params.get('job');if(selectedJob){const j=await api('api/admin/jobs/'+encodeURIComponent(selectedJob));if(j.state==='assigned'||j.state==='accepted')editPlan(j);else{$('#jobs').prepend(displayJob(j));$('#jobs').scrollIntoView({behavior:'smooth'});}}
  const source=new URLSearchParams(location.search).get('inquiry');if(source){openJobEditor();const item=await api(`api/admin/inquiries/${encodeURIComponent(source)}`);const f=$('#job-form').elements;f.inquiryId.value=item.id;f.title.value=item.serviceTitle||'Reinigungsauftrag';f.address.value=[item.address,item.postcode].filter(Boolean).join(', ');f.customer.value=item.name;f.contact.value=[item.phone,item.email].filter(Boolean).join(' · ');if(item.date)f.date.value=item.date;if(item.preferredTime)f.time.value=item.preferredTime;}
  }catch(error){fail(error);}}
 init();

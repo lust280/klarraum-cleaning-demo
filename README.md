@@ -76,7 +76,7 @@ Before customer handover, use the [Russian company checklist](docs/CLIENT-CHECKL
 
 ## Team and field jobs
 
-Owner portal: `/operations.html`, linked from the admin dashboard. Employee portal: `/employee.html`. Supports account invitations/disablement, regional search, paginated employees/jobs, assignment and pre-start plan changes, server-timed work/breaks, checklists, reports, up to four private proof photos, owner review and reasoned time corrections. Sessions and access scope are separate from the owner. No hardcoded small employee-count cap; infrastructure remains finite and untested for country-wide scale.
+Owner portal: `/operations.html`, linked from the admin dashboard. Employee portal: `/employee.html`. Supports account invitations/disablement, regional search, paginated employees/jobs, assignment and pre-start plan changes, server-timed work/breaks, checklists, reports, up to six private proof photos, owner review and reasoned time corrections. Sessions and access scope are separate from the owner. No hardcoded small employee-count cap; infrastructure remains finite and untested for country-wide scale.
 
 See [team workflow and limitations](docs/TEAM-RU.md). GPS, customer signatures, payroll, automatic invitation email and regional-manager roles are not included. Job timing is not complete statutory working-time recording. Work records and staff data need a separate retention/deletion policy before live operation; the inquiry-retention timer does not purge them.
 
