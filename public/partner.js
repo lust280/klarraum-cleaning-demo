@@ -32,6 +32,7 @@ let looked = {};
 let drafts = {};
 let todayBoard = null;
 let jobView = null;
+let jobProblem = null;
 let inboxView = null;
 let inboxLoading = false;
 
@@ -191,7 +192,7 @@ function sidebar(active) {
     ['reports', '#reports', tr('Reports'), ''],
     ['settings', '#settings', tr('Settings'), ''],
   ];
-  return `<aside class="side"><a class="brand" href="#menu">${icon('home')} KlarraumApp</a><nav>${items.map(([key, href, label, note]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${icon(key === 'today' ? 'today' : key === 'jobs' ? 'jobs' : key)}${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</a>`).join('')}</nav></aside>`;
+  return `<aside class="side"><a class="brand" href="#${esc(signedInHome())}">${icon('home')} KlarraumApp</a><nav>${items.map(([key, href, label, note]) => `<a class="${active === key ? 'active' : ''}" href="${href}">${icon(key === 'today' ? 'today' : key === 'jobs' ? 'jobs' : key)}${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</a>`).join('')}</nav></aside>`;
 }
 function frame({title, screen, back = '', body, active = '', plain = false}) {
   const heading = tr(title);
@@ -265,7 +266,13 @@ function visitWhen(job) {
 }
 function viewJob(id) {
   const job = jobView?.id === id ? jobView : null;
-  if (!job) return frame({screen:'job-detail', title:'Job Detail', back:'#today', active:'today', body:'<p class="lead">Loading…</p>'});
+  if (!job) {
+    const failed = jobProblem?.id === id;
+    const body = failed
+      ? `<section class="card"><h2>${esc(tr('Job Detail'))}</h2><p class="lead">${esc(jobProblem.message || tr('Something went wrong.'))}</p><p><a href="#today">${esc(tr('‹ Jobs'))}</a></p></section>`
+      : `<p class="lead">${esc(tr('Loading…'))}</p>`;
+    return frame({screen:'job-detail', title:'Job Detail', back:'#today', active:'today', body});
+  }
   const amount = (Number(job.priceCents) || 0) / 100;
   const currency = model.company?.currency || job.currency || 'EUR';
   const picking = !job.worker || job.reassign;
@@ -311,7 +318,7 @@ function viewMenu() {
     ['#reports', 'reports', tr('Reports'), ''],
     ['#settings', 'settings', tr('Settings'), ''],
   ];
-  return frame({screen:'menu', title:'Menu', active:'', body:`<nav class="nav-list">${items.map(([href, key, label, note]) => `<a href="${href}">${icon(key === 'today' ? 'today' : key)}<span>${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</span></a>`).join('')}</nav>`});
+  return frame({screen:'menu', title:'Menu', back:'#today', active:'', body:`<nav class="nav-list" aria-label="${esc(tr('Menu'))}">${items.map(([href, key, label, note]) => `<a href="${href}">${icon(key === 'today' ? 'today' : key)}<span>${esc(label)}${note ? `<small>${esc(note)}</small>` : ''}</span></a>`).join('')}</nav>`});
 }
 function viewSettings(section) {
   const showPanel = section && !(section === 'hub' && !wide);
@@ -525,6 +532,8 @@ function render() {
   else if (head === 'onboarding') html = viewOnboarding(second === 'site' ? 'site' : 'country');
   else if (head === 'today') html = viewToday();
   else if (head === 'jobs' && second) html = viewJob(second);
+  else if (head === 'jobs') { location.assign('/ops.html'); return; }
+  else if (head === 'menu' && wide) { showHomeInstead(); return; }
   else if (head === 'menu') html = viewMenu();
   else if (head === 'team' && second === 'invite') html = viewInvite();
   else if (head === 'team' && second === 'sent') html = viewInviteSent();
@@ -537,6 +546,7 @@ function render() {
   else if (head === 'connect') html = viewConnectMock();
   else if (head === 'settings' && second === 'billing') html = viewBilling(parts[2] === 'plan' ? 'plan' : parts[2] === 'change' ? 'change' : 'payments');
   else if (head === 'settings') html = viewSettings(second || 'hub');
+  else if (wide) { showHomeInstead(); return; }
   else html = viewMenu();
   app.innerHTML = html;
   const hint = document.querySelector('#country-hint');
@@ -550,8 +560,14 @@ function render() {
     write();
   }
   if (head === 'today' && model && !todayBoard) refreshToday();
-  if (head === 'jobs' && second && jobView?.id !== second) loadJob(second);
+  if (head === 'jobs' && second && jobView?.id !== second && jobProblem?.id !== second) loadJob(second);
   if (head === 'inbox' && model && !inboxView) loadInbox();
+}
+function showHomeInstead() {
+  const next = '#' + signedInHome();
+  if (location.hash === next) return;
+  history.replaceState(null, '', location.pathname + location.search + next);
+  if (location.hash === next) render();
 }
 function allowed(parts) {
   const head = parts[0] || '';
@@ -816,11 +832,17 @@ async function loadInbox() {
 async function loadJob(id) {
   try {
     const data = await api(`api/partner/jobs/${id}`);
-    if (data?.job?.id !== id) return;
+    if (data?.job?.id !== id) throw new Error(tr('Something went wrong.'));
+    jobProblem = null;
     jobView = data.job;
     const [head, second] = partsOf();
     if (head === 'jobs' && second === id) render();
-  } catch (error) { handleError(error); }
+  } catch (error) {
+    jobProblem = {id, message: error.message || ''};
+    handleError(error);
+    const [head, second] = partsOf();
+    if (head === 'jobs' && second === id) render();
+  }
 }
 matchMedia('(min-width:960px)').addEventListener('change', render);
 window.addEventListener('hashchange', () => {

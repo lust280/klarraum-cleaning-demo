@@ -97,7 +97,9 @@ textarea { min-height:96px; resize:vertical; }
 .rows a.active { background:var(--sage); }
 .rows small { display:block; font-weight:500; color:var(--muted); }
 .chev::after { content:"›"; color:#9aa094; font-size:22px; font-weight:400; }
-.nav-list a { display:flex; align-items:center; gap:12px; padding:14px 4px; font-weight:700; border-bottom:1px solid #eeeae4; }
+.nav-list { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-top:8px; }
+.nav-list a { display:flex; align-items:center; gap:12px; padding:16px 14px; font-weight:700; border-bottom:1px solid #eeeae4; color:var(--ink); }
+.nav-list a:last-child { border-bottom:0; }
 .nav-list a.active, .side a.active { background:var(--green); color:#fff; border-radius:12px; border-bottom-color:transparent; }
 .nav-list small, .side small { display:block; font-weight:500; color:var(--muted); font-size:12px; }
 .side a.active small { color:#e7f3ea; }

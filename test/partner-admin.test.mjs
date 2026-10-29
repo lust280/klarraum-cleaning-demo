@@ -240,6 +240,11 @@ test('export, inbox and language are real partner actions', async t => {
   assert.match(source, /navigator\.share/);
   assert.equal(source.includes('/admin.html'), false);
   assert.match(source, /api\/partner\/jobs\/confirm/);
+  assert.match(source, /class="brand" href="#\$\{esc\(signedInHome\(\)\)\}"/);
+  assert.equal(/class="brand" href="#menu"/.test(source), false);
+  assert.match(source, /href="#menu"/);
+  assert.match(source, /head === 'menu' && wide/);
+  assert.match(source, /head === 'jobs'\) \{ location\.assign\('\/ops\.html'\)/);
   const f = await fixture(t);
   assert.equal((await f.request('/api/partner/export?format=csv', {auth:false})).status, 401);
   assert.equal((await f.request('/api/partner/inbox', {auth:false})).status, 401);
