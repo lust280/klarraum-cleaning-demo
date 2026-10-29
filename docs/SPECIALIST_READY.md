@@ -15,7 +15,7 @@ Updated 29 Oct 2026. Locks below are the handoff rules for tests. A zone is READ
 
 | Zone | READY | Notes |
 | --- | --- | --- |
-| Partner Ops | yes | Today, Jobs, job card, live status map, Accept/Decline, Assign, Start, Done, New/Edit, cancel, report view, photos, empty states. API: `/api/admin/ops/*`. Page: `/ops.html`. |
+| Partner Ops | yes | Today, Jobs, job card, live status map, Accept/Decline, Assign, Start, Done, New/Edit, cancel, report view, photos, empty states. API: `/api/admin/ops/*`. Page: `/ops.html`. Field contract: [OPS_HANDOFF.md](OPS_HANDOFF.md). |
 | Partner Admin | no | Team, Settings, Billing, Plan, Stripe Connect stay out of this branch. |
 | Client | no | A saved inquiry is copied into Jobs as New. Booking UI is unchanged here. |
 | Worker | no | An assigned job is returned by the existing worker job list. Worker screens are unchanged here. |
