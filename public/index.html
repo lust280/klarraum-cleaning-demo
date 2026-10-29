@@ -1,12 +1,268 @@
-<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Klarraum booking"><meta name="theme-color" content="#f4f7f4"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>Klarraum — Book cleaning</title><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./booking.css?v=20261028e"><script type="module" src="./app.js?v=20261028e"></script></head>
-<body class="booking-page"><div class="demo" id="mode-banner">BOOKING PREVIEW</div><header class="booking-header"><a class="logo" href="#" aria-label="Klarraum homepage"><span class="mark">K</span><span data-company>Klarraum</span></a><span class="header-copy">Online booking</span></header>
-<main class="booking-main"><section class="booking-title"><div><span class="eyebrow" id="service-area">Cleaning</span><h1 id="hero-title">Get a clean home in minutes</h1><p id="hero-subtitle">Booked in seconds.</p><p id="hero-description">Choose a service and see the estimate update before you send a request.</p></div></section><div class="scene"><img id="hero-photo" alt="" hidden></div>
-<p id="booking-unavailable" class="form-notice" hidden>Online requests are currently paused. Please contact us directly.</p>
-<form id="quote" class="booking-grid"><section class="booking-config"><div class="calculator-intro"><div><p class="quote-kicker">Get your quote</p><h1>What would you like cleaned?</h1></div></div><div class="service-tabs" role="group" aria-label="Service"><button type="button" class="service-tab active" data-service="home" data-service-select="home" data-service-card="home"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5.2v-6.2H9.2V21H5a1 1 0 0 1-1-1z"/></svg></span><h3>Home</h3><p>House or apartment</p></button><button type="button" class="service-tab" data-service="office" data-service-select="office" data-service-card="office"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V20M15 10h3.2A1.3 1.3 0 0 1 19.5 11.3V20M3.5 20h17M8 8h2M8 11.5h2M8 15h2"/></svg></span><h3>Office</h3><p>Workplace care</p></button><button type="button" class="service-tab" data-service="deep" data-service-select="deep" data-service-card="deep"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19c8 1 13-4 14-13-6 1-10 4-12 8 3-1 5-1 7 0-2 2-5 4-9 5z"/><path d="M8 19c1-3 2-5 4-7"/></svg></span><h3>Deep clean</h3><p>Extra attention</p></button></div><select id="service" name="service" class="visually-hidden"><option value="home">Home cleaning</option><option value="office">Office cleaning</option><option value="deep">Deep cleaning</option></select>
-<div class="choice-card"><div><label for="area">Size of the space</label><small id="area-help">Choose ft² or m²</small></div><div class="area-choice"><div class="unit-toggle" role="group" aria-label="Area unit"><button type="button" data-unit="imperial">ft²</button><button type="button" data-unit="metric" class="active">m²</button></div><div class="area-control"><input id="area" name="area" type="number" min="20" max="1000" step="1" value="70" required inputmode="numeric"><span id="area-unit">m²</span></div></div></div><label class="area-slider">Adjust size<input id="area-range" type="range" min="20" max="1000" step="1" value="70" aria-label="Size of the space"></label>
-<div class="frequency"><div class="frequency-head"><span>Frequency</span><small>Save on repeats</small></div><div class="frequency-options"><button type="button" data-frequency="once" class="frequency-option active">One-time<small>Flexible</small></button><button type="button" data-frequency="weekly" class="frequency-option">Weekly<small>Save</small></button><button type="button" data-frequency="fortnightly" class="frequency-option">Every 2 weeks<small>Save</small></button></div><select id="frequency" name="frequency" class="visually-hidden"><option value="once" selected>Once</option><option value="weekly">Weekly</option><option value="fortnightly">Every two weeks</option></select></div>
-<div class="extras"><div class="frequency-head"><span>Extra</span><small>Optional</small></div><label class="extra-card" id="windows-extra"><input id="windows" type="checkbox"><span class="extra-icon">▣</span><strong id="windows-label">Window cleaning</strong><small>Optional extra</small></label></div><section class="tip-picker" aria-label="Tip for cleaners"><div class="frequency-head"><span>Tip your cleaners</span><small>Optional · goes to the crew</small></div><div class="tip-options" role="group" aria-label="Tip percentage"><button type="button" data-tip="0" class="active">No tip</button><button type="button" data-tip="5">5%</button><button type="button" data-tip="10">10%</button><button type="button" data-tip="15">15%</button><button type="button" data-tip="20">20%</button></div></section>
-<div class="booking-picker"><label for="date"><span>▣</span><strong>Date</strong><small>Choose a day</small><input id="date" name="date" type="date"></label><label for="preferred-time"><span>◷</span><strong>Time</strong><small>Choose a time</small><input id="preferred-time" name="preferredTime" type="time"></label></div></section>
-<section class="booking-summary"><div class="summary-total quote-total"><div><span>Estimated price</span><small id="price-note">Confirmed before work starts.</small></div><output id="price" aria-live="polite"></output></div><div class="summary-head"><div><h2>Estimate</h2><p id="summary-service">Home cleaning</p></div><span id="summary-frequency">Once</span></div><div class="summary-row"><span>Estimated cleaning</span><strong id="summary-base">—</strong></div><div class="summary-row discount-row"><span>Recurring discount</span><strong id="summary-discount">Included</strong></div><div class="summary-row tip-row" id="tip-summary" hidden><span>Cleaner tip</span><strong id="summary-tip">—</strong></div><p id="pricing-explanation" class="visually-hidden"></p><div class="total" hidden><small></small></div><div id="connection-note" class="form-notice" role="status">Preparing your estimate…</div>
-<fieldset id="customer-fields"><legend>Your details</legend><label for="customer-name">Name<input id="customer-name" name="name" autocomplete="name" maxlength="100" required></label><label for="customer-email">Email<input id="customer-email" name="email" type="email" autocomplete="email" maxlength="254"></label><label for="customer-phone">Phone<input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label for="postcode">Postcode<input id="postcode" name="postcode" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="postal-code" required></label><label class="wide" for="address">Service address<input id="address" name="address" autocomplete="street-address" maxlength="200"></label><label class="wide" for="comments">Notes for the team<textarea id="comments" name="message" rows="2" maxlength="2000" placeholder="Access, pets, special requests …"></textarea></label><div class="honeypot" aria-hidden="true"><label for="website">Website<input id="website" name="website" tabindex="-1" autocomplete="off"></label></div><label class="checkbox wide"><input id="privacy" name="privacy" type="checkbox" required><span>I agree that my details may be used to process this request.</span></label></fieldset><p id="form-error" class="form-error" role="alert" hidden></p><button id="submit-inquiry" class="booking-submit" type="submit">Send request <span>→</span></button><p class="fine" id="submit-note">A request is not a confirmed appointment.</p><div id="result" tabindex="-1" hidden><p id="success-message" role="status"></p><div id="demo-text"><label for="message">Prepared request</label><textarea id="message" rows="6" readonly></textarea></div></div></section></form>
-<section id="photo-gallery" hidden><div id="gallery-grid"></div></section><section id="testimonials" hidden><div id="testimonial-grid"></div></section><div class="service-promises"><span data-service-promise="home">Home cleaning</span><span data-service-promise="office">Office cleaning</span><span data-service-promise="deep">Deep cleaning</span></div><section id="business-contact" hidden><h2 id="contact-company"></h2><p id="contact-hours"></p><a id="contact-phone" hidden></a><a id="contact-email" hidden></a><p id="contact-address"></p></section></main><footer><span id="footer-mode">Secure request · No payment is taken online</span><span id="footer-location" hidden></span><a href="./admin.html">Company administration</a><button type="button" id="legal-open">Legal</button></footer><dialog id="legal"><h2>Request information</h2><p>An inquiry is not a binding booking.</p><form method="dialog"><button class="button">Close</button></form></dialog></body></html>
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Book a cleaning">
+<meta name="theme-color" content="#f4f7f4">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Book cleaning</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./client.css">
+<script type="module" src="./client.js"></script>
+</head>
+<body class="client-funnel booking-page">
+<header class="header booking-header">
+  <a class="logo" href="/" aria-label="Homepage"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4c2 6-2 8-2 14 4-2 8-2 10 2-8 2-12 6-14 12 0-8-2-12-8-14 6 0 8-4 6-10 2 4 6 4 8-4z" fill="#2f6b45"/></svg></span><span data-company>Klarraum</span></a>
+  <span class="header-copy">Online booking</span>
+  <button class="icon-button" id="menu-open" type="button" aria-label="Menu">☰</button>
+</header>
+<main class="client-main">
+  <section id="screen-quote">
+    <div class="page-title"><h1>Get your quote</h1><div class="title-rule"></div></div>
+    <div class="quote-layout">
+      <div class="hero-copy">
+        <h1 id="hero-title">Get a clean home in minutes</h1>
+        <p id="hero-subtitle">Professional, reliable cleaning.</p>
+        <p id="hero-description">Booked in seconds, done to perfection.</p>
+        <button class="go" id="get-quote" type="button" style="max-width:220px">Get a quote →</button>
+      </div>
+      <div class="scene"><img id="hero-photo" alt="" hidden></div>
+      <form id="quote" class="card">
+        <p class="kicker">Get your quote</p>
+        <h2>What would you like cleaned?</h2>
+        <div class="service-tabs" role="group" aria-label="Service">
+          <button type="button" class="service-tab active" data-service="home" data-service-card="home"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H5a1 1 0 0 1-1-1z"/></svg></span><h3>Home</h3><p>House or apartment</p></button>
+          <button type="button" class="service-tab" data-service="office" data-service-card="office"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20V6h8v14M13 10h6v10M3 20h18M8 9h2M8 13h2"/></svg></span><h3>Office</h3><p>Workplace</p></button>
+          <button type="button" class="service-tab" data-service="deep" data-service-card="deep"><span class="service-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19c8 1 13-4 14-13-6 1-10 4-12 8 3-1 5-1 7 0-2 2-5 4-9 5z"/></svg></span><h3>Deep clean</h3><p>Extra attention</p></button>
+        </div>
+        <select id="service" class="visually-hidden" aria-hidden="true"><option value="home">Home</option><option value="office">Office</option><option value="deep">Deep clean</option></select>
+        <div class="area-block">
+          <div class="area-head"><label for="area">Approx. area</label><div class="area-value"><input id="area" name="area" type="number" min="20" max="1000" step="1" value="70" inputmode="numeric" required><span id="area-unit">m²</span></div></div>
+          <label class="area-slider">Size<input id="area-range" type="range" min="20" max="200" step="1" value="70" aria-label="Area guide"></label>
+          <div class="area-scale"><span>50 m²</span><span>100 m²</span><span>200+ m²</span></div>
+          <p id="area-error" class="area-error" hidden></p>
+        </div>
+        <div class="price-box"><span>Estimated price</span><output id="price" aria-live="polite">€0.00</output></div>
+        <p id="pricing-explanation" class="visually-hidden"></p>
+        <div class="when">
+          <label>Preferred date
+            <span class="field-row"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><select id="date" name="date"><option value="">Select a date</option></select></span>
+          </label>
+          <label>Preferred time
+            <span class="field-row"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg><select id="preferred-time" name="preferredTime"><option value="">Select a time</option></select></span>
+          </label>
+        </div>
+        <button class="go" id="continue-quote" type="button">Send request →</button>
+        <p class="total-line desktop-total">Total: <strong id="price-total">€0.00</strong></p>
+        <p id="quote-error" class="form-error" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <section id="screen-contacts" hidden>
+    <a class="back-link" href="/">‹ Quote</a>
+    <div class="page-title"><h1>Your details</h1><div class="title-rule"></div></div>
+    <p class="steps">Quote — <b>Contacts</b> — Payment</p>
+    <div class="funnel-grid">
+      <form id="contacts" class="card">
+        <p id="draft-summary" class="pill"></p>
+        <div class="fields">
+          <label>Name<input id="customer-name" name="name" autocomplete="name" maxlength="100" required></label>
+          <label>Email<input id="customer-email" name="email" type="email" autocomplete="email" maxlength="254"></label>
+          <label>Phone<input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="40"></label>
+          <label>Postcode<input id="postcode" name="postcode" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="postal-code" required></label>
+          <label>Address<input id="address" name="address" autocomplete="street-address" maxlength="200" placeholder="12 Linden St"></label>
+          <label>Notes (optional)<textarea id="comments" name="message" rows="3" maxlength="2000"></textarea></label>
+          <div class="honeypot" aria-hidden="true"><label>Website<input id="website" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <label class="check"><input id="privacy" name="privacy" type="checkbox" required><span>I agree to the Privacy Policy</span></label>
+        </div>
+        <p id="preview-status" role="status" hidden></p>
+        <div id="demo-text" hidden><label for="message">Prepared request<textarea id="message" rows="6" readonly></textarea></label></div>
+        <button class="go" id="submit-inquiry" type="submit">Send request →</button>
+        <p id="contacts-error" class="form-error" hidden></p>
+      </form>
+      <aside class="card" id="contacts-aside">
+        <h2>Your booking</h2>
+        <div id="contacts-side" class="summary-card"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="screen-pay" hidden>
+    <a class="back-link" href="/contacts">‹ Back to Your details</a>
+    <div class="page-title"><h1>Secure payment</h1><div class="title-rule"></div></div>
+    <p class="steps">Quote — Contacts — <b>Payment</b></p>
+    <div class="funnel-grid">
+      <form id="pay-form" class="card">
+        <h2>Payment method</h2>
+        <div id="pay-summary" class="summary-card"></div>
+        <div id="card-box">
+          <label>Card number<input id="card-number" inputmode="numeric" autocomplete="off" maxlength="19" placeholder="Card number"></label>
+          <div class="split">
+            <label>MM/YY<input id="card-expiry" autocomplete="off" maxlength="5" placeholder="MM/YY"></label>
+            <label>CVC<input id="card-cvc" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="CVC"></label>
+          </div>
+          <label>Name on card<input id="card-name" autocomplete="off" maxlength="100"></label>
+          <label class="check demo-note"><input id="card-decline" type="checkbox"><span>Demo: decline this card. No charge is made.</span></label>
+          <button class="go" id="pay-card" type="submit">Pay</button>
+          <p class="fine">Powered by Stripe later<br>Your card is charged when you confirm.</p>
+        </div>
+        <button class="go secondary" id="pay-onsite" type="button">Pay on site</button>
+        <p id="pay-error" class="form-error" hidden></p>
+      </form>
+      <aside class="card"><h2>Your booking</h2><div id="pay-side" class="summary-card"></div></aside>
+    </div>
+  </section>
+
+  <section id="screen-sent" hidden>
+    <div class="done card">
+      <div class="mark-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.2 17 19 7"/></svg></div>
+      <h1>Request sent</h1>
+      <p id="success-message">We got your request. The cleaning company will confirm the time.</p>
+      <div id="sent-card" class="summary-card"></div>
+      <p class="fine">This is not a confirmed booking yet.</p>
+      <a class="go" href="/">Done</a>
+      <a id="cancel-link" href="/cancel">Cancel this request</a>
+    </div>
+  </section>
+
+  <section id="screen-confirmed" hidden>
+    <div class="done card">
+      <div class="mark-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.2 17 19 7"/></svg></div>
+      <h1>Booking confirmed</h1>
+      <p>You pay after the cleaning — cash or card on site.</p>
+      <div id="confirmed-card" class="summary-card"></div>
+      <a class="go" href="/">Done</a>
+      <button class="go secondary" id="add-calendar" type="button">Add to calendar</button>
+      <p class="fine">We emailed you a copy · Free cancellation up to 24 h before</p>
+      <a id="confirmed-cancel" href="/cancel">Cancel this booking</a>
+    </div>
+  </section>
+
+  <section id="screen-paid" hidden>
+    <div class="done card">
+      <div class="mark-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.2 17 19 7"/></svg></div>
+      <h1>Payment received</h1>
+      <p>Your cleaning is booked. We emailed a confirmation.</p>
+      <div id="paid-card" class="summary-card"></div>
+      <a class="go" href="/">Done</a>
+      <button class="go secondary" id="add-calendar-paid" type="button">Add to calendar</button>
+    </div>
+  </section>
+
+  <section id="screen-failed" hidden>
+    <a class="back-link" href="/">‹ Back to quote</a>
+    <div class="done">
+      <h1>Payment failed</h1>
+      <div class="mark-circle warn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7v7"/><circle cx="12" cy="17.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+      <p>Your card was declined. No money was taken.</p>
+      <p id="failed-amount"></p>
+      <button class="go" id="try-again" type="button">Try again</button>
+      <button class="go secondary" id="fail-onsite" type="button">Pay on site</button>
+      <p class="fine">Powered by Stripe later</p>
+    </div>
+  </section>
+
+  <section id="screen-paused" hidden>
+    <div class="page-title"><h1>Get your quote</h1><div class="title-rule"></div></div>
+    <div class="done">
+      <div class="mark-circle soft" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></svg></div>
+      <h1>Online booking is paused</h1>
+      <p>Please contact the company directly.</p>
+      <div id="paused-phone" class="contact-card" hidden></div>
+      <div id="paused-email" class="contact-card" hidden></div>
+    </div>
+  </section>
+
+  <section id="screen-blocked" hidden>
+    <a class="back-link" href="/">‹ Back to quote</a>
+    <div id="blocked-summary" class="summary-card"></div>
+    <div class="done">
+      <h1>Online card pay unavailable</h1>
+      <div class="mark-circle soft" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
+      <p>Pay on site or contact the company.</p>
+      <button class="go" id="blocked-onsite" type="button">Pay on site</button>
+      <a class="go secondary" id="blocked-contact" href="/">Contact the company</a>
+      <p id="blocked-phone" class="fine"></p>
+      <p class="fine">Powered by Stripe later</p>
+    </div>
+  </section>
+
+  <section id="screen-plans" hidden>
+    <div class="page-title"><h1>Plans</h1><div class="title-rule"></div></div>
+    <p class="fine">5-day trial on Pro. No card to start. Prices in EUR per month.</p>
+    <div class="plans">
+      <article class="plan"><h2>Starter</h2><p class="amount">€49</p><p>2 seats</p><ul><li>Branded site and calculator</li><li>Jobs, assign, worker app, photos and reports for 12 months</li><li>Booking mode: paused, request, or instant</li><li>Pay on site and Stripe Connect</li><li>English, Deutsch, Russian</li><li>Email and help-thread support</li></ul></article>
+      <article class="plan featured"><h2>Pro</h2><p class="amount">€89</p><p>5 seats · 5-day trial</p><ul><li>Everything in Starter</li><li>Priority support</li><li>Reports and export</li></ul></article>
+      <article class="plan"><h2>Plus</h2><p class="amount">€149</p><p>10 seats</p><ul><li>Everything in Pro</li><li>Priority support and a personal contact</li></ul></article>
+    </div>
+    <a class="go" href="/check-email?intent=trial" style="max-width:280px;margin:18px auto">Start free trial</a>
+    <p class="fine">A custom domain is a paid add-on. Shared sign-in is connected by the platform auth flow.</p>
+  </section>
+
+  <section id="screen-check-email" hidden>
+    <div class="done card">
+      <h1>Check your email</h1>
+      <p>We will send a sign-in link when shared auth is connected. The link expires in 15 minutes. Worker invites expire in 24 hours.</p>
+      <form id="magic-form" class="fields">
+        <label>Email<input id="magic-email" type="email" autocomplete="email" maxlength="254" required></label>
+        <button class="go" type="submit">Email me a sign-in link</button>
+      </form>
+      <p id="magic-status" role="status"></p>
+    </div>
+  </section>
+
+  <section id="screen-cancel" hidden>
+    <div class="done card">
+      <h1>Cancel booking</h1>
+      <p>Free cancellation — more than 24 h before the visit.</p>
+      <div id="cancel-card" class="summary-card"></div>
+      <p id="refund-notice" hidden>Refund is decided by the company</p>
+      <button class="go" id="confirm-cancel" type="button">Cancel booking</button>
+      <p id="cancel-error" class="form-error" hidden></p>
+    </div>
+  </section>
+
+  <section id="screen-cancelled" hidden>
+    <div class="done card">
+      <div class="mark-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 9.2 17 19 7"/></svg></div>
+      <h1>Booking cancelled</h1>
+      <p id="cancelled-copy">The time is free again.</p>
+      <div id="cancelled-card" class="summary-card"></div>
+      <a class="go" href="/">Done</a>
+    </div>
+  </section>
+
+  <section id="screen-expired" hidden>
+    <div class="done card">
+      <h1>This link has expired</h1>
+      <p>Sign-in links last 15 minutes. Ask for a new one.</p>
+      <a class="go" href="/check-email">Request a new link</a>
+    </div>
+  </section>
+
+  <div class="service-promises" hidden><span data-service-promise="home">Home</span><span data-service-promise="office">Office</span><span data-service-promise="deep">Deep clean</span></div>
+  <section id="business-contact" hidden><h2 id="contact-company"></h2><p id="contact-hours"></p><a id="contact-phone" hidden></a><a id="contact-email" hidden></a><p id="contact-address"></p></section>
+</main>
+<section id="photo-gallery" hidden><div id="gallery-grid" class="photo-grid"></div></section>
+<section id="testimonials" hidden><div id="testimonial-grid" class="testimonial-grid"></div></section>
+<footer class="client-footer">
+  <span class="shield" id="footer-mode">No payment now · The company confirms your request</span>
+  <span id="footer-location" hidden></span>
+  <a href="./datenschutz.html">Privacy</a>
+  <a href="./customer-cookies.html">Cookies</a>
+  <a href="./customer-terms.html">Terms</a>
+  <a href="./impressum.html">Impressum</a>
+</footer>
+<dialog id="client-menu">
+  <a href="/">Home</a>
+  <a href="/plans">Plans</a>
+  <a href="./datenschutz.html">Privacy</a>
+  <a href="./customer-terms.html">Terms</a>
+  <a href="./impressum.html">Impressum</a>
+  <a href="/check-email">Check your email</a>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+</body>
+</html>

@@ -19,15 +19,18 @@ test.afterAll(async()=>{await app.drain();await new Promise(resolve=>server.clos
 
 test('customer submits, owner manages, updates prices and deletes; no unsafe HTML rendering',async({page},testInfo)=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
+ await page.goto(origin);await expect(page.locator('#area')).toBeVisible();
  await expect(page.locator('#price')).toHaveText('€126.00');
- await page.locator('#area').fill('100');await page.locator('#frequency').selectOption('weekly');await page.locator('#windows').check();
- await expect(page.locator('#price')).toHaveText('€202.00');
+ await page.locator('#area').fill('100');
+ await expect(page.locator('#price')).toHaveText('€180.00');
+ await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
+ await page.locator('#date').selectOption({index:1});await page.locator('#preferred-time').selectOption({index:1});
+ await page.locator('#continue-quote').click();await expect(page.locator('#customer-name')).toBeVisible();
  await page.locator('#customer-name').fill('Browser Test');await page.locator('#customer-email').fill('browser@example.invalid');
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Test address');
  await page.locator('#comments').fill('<img src=x onerror="window.__unsafe=true">');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Thank you. Your inquiry was saved.');
- await expect(page.locator('#success-message')).toContainText('€202.00');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('We got your request');
+ await expect(page.locator('#success-message')).toContainText('€180.00');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('customer.png'),fullPage:true});
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
@@ -49,7 +52,7 @@ test('preview allows typing but never transmits or saves contact data',async({pa
  await page.goto(origin);await expect(page.locator('#customer-name')).toBeEnabled();
  await page.locator('#customer-name').fill('Demo customer');await page.locator('#customer-email').fill('demo@example.invalid');
  await page.locator('#postcode').fill('90402');await page.locator('#address').fill('Fictional example street 1');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Demo: your details were prepared as a preview.');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#preview-status')).toContainText('Demo: your details were prepared as a preview.');
  await expect(page.locator('#message')).toHaveValue(/Fictional example street 1/);
  expect(submissions).toEqual([]);expect(app.store.list('',0).total).toBe(0);
  await page.goto(origin+'/datenschutz.html');await expect(page.locator('#processing-details')).toContainText('Test-only privacy notice');
@@ -64,7 +67,7 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
  await expect(page.locator('#submit-inquiry')).toContainText('Send fictional test to owner');
  await page.locator('#customer-name').fill('Do not transmit this name');await page.locator('#customer-email').fill('private@example.invalid');
  await page.locator('#address').fill('Do not transmit this address');await page.locator('#area').fill('85');await page.locator('#privacy').check();
- await page.locator('#submit-inquiry').click();await expect(page.locator('#success-message')).toContainText('Fictional test saved.');
+ await page.locator('#submit-inquiry').click();await expect(page.locator('#preview-status')).toContainText('Fictional test saved.');
  expect(sent.area).toBe(85);expect(sent.name).toBeUndefined();expect(sent.email).toBeUndefined();expect(sent.address).toBeUndefined();
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
  await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('.inquiry')).toContainText('Demo customer');await expect(page.locator('.inquiry')).toContainText('85 m²');
@@ -76,20 +79,22 @@ test('server demo sends cleaning parameters to admin but strips all entered pers
 test('owner edits site from dashboard and customer view applies brand, texts, theme and availability',async({page},testInfo)=>{
  await page.goto(origin+'/admin.html');await page.locator('#password').fill(password);await page.locator('#login-form button').click();
  await page.locator('#website-settings > summary').click();
- await page.locator('[name="company_name"]').fill('Nordlicht Reinigung');await page.locator('[name="company_theme"]').selectOption('navy');
+ await page.locator('[name="company_name"]').fill('Nordlicht Reinigung');
  await page.locator('[name="company_phone"]').fill('+49 911 1234567');await page.locator('[name="company_email"]').fill('info@example.invalid');
  await page.locator('[name="company_area"]').fill('Nürnberg & Fürth');await page.locator('[name="hero_title"]').fill('Mehr Zeit für Sie.');
  await page.locator('[name="home_title"]').fill('Hauspflege');await page.locator('[name="office_enabled"]').uncheck();await page.locator('[name="windowsEnabled"]').uncheck();
  await page.locator('#site-form button[type="submit"]').click();await expect(page.locator('#site-status')).toContainText('Website saved.');
  await page.screenshot({path:testInfo.outputPath('website-editor.png'),fullPage:true});
  await page.goto(origin);await expect(page.locator('#hero-title')).toHaveText('Mehr Zeit für Sie.');await expect(page.locator('[data-company]').first()).toHaveText('Nordlicht Reinigung');
- await expect(page.locator('html')).toHaveAttribute('data-theme','navy');await expect(page.locator('[data-service-card="office"]')).toBeHidden();await expect(page.locator('#windows')).toBeHidden();await expect(page.locator('[data-service-promise="office"]')).toBeHidden();await expect(page.locator('#pricing-explanation')).not.toContainText('Büroreinigung');
+ await expect(page.locator('html')).toHaveAttribute('data-theme','light');await expect(page.locator('[data-service-card="office"]')).toBeHidden();await expect(page.locator('#windows')).toBeHidden();await expect(page.locator('[data-service-promise="office"]')).toBeHidden();await expect(page.locator('#pricing-explanation')).not.toContainText('Büroreinigung');
  await expect(page.locator('[data-service-card="home"] h3')).toHaveText('Hauspflege');await expect(page.locator('#contact-email')).toHaveAttribute('href','mailto:info@example.invalid');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('customized-site.png'),fullPage:true});
- // Create a normal inquiry under the customized service and verify internal notes.
+ await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
+ await page.locator('#date').selectOption({index:1});await page.locator('#preferred-time').selectOption({index:1});await page.locator('#continue-quote').click();
  await page.locator('#customer-name').fill('Notes Test');await page.locator('#customer-email').fill('notes@example.invalid');await page.locator('#postcode').fill('90402');await page.locator('#privacy').check();await page.locator('#submit-inquiry').click();
- await expect(page.locator('#success-message')).toContainText('Thank you. Your inquiry was saved.');
+ await expect(page.locator('#success-message')).toBeVisible();
+ await expect(page.locator('#success-message')).toContainText('Estimate:');
  await page.goto(origin+'/admin.html');await expect(page.locator('.inquiry')).toHaveCount(1);await expect(page.locator('[data-stat="new"]')).toHaveText('1');await expect(page.locator('.inquiry')).toContainText('Hauspflege');
  await page.locator('.note-editor textarea').fill('Rückruf am Dienstag');await page.locator('.note-editor button').click();await expect(page.locator('.note-editor .fine')).toContainText('Note saved.');
  await page.reload();await expect(page.locator('.note-editor textarea')).toHaveValue('Rückruf am Dienstag');
