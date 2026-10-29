@@ -141,8 +141,14 @@ test('a taken slot disappears from the quote',async({page})=>{
   await expect(page.getByRole('heading',{name:'Request sent'})).toBeVisible();
   await page.goto(origin+'/');
   await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
-  await page.locator('#date').selectOption(slot.date);
-  await expect.poll(()=>page.locator('#preferred-time option').evaluateAll(nodes=>nodes.map(node=>node.value))).not.toContain(slot.time);
+  const dates=await page.locator('#date option').evaluateAll(nodes=>nodes.map(node=>node.value));
+  // A new request holds the slot for 24h. A 70 m² visit can be the last open time that day, so the day drops out of the list.
+  if(dates.includes(slot.date)){
+    await page.locator('#date').selectOption(slot.date);
+    await expect.poll(()=>page.locator('#preferred-time option').evaluateAll(nodes=>nodes.map(node=>node.value))).not.toContain(slot.time);
+  }else{
+    expect(dates).not.toContain(slot.date);
+  }
 });
 
 test('customer can cancel a request from the link',async({page})=>{
