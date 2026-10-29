@@ -78,6 +78,7 @@ test('time slots can be chosen after a date, and the page stays on the company s
   await expect(logo).toHaveAttribute('href',/index\.html$/);
   await expect.poll(()=>page.locator('#date option').count()).toBeGreaterThan(1);
   await expect(page.locator('#preferred-time')).toBeDisabled();
+  await expect(page.locator('#continue-quote')).toBeDisabled();
   await expect(page.locator('#time-slots button')).toHaveCount(0);
   await page.locator('#date').selectOption({index:1});
   await expect(page.locator('#preferred-time')).toBeEnabled();
@@ -85,6 +86,7 @@ test('time slots can be chosen after a date, and the page stays on the company s
   await page.locator('#time-slots button').first().click();
   await expect(page.locator('#preferred-time')).not.toHaveValue('');
   await expect(page.locator('#time-slots button').first()).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#continue-quote')).toBeEnabled();
   await page.evaluate(()=>document.querySelector('#get-quote').click());
   await expect(page.locator('#screen-contacts')).toBeHidden();
   await logo.click();

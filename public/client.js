@@ -109,7 +109,7 @@ function refreshPrice() {
   const slider = $('#area-range');
   if (slider && Number.isInteger(area)) slider.value = String(Math.min(200, Math.max(20, area)));
   const button = $('#continue-quote');
-  if (button) button.disabled = Boolean(problem);
+  if (button) button.disabled = Boolean(problem) || !$('#date')?.value || !$('#preferred-time')?.value;
   return amount;
 }
 function fillSelect(select, items, placeholder, current) {
@@ -140,6 +140,7 @@ function renderTimeSlots(times, selected) {
       select.disabled = false;
       select.value = item.value;
       renderTimeSlots(times, item.value);
+      refreshPrice();
     });
     return button;
   }));
@@ -433,10 +434,14 @@ function bind() {
     if (value === state.dateValue) return;
     state.dateValue = value;
     setTimeOptions(selectedDay()?.times || [], '');
+    refreshPrice();
   };
   $('#date')?.addEventListener('change', onDate);
   $('#date')?.addEventListener('input', onDate);
-  $('#preferred-time')?.addEventListener('change', () => renderTimeSlots(selectedDay()?.times || [], $('#preferred-time').value));
+  $('#preferred-time')?.addEventListener('change', () => {
+    renderTimeSlots(selectedDay()?.times || [], $('#preferred-time').value);
+    refreshPrice();
+  });
   document.querySelectorAll('.field-row').forEach(row => {
     row.addEventListener('click', event => {
       const select = row.querySelector('select');
