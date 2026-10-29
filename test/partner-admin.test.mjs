@@ -244,7 +244,8 @@ test('export, inbox and language are real partner actions', async t => {
   assert.equal(/class="brand" href="#menu"/.test(source), false);
   assert.match(source, /href="#menu"/);
   assert.match(source, /head === 'menu' && wide/);
-  assert.match(source, /head === 'jobs'\) \{ location\.assign\('\/ops\.html'\)/);
+  assert.match(source, /head === 'jobs'\) \{ location\.assign\(`\.\/ops\.html#\/\$\{parts\.join\('\/'\)\}`\)/);
+  assert.match(source, /\.\/ops\.html#\/jobs\/\$\{data\.job\.id\}/);
   const f = await fixture(t);
   assert.equal((await f.request('/api/partner/export?format=csv', {auth:false})).status, 401);
   assert.equal((await f.request('/api/partner/inbox', {auth:false})).status, 401);

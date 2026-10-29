@@ -237,7 +237,7 @@ function requestCard(job, {label, open = false} = {}) {
   const amount = Number.isInteger(job.priceCents) ? job.priceCents / 100 : Number(job.quote || 0);
   const currency = model.company?.currency || job.currency || 'EUR';
   const control = open
-    ? `<a class="btn" href="#jobs/${esc(job.id)}">${esc(tr('Assign'))}</a>`
+    ? `<a class="btn" href="./ops.html#/jobs/${esc(job.id)}">${esc(tr('Assign'))}</a>`
     : `<button class="btn" type="button" data-action="confirm-job"${job.id ? ` data-id="${esc(job.id)}"` : ''}>${esc(tr('Confirm'))}</button>`;
   return `<article class="card job-card"><p class="tiny">${esc(tr(label))}</p><h2>${esc(job.address || '')}</h2><p>${esc(job.areaM2 || '')} m² · ${money(amount, currency)}</p>${control}</article>`;
 }
@@ -476,7 +476,7 @@ function viewInbox() {
     const when = item.createdAt ? new Intl.DateTimeFormat(locale, {dateStyle:'medium', timeStyle:'short'}).format(new Date(item.createdAt)) : '';
     const title = item.kind === 'job_completed' ? tr('Report submitted') : item.kind === 'worker_unavailable' ? tr('Worker unavailable') : item.kind === 'invite_declined' ? tr('Invite declined') : tr('Notification');
     const body = `<article class="card"><p class="tiny">${esc(when)}</p><h2>${esc(title)}</h2><p>${esc(item.note || '')}</p></article>`;
-    return item.jobId ? `<a href="#jobs/${esc(item.jobId)}">${body}</a>` : body;
+    return item.jobId ? `<a href="./ops.html#/jobs/${esc(item.jobId)}">${body}</a>` : body;
   }).join('');
   const empty = `<section class="card center" data-empty="inbox"><h2>${esc(tr('No notifications yet'))}</h2><p class="lead">${esc(tr('Job reports and worker updates show up here.'))}</p></section>`;
   const out = inboxView.workersOut ? `<p class="tiny">${esc(tr('Workers out'))}: ${esc(inboxView.workersOut)}</p>` : '';
@@ -531,8 +531,7 @@ function render() {
   else if (head === 'invite' && second) html = viewInviteOpen(second);
   else if (head === 'onboarding') html = viewOnboarding(second === 'site' ? 'site' : 'country');
   else if (head === 'today') html = viewToday();
-  else if (head === 'jobs' && second) html = viewJob(second);
-  else if (head === 'jobs') { location.assign('/ops.html'); return; }
+  else if (head === 'jobs') { location.assign(`./ops.html#/${parts.join('/')}`); return; }
   else if (head === 'menu' && wide) { showHomeInstead(); return; }
   else if (head === 'menu') html = viewMenu();
   else if (head === 'team' && second === 'invite') html = viewInvite();
@@ -708,9 +707,7 @@ app.addEventListener('click', async event => {
         const data = await api('api/partner/jobs/confirm', {method:'POST', body});
         jobView = data.job;
         todayBoard = null;
-        const next = `jobs/${data.job.id}`;
-        if (location.hash === `#${next}`) render();
-        else location.hash = next;
+        location.assign(`./ops.html#/jobs/${data.job.id}`);
       } catch (error) {
         node.disabled = false;
         throw error;

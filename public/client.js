@@ -11,6 +11,13 @@ const paths = {
   '/pay-failed':'failed','/paused':'paused','/pay-blocked':'blocked','/plans':'plans','/check-email':'check-email',
   '/cancel':'cancel','/cancelled':'cancelled','/link-expired':'expired',
 };
+// A public company page can be mounted below /companies/:id.  Keep that
+// prefix on every customer-facing transition so a request never jumps to a
+// different company's booking site.
+const mountedCompanyBase = (location.pathname.match(/^(\/companies\/[a-f0-9-]{36})(?:\/|$)/i) || [])[1] || '';
+const customerPath = path => `${mountedCompanyBase}${path}`;
+const goCustomer = path => location.assign(customerPath(path));
+const replaceCustomer = path => location.replace(customerPath(path));
 const state = {
   live:false, demoMode:false, bookingMode:'request', connect:false, currency:'EUR', maxArea:null,
   pricing:{rates:{home:2.2,office:1.5,deep:3.2},minimum:60}, company:{}, slots:null, result:null, dateValue:'',
@@ -19,7 +26,10 @@ let slotGen = 0;
 let requestKey = crypto.randomUUID();
 
 function screenName() {
-  const path = location.pathname.replace(/\/$/, '') || '/';
+  const localPath = mountedCompanyBase && location.pathname.startsWith(mountedCompanyBase)
+    ? location.pathname.slice(mountedCompanyBase.length)
+    : location.pathname;
+  const path = localPath.replace(/\/$/, '') || '/';
   return paths[path] || 'quote';
 }
 function money(value) {
@@ -237,9 +247,9 @@ async function createBooking(draft, choice) {
 }
 function goResult(data) {
   sessionStorage.removeItem(DRAFT);
-  if (data.paymentStatus === 'Paid online') location.assign(`/paid?token=${encodeURIComponent(data.token || '')}`);
-  else if (data.jobStatus === 'Accepted') location.assign(`/confirmed?token=${encodeURIComponent(data.token || '')}`);
-  else location.assign(`/sent?token=${encodeURIComponent(data.token || '')}`);
+  if (data.paymentStatus === 'Paid online') goCustomer(`/paid?token=${encodeURIComponent(data.token || '')}`);
+  else if (data.jobStatus === 'Accepted') goCustomer(`/confirmed?token=${encodeURIComponent(data.token || '')}`);
+  else goCustomer(`/sent?token=${encodeURIComponent(data.token || '')}`);
 }
 function paintResult() {
   const data = state.result || readStore(RESULT);
@@ -253,7 +263,7 @@ function paintResult() {
   for (const link of ['#cancel-link','#confirmed-cancel']) {
     const node = $(link);
     if (!node) continue;
-    if (data.token) node.href = `/cancel?token=${encodeURIComponent(data.token)}`;
+    if (data.token) node.href = customerPath(`/cancel?token=${encodeURIComponent(data.token)}`);
     else node.hidden = true;
   }
   const amount = $('#failed-amount');
@@ -313,7 +323,7 @@ async function onQuoteContinue() {
   if (problem) return showError('#quote-error', new Error(problem));
   if (!$('#date').value || !$('#preferred-time').value) return showError('#quote-error', new Error('Choose an open date and time.'));
   saveDraft();
-  location.assign('/contacts');
+  goCustomer('/contacts');
 }
 async function onContactsSubmit(event) {
   event.preventDefault();
@@ -348,7 +358,7 @@ async function onContactsSubmit(event) {
     return;
   }
   if (state.bookingMode === 'instant') {
-    location.assign('/pay');
+    goCustomer('/pay');
     return;
   }
   $('#submit-inquiry').disabled = true;
@@ -367,11 +377,11 @@ async function pay(choice, outcome) {
       const token = await readyToken();
       await api('api/client/pay', {method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify(payloadFrom(draft, token, {outcome:'fail'}))});
     } catch (error) {
-      if (error.status === 409) return location.assign('/pay-blocked');
+      if (error.status === 409) return goCustomer('/pay-blocked');
       if (error.status !== 402) return showError('#pay-error', error);
     }
     requestKey = crypto.randomUUID();
-    return location.assign('/pay-failed');
+    return goCustomer('/pay-failed');
   }
   try {
     if (choice === 'card') {
@@ -383,7 +393,7 @@ async function pay(choice, outcome) {
     }
     goResult(await createBooking(draft, state.bookingMode === 'instant' ? 'onsite' : 'request'));
   } catch (error) {
-    if (error.status === 409 && /unavailable/i.test(error.message)) location.assign('/pay-blocked');
+    if (error.status === 409 && /unavailable/i.test(error.message)) goCustomer('/pay-blocked');
     else showError('#pay-error', error);
   }
 }
@@ -391,7 +401,7 @@ async function loadBooking(token) {
   if (!token) return null;
   try { return await api(`api/client/booking?token=${encodeURIComponent(token)}`); }
   catch (error) {
-    if (error.status === 410 || error.status === 400) { location.replace('/link-expired'); return null; }
+    if (error.status === 410 || error.status === 400) { replaceCustomer('/link-expired'); return null; }
     throw error;
   }
 }
@@ -402,6 +412,12 @@ function explainPricing(site) {
   node.textContent = parts.join(', ');
 }
 function bind() {
+  if (mountedCompanyBase) {
+    document.querySelectorAll('a[href^="/"]').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && (paths[href.split('?')[0]] || href.startsWith('/cancel?'))) link.setAttribute('href', customerPath(href));
+    });
+  }
   $('#get-quote')?.addEventListener('click', () => $('#quote')?.scrollIntoView({behavior:'smooth'}));
   document.querySelectorAll('[data-service-card]').forEach(button => button.addEventListener('click', () => {
     if (button.hidden) return;
@@ -443,7 +459,7 @@ function bind() {
   $('#pay-onsite')?.addEventListener('click', () => pay('onsite'));
   $('#blocked-onsite')?.addEventListener('click', () => pay('onsite'));
   $('#fail-onsite')?.addEventListener('click', () => pay('onsite'));
-  $('#try-again')?.addEventListener('click', () => location.assign('/pay'));
+  $('#try-again')?.addEventListener('click', () => goCustomer('/pay'));
   $('#add-calendar')?.addEventListener('click', () => downloadCalendar(readStore(RESULT)));
   $('#add-calendar-paid')?.addEventListener('click', () => downloadCalendar(readStore(RESULT)));
   $('#confirm-cancel')?.addEventListener('click', async () => {
@@ -451,7 +467,7 @@ function bind() {
     showError('#cancel-error', null);
     try {
       await api('api/client/cancel', {method:'POST', body:JSON.stringify({token})});
-      location.assign(`/cancelled?token=${encodeURIComponent(token)}`);
+      goCustomer(`/cancelled?token=${encodeURIComponent(token)}`);
     } catch (error) { showError('#cancel-error', error); }
   });
   $('#magic-form')?.addEventListener('submit', async event => {
@@ -514,7 +530,7 @@ async function init() {
     $('#footer-mode').textContent = 'Preview only. Nothing is sent.';
   }
   if (screenName() === 'pay' && new URLSearchParams(location.search).get('card') === '1' && !state.connect) {
-    location.replace('/pay-blocked');
+    replaceCustomer('/pay-blocked');
     return;
   }
   showScreens();
