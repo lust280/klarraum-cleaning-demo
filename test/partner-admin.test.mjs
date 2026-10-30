@@ -76,6 +76,20 @@ test('partner pages do not carry live Stripe or the old trial copy', async () =>
   assert.equal(source.includes('checkout.stripe.com'), false);
 });
 
+test('production partner login can only start Google at the platform', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'klarraum-partner-production-'));
+  const config = loadConfig({NODE_ENV:'production', APP_ORIGIN:'https://company.example.test', PLATFORM_ORIGIN:'https://platform.example.test', DATA_DIR:dir, ADMIN_PASSWORD_HASH:passwordHash, APP_SECRET:'a'.repeat(32), PERSISTENT_STORAGE_CONFIRMED:'true'});
+  const {server} = createServerApp(config);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(dir, {recursive:true, force:true}); });
+  const options = await (await fetch(origin+'/api/partner/login-options')).json();
+  assert.equal(options.production, true);
+  assert.equal(options.googleSignInUrl, 'https://platform.example.test/api/google/signup/start?plan=pro&currency=EUR');
+  const localGoogle = await fetch(origin+'/api/partner/auth/google', {method:'POST', headers:{Origin:'https://company.example.test','Content-Type':'application/json'}, body:'{}'});
+  assert.equal(localGoogle.status, 404);
+});
+
 test('demo company is Pro in Berlin and Connect stays a local stub', async t => {
   const f = await fixture(t);
   assert.equal((await f.request('/api/config')).data.bookingMode, 'request');

@@ -36,6 +36,7 @@ let jobProblem = null;
 let inboxView = null;
 let inboxLoading = false;
 let planCarouselKey = '';
+let loginOptions = {production:false, googleSignInUrl:''};
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function uiLocale() {
@@ -293,7 +294,11 @@ function viewJob(id) {
   return frame({screen: picking ? 'job-assign' : 'job-assigned', title:'Job Detail', back:'#today', active:'today', body});
 }
 function viewLogin() {
-  return frame({plain:true, screen:'login', title:'Sign in', body:`<section class="center"><h1>Sign in</h1><p class="lead">For cleaning companies</p><button class="btn" type="button" data-action="google"><span class="google-mark">G</span> Continue with Google</button><div class="or">or</div><form data-form="magic"><label class="field">Email<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="Email"></label><button class="btn secondary" type="submit">Send sign-in link</button></form><p><a href="#plans">See plans</a></p><p class="tiny">Demo owner: sam@linden.example. Continue with Google stays inside KlarraumApp and does not open a Google account. The free trial is 5 days on Pro.</p></section>`});
+  const live = Boolean(loginOptions.production && loginOptions.googleSignInUrl);
+  const google = live ? `<a class="btn" href="${esc(loginOptions.googleSignInUrl)}"><span class="google-mark">G</span> Continue with Google</a>` : `<button class="btn" type="button" data-action="google"><span class="google-mark">G</span> Continue with Google</button>`;
+  const email = live ? '' : `<div class="or">or</div><form data-form="magic"><label class="field">Email<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="Email"></label><button class="btn secondary" type="submit">Send sign-in link</button></form>`;
+  const note = live ? 'Use the Google account that created this company workspace.' : 'Demo owner: sam@linden.example. The free trial is 5 days on Pro.';
+  return frame({plain:true, screen:'login', title:'Sign in', body:`<section class="center"><h1>Sign in</h1><p class="lead">For cleaning companies</p>${google}${email}<p><a href="#plans">See plans</a></p><p class="tiny">${esc(note)}</p></section>`});
 }
 function viewCheckEmail() {
   const pending = JSON.parse(sessionStorage.getItem('klarraum-pending') || 'null');
@@ -912,7 +917,9 @@ window.addEventListener('hashchange', () => {
   if (head === 'inbox') inboxView = null;
   render();
 });
-api('api/partner/session', {quiet:true}).then(data => {
+Promise.all([api('api/partner/login-options', {quiet:true}).catch(() => loginOptions), api('api/partner/session', {quiet:true}).catch(() => null)]).then(([options, data]) => {
+  loginOptions = options || loginOptions;
+  if (!data) { model = null; render(); return; }
   model = data;
   csrf = data.csrf;
   const google = new URLSearchParams(location.search).get('google');
