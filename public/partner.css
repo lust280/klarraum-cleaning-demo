@@ -137,6 +137,10 @@ textarea { min-height:96px; resize:vertical; }
 .plan-card ul { margin:0; padding:0; list-style:none; display:grid; gap:6px; }
 .plan-card li { color:var(--ink); font-size:14px; }
 .price { color:var(--green); font-weight:800; }
+.plan-detail { max-width:620px; margin:auto; }
+.carousel-top { display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:13px; margin-bottom:18px; }
+.icon-btn { width:42px; height:42px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--ink); font-size:22px; }
+.icon-btn:disabled { opacity:.35; }
 
 .checks { list-style:none; margin:16px 0; padding:0; display:grid; gap:10px; }
 .checks li { color:var(--ink); }

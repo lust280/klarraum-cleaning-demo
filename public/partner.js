@@ -35,6 +35,7 @@ let jobView = null;
 let jobProblem = null;
 let inboxView = null;
 let inboxLoading = false;
+let planCarouselKey = '';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function uiLocale() {
@@ -60,6 +61,9 @@ const durationLabel = minutes => {
 };
 function partsOf() {
   return (location.hash.replace(/^#/, '').split('?')[0] || '').split('/').filter(Boolean);
+}
+function googleTokenFromHash() {
+  return new URLSearchParams(location.hash.replace(/^#/, '')).get('google') || '';
 }
 function hashQuery() {
   return new URLSearchParams(location.hash.split('?')[1] || '');
@@ -403,9 +407,12 @@ function viewBilling(which) {
   const plan = model.plan;
   const summary = `<div class="plan-line"><span>Your KlarraumApp plan: <strong>${esc(plan.name)} · ${planPrice(plan.cents)}</strong>${plan.nextInvoice ? ` · next invoice ${esc(plan.nextInvoice.shortLabel)}` : ''}</span><a href="#settings/billing/plan">View plan</a></div>`;
   if (which === 'plan') {
-    const method = plan.paymentMethod ? `${esc(plan.paymentMethod.brand)} ···· ${esc(plan.paymentMethod.last4)}` : 'No card on file';
-    const invoices = model.invoices.length ? model.invoices.map(invoice => `<div class="invoice"><span>${esc(invoice.label)}</span><span>${money(invoice.cents / 100)}</span><span class="badge paid">${esc(invoice.status)}</span><button class="btn ghost" type="button" data-action="download-invoice" data-id="${esc(invoice.id)}">Download</button></div>`).join('') : '<p>No invoices yet. The trial does not charge a card.</p>';
-    const body = `${billingTabs('plan')}${ownerNote()}<div class="billing-grid"><section class="card"><p class="tiny">Current plan</p><h2>${esc(plan.name)} ${planPrice(plan.cents)}</h2><p class="lead">${plan.nextInvoice ? `Next invoice: ${esc(plan.nextInvoice.label)}` : 'No invoice scheduled.'}<br>Payment method: ${method}</p>${plan.cancelAtPeriodEnd ? '<p class="tiny">Cancellation is noted for the end of the period. Stripe was not called.</p>' : ''}<button class="btn" type="button" data-action="manage-billing" ${model.account.owner ? '' : 'disabled'}>Manage billing with Stripe</button><button class="btn ghost" type="button" data-action="ask-cancel" ${model.account.owner ? '' : 'disabled'}>Cancel subscription</button><p><a href="#settings/billing/change">Change plan</a></p></section><section class="card"><h2>Invoices</h2>${invoices}</section></div><p class="tiny">Prices include VAT. ${plan.paymentMethod?.demo ? 'The card shown is a demo. Nothing is charged.' : ''}</p>${demoTools()}`;
+    const catalogue = model.plans || CATALOGUE;
+    if (!catalogue.some(item => item.key === planCarouselKey)) planCarouselKey = plan.key;
+    const index = Math.max(0, catalogue.findIndex(item => item.key === planCarouselKey));
+    const shown = catalogue[index] || plan;
+    const features = [...(shown.highlights || highlights(shown)), ...(model.sharedFeatures || SHARED)].filter((item, pos, all) => all.indexOf(item) === pos);
+    const body = `${billingTabs('plan')}${ownerNote()}<section class="card plan-detail"><p class="tiny">Your KlarraumApp plan</p><div class="plan-carousel" data-plan-carousel><div class="carousel-top"><button class="icon-btn" type="button" data-action="plan-prev" ${index === 0 ? 'disabled' : ''} aria-label="Previous plan">←</button><span>${index + 1} / ${catalogue.length}</span><button class="icon-btn" type="button" data-action="plan-next" ${index === catalogue.length - 1 ? 'disabled' : ''} aria-label="Next plan">→</button></div><h2>${esc(shown.name)} ${planPrice(shown.cents)}</h2>${shown.key === plan.key ? '<span class="badge on">Current plan</span>' : ''}<ul class="checks">${features.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div><a class="btn ${shown.key === plan.key ? 'secondary' : ''}" href="#settings/billing/change">${shown.key === plan.key ? 'Compare plans' : `Choose ${esc(shown.name)}`}</a><p class="tiny center">Swipe or use the arrows to see every plan. Plan changes are confirmed before any payment setup.</p></section>${demoTools()}`;
     return frame({screen:'billing-plan', title:'Billing', back:'#settings', active:'settings', body});
   }
   if (which === 'change') {
@@ -479,7 +486,8 @@ function viewJobs() {
 }
 function viewReports() {
   const job = model.report;
-  return frame({screen:'reports', title:'Reports', active:'reports', body:`<section class="card"><p class="tiny">${esc(tr('This month · demo job'))}</p><h2>${esc(job.address)}</h2><p class="lead">${job.areaM2} m² · ${money(job.ratePerM2)}/m²</p><p><strong>${money(job.quote)}</strong> · ${esc(tr(job.payment))} · ${esc(tr(job.status))}</p><button class="btn" type="button" data-action="export-open">${esc(tr('Export'))}</button></section><p class="tiny">${esc(tr('The same demo job is used across KlarraumApp. This is an internal report, not an invoice. Export stays available after a trial ends.'))}</p>`});
+  if (!job) return frame({screen:'reports-empty', title:'Reports', active:'reports', body:`<section class="card center"><h2>No reports yet</h2><p class="lead">Completed jobs will appear here. There is nothing to export until your company has real completed work.</p></section>`});
+  return frame({screen:'reports', title:'Reports', active:'reports', body:`<section class="card"><p class="tiny">${esc(tr('This month · demo job'))}</p><h2>${esc(job.address)}</h2><p class="lead">${job.areaM2} m² · ${money(job.ratePerM2)}/m²</p><p><strong>${money(job.quote)}</strong> · ${esc(tr(job.payment))} · ${esc(tr(job.status))}</p><button class="btn" type="button" data-action="export-open">${esc(tr('Export'))}</button></section>`});
 }
 function viewInbox() {
   if (!inboxView) return frame({screen:'inbox', title:'Inbox', back:'#today', active:'today', body:`<p class="lead">${esc(tr('Loading…'))}</p>`});
@@ -522,10 +530,30 @@ function ensureMagic(token) {
     location.hash = data.next || signedInHome();
   }).catch(() => { location.hash = 'expired'; });
 }
+function ensurePlatformGoogle(token) {
+  const key = 'google:' + token;
+  if (looked[key]) return;
+  looked[key] = 'loading';
+  api('api/partner/auth/platform-google', {method:'POST', body:{token}, quiet:true}).then(data => {
+    apply(data);
+    history.replaceState(null, '', location.pathname + location.search + '#' + (data.next || signedInHome()));
+    render();
+  }).catch(error => {
+    looked[key] = {error:error.message};
+    location.hash = 'login';
+    toast(error.message || 'Google sign-in could not be completed.');
+  });
+}
 
 function render() {
   wide = matchMedia('(min-width:960px)').matches;
   document.body.classList.toggle('wide', wide);
+  const platformGoogleToken = !model ? googleTokenFromHash() : '';
+  if (platformGoogleToken) {
+    app.innerHTML = frame({plain:true, screen:'google-signin', title:'Signing you in', body:'<p class="lead">Opening your company workspace…</p>'});
+    ensurePlatformGoogle(platformGoogleToken);
+    return;
+  }
   let parts = partsOf();
   if (!allowed(parts)) {
     const dest = !model ? 'login' : model.access.mode === 'onboarding' ? 'onboarding' : 'trial';
@@ -562,6 +590,19 @@ function render() {
   else if (wide) { showHomeInstead(); return; }
   else html = viewMenu();
   app.innerHTML = html;
+  const carousel = app.querySelector('[data-plan-carousel]');
+  if (carousel) {
+    let startX = null;
+    carousel.addEventListener('pointerdown', event => { startX = event.clientX; });
+    carousel.addEventListener('pointerup', event => {
+      if (startX == null || Math.abs(event.clientX - startX) < 42) return;
+      const plans = model.plans || CATALOGUE;
+      const index = Math.max(0, plans.findIndex(item => item.key === planCarouselKey));
+      const next = Math.max(0, Math.min(plans.length - 1, index + (event.clientX < startX ? 1 : -1)));
+      planCarouselKey = plans[next].key;
+      render();
+    });
+  }
   const hint = document.querySelector('#country-hint');
   const select = document.querySelector('select[name="country"]');
   if (hint && select && model?.countries) {
@@ -779,6 +820,13 @@ app.addEventListener('click', async event => {
       render();
     } else if (action === 'ask-disconnect') openSheet({title:'Disconnect Stripe?', text:'Online card payments will pause. Cash on site keeps working.', confirm:'Disconnect', danger:true, onConfirm: async () => { apply(await api('api/partner/connect/disconnect', {method:'POST', body:{}})); toast(tr('Saved')); render(); }});
     else if (action === 'manage-billing') openSheet({title:'Manage billing with Stripe', text:'Stripe Billing is not connected in this demo. Plan charges stay with the operator. Nothing is charged from this page.', confirm:'Close', cancel:'Back', onConfirm: async () => {}});
+    else if (action === 'plan-prev' || action === 'plan-next') {
+      const plans = model.plans || CATALOGUE;
+      const index = Math.max(0, plans.findIndex(item => item.key === planCarouselKey));
+      const next = Math.max(0, Math.min(plans.length - 1, index + (action === 'plan-next' ? 1 : -1)));
+      planCarouselKey = plans[next].key;
+      render();
+    }
     else if (action === 'ask-cancel') openSheet({title:'Cancel subscription?', text:'The workspace stays open until the end of this period. This demo does not call Stripe.', confirm:'Cancel subscription', danger:true, cancel:'Keep plan', onConfirm: async () => { apply(await api('api/partner/plan/cancel', {method:'POST', body:{}})); toast(tr('Saved')); render(); }});
     else if (action === 'choose-plan') {
       apply(await api('api/partner/plan', {method:'POST', body:{key:node.dataset.plan}}));

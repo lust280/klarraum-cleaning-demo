@@ -222,7 +222,7 @@ describe('Partner Admin zone smoke', { concurrency: 1, timeout: 180000 }, () => 
     await page.locator('details.demo summary').click();
     await page.getByRole('button', {name: 'View as Alex (admin)'}).click();
     await page.waitForSelector('text=Only the company owner');
-    assert.equal(await page.getByRole('button', {name: 'Manage billing with Stripe'}).isDisabled(), true);
+    assert.equal(await page.getByRole('button', {name: 'Manage billing with Stripe'}).count(), 0);
     await page.goto(origin + '/partner.html#settings/billing/change', {waitUntil: 'networkidle'});
     assert.equal(await page.getByRole('button', {name: 'Downgrade'}).isDisabled(), true);
     assert.equal(await page.getByRole('button', {name: 'Upgrade'}).isDisabled(), true);
