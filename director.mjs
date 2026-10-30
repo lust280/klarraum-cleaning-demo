@@ -33,7 +33,7 @@ export function directorConfig(env=process.env) {
   if(!validPasswordHash(passwordHash))throw new Error('Set DIRECTOR_PASSWORD_HASH, or set DIRECTOR_PASSWORD with a separate 32+ character APP_SECRET.');
   const maxRunning=Number(env.MAX_COMPANY_PROCESSES||20);
   if(!Number.isSafeInteger(maxRunning)||maxRunning<1||maxRunning>20)throw new Error('MAX_COMPANY_PROCESSES must be 1–20.');
-  return {origin,domain:domain.toLowerCase(),passwordHash,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',pathPreview:env.PLATFORM_PATH_PREVIEW==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
+  return {origin,domain:domain.toLowerCase(),passwordHash,dataDir:resolve(env.DIRECTOR_DATA_DIR||'./director-data'),maxRunning,mountedDemo:env.PLATFORM_DEMO_MODE==='true',pathPreview:env.PLATFORM_PATH_PREVIEW==='true',rebuildMode:env.PUBLIC_REBUILD_MODE==='true',production:env.NODE_ENV==='production',trialMail:{key:env.PLATFORM_RESEND_API_KEY||env.RESEND_API_KEY||'',from:env.PLATFORM_MAIL_FROM||env.MAIL_FROM||''}};
 }
 export function createDirector(config) {
   mkdirSync(config.dataDir,{recursive:true,mode:0o700});
@@ -250,6 +250,11 @@ export function createDirector(config) {
         }
         res.writeHead(200,{'Content-Type':type});res.end(method==='HEAD'?undefined:value);
       };
+      // The former public product is hidden while its clean replacement is
+      // built. Health checks and the operator route remain available.
+      const publicRebuildRequest=config.rebuildMode&&['GET','HEAD'].includes(method)&&!route.pathname.startsWith('/api/')&&route.pathname!=='/healthz'&&!route.pathname.startsWith('/director')&&route.pathname!=='/plans.mjs';
+      if(config.rebuildMode&&route.pathname==='/rebuild.css'&&['GET','HEAD'].includes(method))return staticFile('rebuild.css','text/css; charset=utf-8');
+      if(publicRebuildRequest&&host!==url.host)return staticFile('rebuild.html','text/html; charset=utf-8');
       const mounted=(config.mountedDemo||config.pathPreview)&&/^\/companies\/([a-f0-9-]{36})(\/.*)?$/.exec(route.pathname);
       if(mounted&&!mounted[2]){res.writeHead(302,{Location:route.pathname+'/'});return res.end();}
       if(host!==url.host || mounted) {
@@ -460,6 +465,7 @@ export function createDirector(config) {
       }
       if(!['GET','HEAD'].includes(method))fail(405,'Method not allowed.');
       if(route.pathname==='/healthz')return json(res,200,{ok:true});
+      if(publicRebuildRequest)return staticFile('rebuild.html','text/html; charset=utf-8');
       const files={'/':['platform.html','text/html; charset=utf-8'],'/director.html':['index.html','text/html; charset=utf-8'],'/for-companies.html':['platform.html','text/html; charset=utf-8'],'/pricing.html':['pricing.html','text/html; charset=utf-8'],'/platform-privacy.html':['platform-privacy.html','text/html; charset=utf-8'],'/platform-terms.html':['platform-terms.html','text/html; charset=utf-8'],'/cookies.html':['cookies.html','text/html; charset=utf-8'],'/platform-impressum.html':['platform-impressum.html','text/html; charset=utf-8'],'/trial-activate.html':['trial-activate.html','text/html; charset=utf-8'],'/platform.css':['platform.css','text/css; charset=utf-8'],'/platform.js':['platform.js','text/javascript; charset=utf-8'],'/showcase.js':['showcase.js','text/javascript; charset=utf-8'],'/sales.css':['sales.css','text/css; charset=utf-8'],'/trial-activate.js':['trial-activate.js','text/javascript; charset=utf-8'],'/director.js':['director.js','text/javascript; charset=utf-8'],'/director-console.mjs':['director-console.mjs','text/javascript; charset=utf-8','lib'],'/director.css':['director.css','text/css; charset=utf-8'],'/director-ai.html':['ai.html','text/html; charset=utf-8'],'/director-ai.js':['ai.js','text/javascript; charset=utf-8'],'/director-ai.css':['ai.css','text/css; charset=utf-8'],'/director-applications.js':['applications.js','text/javascript; charset=utf-8'],'/director-backup.js':['backup.js','text/javascript; charset=utf-8'],'/director-finance.js':['finance.js','text/javascript; charset=utf-8'],'/director-i18n.js':['i18n.js','text/javascript; charset=utf-8']};
       if(route.pathname==='/plans.mjs')return staticFile('plans.mjs','text/javascript; charset=utf-8','lib');
       if(files[route.pathname])return staticFile(...files[route.pathname]);
